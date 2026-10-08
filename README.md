@@ -1,5 +1,11 @@
 # fheroes2-3ds
 
+## Preview 0.3.12: troop splitting on the touchscreen
+
+`ArmySplitTroop` now uses a native 320×240 layout. Tap a troop to select it, then hold and release the stylus on an empty slot or another stack of the same creature type: the original right click opens redistribution. Set an exact amount with −/+, MIN/MAX or the slider. D-pad left/right changes the amount, up selects maximum and down minimum. Quantity changes/the slider select manual mode. Buttons 2–6 select even splitting into the available number of stacks; the selected option is underlined. Available options come from the unchanged caller.
+
+A/Start or Okay confirms; L or Cancel preserves caller values. Dragging from a button cancels its press. The original caller still redistributes creatures and protects the hero's last troop. On New 3DS XL, check exact/even splitting, redistribution into an existing matching stack, cancellation and last-creature protection. The army card with upgrade/dismiss controls remains the next step.
+
 ## Preview 0.3.11: battle log on the touchscreen
 
 Tap battle messages to open a full 320×240 lower-screen log. The upper screen retains the battlefield; the original log overlay is no longer drawn there. Complete entries wrap to the text width and the log opens at the latest events. D-pad up/down scrolls lines, left/right scrolls a page; stylus dragging scrolls in both directions. OK, A/Start, B or L closes the log and restores the HUD. Dragging from OK cancels the press; closing input does not reach battle controls.
@@ -36,7 +42,7 @@ Current preview: **0.3.11**. The game has been run on a New Nintendo 3DS XL; AI 
 
 Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Recruitment uses a native touchscreen layout with animated creature portraits. Battle controls and a scrollable log also use the touchscreen. Army/monster information and remaining custom interactive windows retain their existing layouts. Stereo 3D is not implemented yet.
 
-Preview **0.3.11** includes native touchscreen recruitment, larger animated portraits, held-tooltip scrolling and a bottom battle footer with messages and Auto/Settings/Skip icons. The user reports other 0.3.8 recruitment behavior working on New 3DS XL; portrait/scroll fixes and the battle footer await hardware feedback. See [installation and controls](3ds-game/INSTALL.md).
+Preview **0.3.11** includes native touchscreen recruitment, larger animated portraits, held-tooltip scrolling and a bottom battle footer with messages and Auto/Settings/Skip icons. The user reports other 0.3.8 recruitment behavior working on New 3DS XL; the combined portrait/scroll and battle-log fixes were accepted in 0.3.11 on New 3DS XL, without a detailed scenario breakdown. See [installation and controls](3ds-game/INSTALL.md).
 
 ## Installation
 

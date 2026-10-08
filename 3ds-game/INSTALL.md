@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.11
+# fheroes2 for Nintendo 3DS — preview 0.3.12
+
+## Preview 0.3.12: troop splitting on the touchscreen
+
+`ArmySplitTroop` now uses a native 320×240 layout. Tap a troop to select it, then hold and release the stylus on an empty slot or another stack of the same creature type: the original right click opens redistribution. Set an exact amount with −/+, MIN/MAX or the slider. D-pad left/right changes the amount, up selects maximum and down minimum. Quantity changes/the slider select manual mode. Buttons 2–6 select even splitting into the available number of stacks; the selected option is underlined. Available options come from the unchanged caller.
+
+A/Start or Okay confirms; L or Cancel preserves caller values. Dragging from a button cancels its press. The original caller still redistributes creatures and protects the hero's last troop. On New 3DS XL, check exact/even splitting, redistribution into an existing matching stack, cancellation and last-creature protection. The army card with upgrade/dismiss controls remains the next step.
 
 ## Preview 0.3.11: battle log on the touchscreen
 

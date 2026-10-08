@@ -1078,6 +1078,32 @@ index 06b17d3..0245f4c 100644
      const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
  
      fheroes2::Display & display = fheroes2::Display::instance();
+diff --git a/src/fheroes2/dialog/dialog_selectcount.cpp b/src/fheroes2/dialog/dialog_selectcount.cpp
+index 8c15e1b..717ec38 100644
+--- a/src/fheroes2/dialog/dialog_selectcount.cpp
++++ b/src/fheroes2/dialog/dialog_selectcount.cpp
+@@ -22,6 +22,10 @@
+  ***************************************************************************/
+ 
+ #include <algorithm>
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
++
+ #include <cassert>
+ #include <cstddef>
+ #include <cstdint>
+@@ -457,6 +461,10 @@ int Dialog::ArmySplitTroop( const int32_t freeSlots, const int32_t redistributeM
+ {
+     assert( redistributeCount >= 0 );
+     assert( freeSlots > 0 );
++#if defined( __3DS__ )
++    return Interface3DS::showArmySplit( freeSlots, redistributeMax, redistributeCount, useFastSplit, troopName );
++#endif
++
+ 
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
 diff --git a/src/fheroes2/game/fheroes2.cpp b/src/fheroes2/game/fheroes2.cpp
 index ce25e88..4c643bb 100644
 --- a/src/fheroes2/game/fheroes2.cpp
@@ -2457,10 +2483,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..4ca6e81
+index 0000000..67418a2
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1243 @@
+@@ -0,0 +1,1412 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -2949,6 +2975,174 @@ index 0000000..4ca6e81
 +        Dialog::YES | Dialog::NO, { &left, &right }, &choice );
 +    // Skill identifiers, not indices or levels: the original caller grants exactly the selected upgrade.
 +    return result == Dialog::YES ? first.Skill() : result == Dialog::NO ? second.Skill() : Skill::Secondary::UNKNOWN;
++}
++
++int Interface3DS::showArmySplit( const int32_t freeSlots, const int32_t maximum, int32_t & count, bool & fast, const std::string & name )
++{
++    using namespace fheroes2;
++    const CursorRestorer cursorRestorer( false );
++    Image window( 320, 240 );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t border = GetColorId( 150, 115, 63 );
++    const int minimum = std::min<int32_t>( 1, maximum );
++    int value = std::clamp<int32_t>( count, minimum, maximum );
++    int slots = fast && freeSlots > 1 ? 2 : 0;
++    const std::array<std::string, 6> labels{ "MIN", "-", "+", "MAX", _( "Okay" ), _( "Cancel" ) };
++    const std::array<Point, 6> positions{ Point{ 12, 72 }, { 66, 72 }, { 224, 72 }, { 264, 72 }, { 12, 204 }, { 172, 204 } };
++    std::vector<std::unique_ptr<ButtonBase>> buttons;
++    for ( int i = 0; i < 6 + freeSlots - 1; ++i ) {
++        Sprite released, pressed;
++        const Size size{ i >= 4 && i < 6 ? 130 : i == 1 || i == 2 ? 24 : 40, 26 };
++        makeButtonSprites( released, pressed, "", size, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        const std::string label = i < 6 ? labels[i] : std::to_string( i - 4 );
++        const Text text( label, i >= 4 && i < 6 ? FontType::normalWhite() : FontType::smallWhite() );
++        text.draw( 4, ( released.height() - text.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
++        text.draw( 3, ( pressed.height() - text.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
++        const Point position = i < 6 ? positions[i] : Point{ 12 + ( i - 6 ) * 60, 164 };
++        buttons.emplace_back( std::make_unique<ButtonSprite>( position.x, position.y, std::move( released ), std::move( pressed ) ) );
++    }
++    const Rect slider{ 12, 112, 296, 22 };
++    bool down = false, moved = false, sliding = false, closed = false, accepted = false;
++    Point start, last;
++    int pressed = -1;
++    const ModalScope scope( window, false );
++    const auto draw = [&]() {
++        window.fill( GetColorId( 35, 29, 24 ) );
++        StandardWindow::renderBackgroundImage( window, { 0, 0, 320, 240 }, 0, evil );
++        DrawBorder( window, border );
++        const Text title( name, FontType::normalYellow() );
++        Text( name, title.height( 296 ) <= 26 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 12, 8, 296, window );
++        Text( _( "How many creatures do you wish to move?" ), FontType::smallWhite() ).draw( 12, 38, 296, window );
++        const std::string quantity = std::to_string( value ) + "/" + std::to_string( maximum );
++        const Text number( quantity, FontType::normalWhite() );
++        if ( number.width() <= 120 ) number.draw( 100, 79, 120, window );
++        else {
++            Text( std::to_string( value ), FontType::smallWhite() ).draw( 100, 72, 120, window );
++            Text( "/" + std::to_string( maximum ), FontType::smallWhite() ).draw( 100, 87, 120, window );
++        }
++        Fill( window, 12, 120, 296, 4, GetColorId( 50, 40, 30 ) );
++        const int thumb = maximum > minimum ? int( int64_t( value - minimum ) * 288 / ( maximum - minimum ) ) : 0;
++        Fill( window, 12 + thumb, 114, 8, 16, border );
++        if ( freeSlots > 1 ) Text( _( "Select how many units to separate into:" ), FontType::smallWhite() ).draw( 12, 138, 296, window );
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release();
++            buttons[i]->draw( window );
++            if ( int( i ) >= 6 && slots == int( i ) - 4 ) {
++                const Rect area = buttons[i]->area();
++                Fill( window, area.x, area.y + area.height + 1, area.width, 2, border );
++            }
++        }
++        if ( !slots ) Fill( window, 104, 105, 112, 2, border );
++        Display::instance().render();
++    };
++    const auto activate = [&]( int action ) {
++        if ( action < 4 ) {
++            const int before = value;
++            if ( action == 0 ) value = minimum;
++            else if ( action == 1 && value > minimum ) --value;
++            else if ( action == 2 && value < maximum ) ++value;
++            else if ( action == 3 ) value = maximum;
++            if ( value != before || action == 0 || action == 3 ) slots = 0;
++        }
++        else if ( action == 4 ) { accepted = true; closed = true; }
++        else if ( action == 5 ) closed = true;
++        else slots = action - 4;
++    };
++    const auto slide = [&]( Point point ) {
++        value = minimum + int( int64_t( std::clamp<int32_t>( point.x - 12, 0, 288 ) ) * ( maximum - minimum ) / 288 );
++        slots = 0;
++    };
++    draw();
++    if ( Platform3DS::smokeTest() && !Save( window, "sdmc:/3ds/fheroes2/army-split-bottom.bmp" ) ) throw std::runtime_error( "Cannot save army split screenshot" );
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input;
++        bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                switch ( input.key ) {
++                case PanelKey::Left: activate( 1 ); break;
++                case PanelKey::Right: activate( 2 ); break;
++                case PanelKey::Up: activate( 3 ); break;
++                case PanelKey::Down: activate( 0 ); break;
++                case PanelKey::Confirm: activate( 4 ); break;
++                case PanelKey::Cancel: activate( 5 ); break;
++                case PanelKey::Information: break;
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                start = last = input.position; down = true; moved = false; sliding = slider & start; pressed = -1;
++                if ( sliding ) slide( last );
++                else for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) pressed = int( i );
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                last = input.position;
++                moved = moved || std::abs( last.x - start.x ) >= 6 || std::abs( last.y - start.y ) >= 6;
++                if ( sliding ) slide( last );
++            }
++            else if ( input.type == PanelInputType::TouchUp && down ) {
++                if ( !moved && !sliding && pressed >= 0 && ( buttons[pressed]->area() & last ) ) activate( pressed );
++                down = false; sliding = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    if ( !accepted ) return 0;
++    count = value; fast = slots != 0;
++    return slots ? slots : 2;
++}
++
++void Interface3DS::testArmySplit()
++{
++    using namespace fheroes2;
++    const auto key = []( int button, bool down ) {
++        SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP;
++        e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e;
++    };
++    const auto touch = []( Uint32 type, int x, int y ) {
++        SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0;
++        e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e;
++    };
++    const auto crop = Platform3DS::viewport(); const auto * strip = Platform3DS::commandStripImage();
++    Image frame; Copy( Display::instance(), frame );
++    const auto run = [&]( int freeSlots, int maximum, int32_t & count, bool & fast, std::vector<TimedEvent> sequence ) {
++        const int result = runInjectedInput( [&]() { return Dialog::ArmySplitTroop( freeSlots, maximum, count, fast, _( "Peasants" ) ); }, std::move( sequence ) );
++        if ( Platform3DS::viewport() != crop || Platform3DS::commandStripImage() != strip
++             || std::memcmp( frame.image(), Display::instance().image(), frame.width() * frame.height() ) != 0 )
++            throw std::runtime_error( "Army split changed frame/viewport/strip" );
++        return result;
++    };
++    int32_t count = 5; bool fast = true;
++    if ( run( 5, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 5 || !fast )
++        throw std::runtime_error( "Army fast split default differs" );
++    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 210, 178 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++                                 { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 5 || !fast )
++        throw std::runtime_error( "Army fast split slots differ" );
++    if ( run( 5, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
++                                 { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 6 || fast )
++        throw std::runtime_error( "Army manual split count/fast-mode differs" );
++    const int savedCount = count; const bool savedFast = fast;
++    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 300, 120 ) }, { 80, touch( SDL_FINGERMOTION, 12, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++                                 { 80, touch( SDL_FINGERDOWN, 80, 219 ) }, { 80, touch( SDL_FINGERMOTION, 160, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++                                 { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 || count != savedCount || fast != savedFast )
++        throw std::runtime_error( "Army split cancel/drag changed caller values" );
++    count = 0; fast = true;
++    if ( run( 1, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 1 || fast )
++        throw std::runtime_error( "Army single-slot split bounds differ" );
++    count = 0;
++    if ( run( 1, 0, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count || fast )
++        throw std::runtime_error( "Army zero redistribution differs" );
++    count = 1000000000;
++    if ( run( 2, 2000000000, count, fast, { { 250, touch( SDL_FINGERDOWN, 300, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++                                          { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 2000000000 || fast )
++        throw std::runtime_error( "Army split large slider count differs" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    count = 5; fast = true;
++    const int evil = run( 5, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_START, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_START, false ) } } );
++    Settings::Get().setInterfaceType( previous );
++    if ( evil != 2 || !fast ) throw std::runtime_error( "Army split Evil UI differs" );
++    COUT( "3DS ARMY SPLIT SMOKE: PASS actual_dialog manual_fast_slots limits slider cancel_drag large_counts evil caller_contract unchanged_context" )
 +}
 +
 +Troop Interface3DS::showRecruit( const Monster & original, const uint32_t available, const bool allowDowngradedMonster, const Funds & funds )
@@ -3558,6 +3752,7 @@ index 0000000..4ca6e81
 +    Platform3DS::setCommandStripImage( previousStrip );
 +    events.resetFor3DSPanel();
 +    testBattleLog();
++    testArmySplit();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +
@@ -3706,10 +3901,10 @@ index 0000000..4ca6e81
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..a5f25a9
+index 0000000..13a66de
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,31 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -3737,5 +3932,7 @@ index 0000000..a5f25a9
 +    void testLevelUp();
 +    Troop showRecruit( const Monster & monster, uint32_t available, bool allowDowngradedMonster, const Funds & funds );
 +    void testRecruit();
++    int showArmySplit( int32_t freeSlots, int32_t maximum, int32_t & count, bool & fast, const std::string & name );
++    void testArmySplit();
 +}
 +#endif
