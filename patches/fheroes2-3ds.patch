@@ -581,7 +581,7 @@ index e3d7171..8773662 100644
      correctedPath.clear();
  
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..b3b4e37 100644
+index f3e8496..c8fac55 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
 @@ -22,6 +22,16 @@
@@ -685,7 +685,7 @@ index f3e8496..b3b4e37 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,19 +1719,201 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,19 +1719,221 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -873,6 +873,26 @@ index f3e8496..b3b4e37 100644
 +        events.HandleEvents( false, true );
 +        if ( settingsStatus || Platform3DS::battleHUDImage() != &ui._battleHUD3DS || events.MouseClickLeft() )
 +            throw std::runtime_error( "Battle settings failed to restore the HUD or leaked input" );
++        fheroes2::Image beforeCard; fheroes2::Copy( display, beforeCard );
++        const auto cardCrop = Platform3DS::viewport();
++        SDL_Thread * cardCloser = SDL_CreateThread( []( void * ) -> int {
++            SDL_Delay( 300 ); SDL_Event e{}; e.type = SDL_CONTROLLERBUTTONDOWN;
++            e.cbutton.button = SDL_CONTROLLER_BUTTON_LEFTSHOULDER; e.cbutton.state = SDL_PRESSED;
++            if ( SDL_PushEvent( &e ) != 1 ) return 1;
++            SDL_Delay( 80 ); e.type = SDL_CONTROLLERBUTTONUP; e.cbutton.state = SDL_RELEASED;
++            return SDL_PushEvent( &e ) == 1 ? 0 : 1;
++        }, "battle-army-card-smoke", nullptr );
++        if ( !cardCloser ) throw std::runtime_error( "Cannot start battle army card input" );
++        int cardResult = 0, cardStatus = 0;
++        try { cardResult = Dialog::ArmyInfo( unit, Dialog::BUTTONS, unit.isReflect() ); }
++        catch ( ... ) { SDL_WaitThread( cardCloser, &cardStatus ); throw; }
++        SDL_WaitThread( cardCloser, &cardStatus ); events.HandleEvents( false, true );
++        if ( cardStatus || cardResult != Dialog::CANCEL || Platform3DS::battleHUDImage() != &ui._battleHUD3DS
++             || Platform3DS::viewport() != cardCrop || Platform3DS::hasModalImages() || events.MouseClickLeft()
++             || events.isMouseRightButtonPressed() || actions.size() != actionCount
++             || std::memcmp( beforeCard.image(), display.image(), display.width() * display.height() ) != 0 )
++            throw std::runtime_error( "Battle army card changed battle/HUD/frame/context or leaked input" );
++        COUT( "3DS BATTLE ARMY CARD SMOKE: PASS real_unit hud_restoration unchanged_frame_viewport_actions release_isolation" )
 +        ui._currentUnit = nullptr;
 +    }
 +    if ( Platform3DS::battleHUDImage() || Platform3DS::commandStripImage() != savedStrip )
@@ -887,7 +907,7 @@ index f3e8496..b3b4e37 100644
  void Battle::Interface::RedrawArmies()
  {
      // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
-@@ -3152,10 +3380,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+@@ -3152,10 +3400,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
              Redraw();
              _needRedraw = false;
          }
@@ -900,7 +920,7 @@ index f3e8496..b3b4e37 100644
      }
  
      popup.reset();
-@@ -3176,9 +3406,21 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3176,9 +3426,21 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
      _highlightUnitMovementArea = nullptr;
      const bool highlightUnitMovementArea = conf.isBattleMovementAreaHighlightEnabled();
  
@@ -922,7 +942,7 @@ index f3e8496..b3b4e37 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3468,7 +3710,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3468,7 +3730,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
              msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
  
              if ( le.MouseClickLeft( status ) ) {
@@ -935,7 +955,7 @@ index f3e8496..b3b4e37 100644
              }
              else if ( le.isMouseRightButtonPressedInArea( status ) ) {
                  fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
-@@ -3583,7 +3830,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3583,7 +3850,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -996,6 +1016,31 @@ index 303cfda..190bfaa 100644
  
          std::unique_ptr<OpponentSprite> _attackingOpponent;
          std::unique_ptr<OpponentSprite> _defendingOpponent;
+diff --git a/src/fheroes2/dialog/dialog_armyinfo.cpp b/src/fheroes2/dialog/dialog_armyinfo.cpp
+index 6077ad9..9347377 100644
+--- a/src/fheroes2/dialog/dialog_armyinfo.cpp
++++ b/src/fheroes2/dialog/dialog_armyinfo.cpp
+@@ -31,6 +31,9 @@
+ #include <utility>
+ #include <vector>
+ 
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ #include "army_troop.h"
+ #include "battle.h"
+ #include "battle_cell.h"
+@@ -520,6 +523,10 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
+     // This function should not be called with the UPGRADE flag for a non-upgradeable unit
+     assert( !( flags & BUTTONS ) || !( flags & UPGRADE ) || troop.isAllowUpgrade() );
+ 
++#if defined( __3DS__ )
++    return Interface3DS::showArmyInfo( troop, flags, isReflected );
++#endif
++
+     // The active size of the window is 520 by 256 pixels
+     fheroes2::Display & display = fheroes2::Display::instance();
+     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
 diff --git a/src/fheroes2/dialog/dialog_chest.cpp b/src/fheroes2/dialog/dialog_chest.cpp
 index 6164235..3a9560d 100644
 --- a/src/fheroes2/dialog/dialog_chest.cpp
@@ -1555,10 +1600,10 @@ index 353da3b..20c346e 100644
      os << std::endl << "# Resolution: in-game width x height : on-screen width x height" << std::endl;
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..f4c870a
+index 0000000..2311208
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,435 @@
+@@ -0,0 +1,444 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#if defined( __3DS__ )
@@ -1612,6 +1657,8 @@ index 0000000..f4c870a
 +    struct ModalImages { const fheroes2::Image * top; const fheroes2::Image * bottom; };
 +    std::vector<ModalImages> modalImages;
 +    bool modalTouchCaptured = false;
++    bool physicalTouchHeld = false;
++    fheroes2::Point physicalTouch;
 +}
 +namespace Platform3DS
 +{
@@ -1681,8 +1728,15 @@ index 0000000..f4c870a
 +        for ( auto layer = modalImages.rbegin(); layer != modalImages.rend(); ++layer ) if ( layer->bottom ) return layer->bottom;
 +        return nullptr;
 +    }
++    bool isPhysicalTouchHeld() { return physicalTouchHeld; }
++    fheroes2::Point physicalTouchPosition() { return physicalTouch; }
 +    bool handleModalTouch( const PanelInputType type, const float x, const float y )
 +    {
++        if ( type == PanelInputType::TouchUp ) physicalTouchHeld = false;
++        else {
++            physicalTouchHeld = true;
++            physicalTouch = { std::clamp<int32_t>( int32_t( x * 320 ), 0, 319 ), std::clamp<int32_t>( int32_t( y * 240 ), 0, 239 ) };
++        }
 +        if ( !hasModalImages() && !modalTouchCaptured ) return false;
 +        if ( hasModalImages() ) {
 +            if ( type != PanelInputType::TouchUp ) modalTouchCaptured = true;
@@ -1996,10 +2050,10 @@ index 0000000..f4c870a
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..8228795
+index 0000000..28db4ee
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,68 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -2017,6 +2071,8 @@ index 0000000..8228795
 +    bool hasModalImages();
 +    const fheroes2::Image * modalTopImage();
 +    const fheroes2::Image * modalBottomImage();
++    bool isPhysicalTouchHeld();
++    fheroes2::Point physicalTouchPosition();
 +    bool handleModalTouch( PanelInputType type, float x, float y );
 +    const fheroes2::Image * commandPanelImage();
 +    void setCommandPanelImage( const fheroes2::Image * image );
@@ -2208,6 +2264,353 @@ index 0000000..46aa46b
 +        }
 +    }
 +};
+diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
+new file mode 100644
+index 0000000..f304377
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_army.cpp
+@@ -0,0 +1,341 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <functional>
++#include <memory>
++#include <stdexcept>
++#include <utility>
++#include <SDL.h>
++#include "army_troop.h"
++#include "battle.h"
++#include "cursor.h"
++#include "dialog.h"
++#include "game_assets.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "localevent.h"
++#include "logging.h"
++#include "luck.h"
++#include "monster_anim.h"
++#include "monster_info.h"
++#include "morale.h"
++#include "pal.h"
++#include "platform_3ds.h"
++#include "screen.h"
++#include "settings.h"
++#include "spell.h"
++#include "spell_info.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++
++namespace
++{
++    using namespace fheroes2;
++    using Platform3DS::PanelInputType;
++    using Platform3DS::PanelKey;
++    using TimedEvent = std::pair<Uint32, SDL_Event>;
++    int runInjectedInput( const std::function<int()> & dialog, std::vector<TimedEvent> sequence )
++    {
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int {
++            auto & steps = *static_cast<std::vector<TimedEvent> *>( data );
++            for ( auto & step : steps ) {
++                SDL_Delay( step.first );
++                if ( SDL_PushEvent( &step.second ) != 1 ) return 1;
++            }
++            return 0;
++        }, "dialog-smoke", &sequence );
++        if ( !worker ) throw std::runtime_error( "Cannot start dialog test input" );
++        int result = 0, status = 0;
++        try { result = dialog(); }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status );
++        if ( status ) throw std::runtime_error( "Dialog test input injection failed" );
++        auto & events = LocalEvent::Get();
++        events.HandleEvents( false, true );
++        if ( events.MouseClickLeft() || events.isMouseRightButtonPressed() || Platform3DS::hasModalImages() )
++            throw std::runtime_error( "Modal input or image layer leaked after close" );
++        return result;
++    }
++    int lastScroll = 0;
++    std::string lastStats;
++    size_t lastEffects = 0;
++    class CardScope
++    {
++    public:
++        CardScope( const Image & top, const Image * bottom )
++        {
++            Platform3DS::pushModalImages( &top, bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++            LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~CardScope()
++        {
++            Platform3DS::popModalImages();
++            LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance();
++            display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } );
++            display.render();
++        }
++    };
++    class Portrait
++    {
++    public:
++        Portrait( const Troop & troop, bool animated ) : _icn( troop.GetMonsterSprite() ), _mirror( troop.isModes( Battle::CAP_MIRRORIMAGE ) )
++        {
++            const AnimationReference reference( troop.GetID() );
++            const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
++            if ( standing.empty() ) throw std::runtime_error( "Army card has no standing frame" );
++            _frames.assign( 12, standing.front() );
++            if ( animated ) {
++                const auto & idle = reference.getAnimationVector( Monster_Info::IDLE );
++                _frames.insert( _frames.end(), idle.begin(), idle.end() );
++            }
++            const auto & first = Assets::getImage( _icn, _frames.front() );
++            int32_t left = first.x(), top = first.y(), right = left + first.width(), bottom = top + first.height();
++            for ( const int frame : _frames ) {
++                const auto & sprite = Assets::getImage( _icn, frame );
++                left = std::min( left, sprite.x() ); top = std::min( top, sprite.y() );
++                right = std::max( right, sprite.x() + sprite.width() ); bottom = std::max( bottom, sprite.y() + sprite.height() );
++            }
++            _bounds = { left, top, right - left, bottom - top };
++        }
++        void draw( Image & output, const Rect & area, size_t frame, bool reflected ) const
++        {
++            Image icon( _bounds.width, _bounds.height ); icon.reset();
++            Sprite sprite = Assets::getImage( _icn, _frames[frame % _frames.size()] );
++            if ( _mirror ) ApplyPalette( sprite, PAL::GetPalette( PAL::PaletteType::MIRROR_IMAGE ) );
++            Blit( sprite, icon, sprite.x() - _bounds.x, sprite.y() - _bounds.y );
++            const double scale = std::min( double( area.width ) / icon.width(), double( area.height ) / icon.height() );
++            Image resized( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
++            resized.reset(); Resize( icon, resized );
++            Blit( resized, output, area.x + ( area.width - resized.width() ) / 2, area.y + ( area.height - resized.height() ) / 2, reflected );
++        }
++    private:
++        int _icn;
++        bool _mirror;
++        Rect _bounds;
++        std::vector<int> _frames;
++    };
++}
++
++int Interface3DS::showArmyInfo( const Troop & troop, const int flags, const bool reflected )
++{
++    using namespace fheroes2;
++    const bool interactive = ( flags & Dialog::BUTTONS ) != 0;
++    const CursorRestorer cursorRestorer( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    Image top( 400, 240 ), bottom( 320, 240 );
++    std::string stats = _( "Attack Skill" ) + std::string( ": " ) + troop.GetAttackString() + "\n" + _( "Defense Skill" ) + ": " + troop.GetDefenseString();
++    if ( getMonsterData( troop.GetID() ).battleStats.shots > 0 )
++        stats += "\n" + std::string( troop.isBattle() ? _( "Shots Left" ) : _( "Shots" ) ) + ": " + troop.GetShotString();
++    const Monster monster = troop.GetMonster();
++    stats += "\n" + std::string( _( "Damage" ) ) + ": " + std::to_string( monster.GetDamageMin() ) + " - " + std::to_string( monster.GetDamageMax() );
++    stats += "\n" + std::string( _( "Hit Points" ) ) + ": " + std::to_string( monster.GetHitPoints() );
++    if ( troop.isBattle() && troop.GetCount() ) stats += "\n" + std::string( _( "Hit Points Left" ) ) + ": " + std::to_string( troop.GetHitPointsLeft() );
++    stats += "\n" + std::string( _( "Speed" ) ) + ": " + troop.GetSpeedString() + "\n" + _( "Morale" ) + ": " + Morale::String( troop.GetMorale() )
++             + "\n" + _( "Luck" ) + ": " + Luck::String( troop.GetLuck() );
++    const Text statText( stats, FontType::smallWhite() );
++    const int statHeight = std::max<int32_t>( 120, statText.height( 252 ) );
++    std::string properties;
++    for ( const auto & description : getMonsterPropertiesDescription( troop.GetID() ) ) properties += description + "\n\n";
++    size_t effectCount = 0;
++    const std::array<std::pair<uint32_t, int>, 15> modes{ std::pair<uint32_t,int>{ Battle::SP_BLOODLUST, Spell::BLOODLUST },
++        { Battle::SP_BLESS, Spell::BLESS }, { Battle::SP_HASTE, Spell::HASTE }, { Battle::SP_SHIELD, Spell::SHIELD },
++        { Battle::SP_STONESKIN, Spell::STONESKIN }, { Battle::SP_DRAGONSLAYER, Spell::DRAGONSLAYER }, { Battle::SP_STEELSKIN, Spell::STEELSKIN },
++        { Battle::SP_ANTIMAGIC, Spell::ANTIMAGIC }, { Battle::SP_CURSE, Spell::CURSE }, { Battle::SP_SLOW, Spell::SLOW },
++        { Battle::SP_BERSERKER, Spell::BERSERKER }, { Battle::SP_HYPNOTIZE, Spell::HYPNOTIZE }, { Battle::SP_BLIND, Spell::BLIND },
++        { Battle::SP_PARALYZE, Spell::PARALYZE }, { Battle::SP_STONE, Spell::PETRIFY } };
++    if ( troop.isBattle() ) for ( const auto & mode : modes ) if ( troop.isModes( mode.first ) ) {
++        const Spell spell( mode.second ); const uint32_t duration = troop.GetAffectedDuration( mode.first );
++        properties += std::string( spell.GetName() ) + ( duration ? " (" + std::to_string( duration ) + ")" : "" ) + "\n" + getSpellDescription( spell, nullptr ) + "\n\n";
++        ++effectCount;
++    }
++    const Text description( properties, FontType::normalWhite() );
++    const int height = statHeight + ( properties.empty() ? 0 : description.height( 376 ) + 8 );
++    Image content( 376, std::max( height, 188 ) ); content.fill( background );
++    statText.draw( 124, 0, 252, content ); description.draw( 0, statHeight, 376, content );
++    const Portrait portrait( troop, interactive ); portrait.draw( content, { 0, 0, 112, 116 }, 0, reflected );
++    std::vector<int> actions;
++    if ( interactive && ( flags & Dialog::UPGRADE ) ) actions.push_back( Dialog::UPGRADE );
++    if ( interactive && ( flags & Dialog::DISMISS ) ) actions.push_back( Dialog::DISMISS );
++    if ( interactive ) actions.push_back( Dialog::CANCEL );
++    std::vector<std::unique_ptr<ButtonBase>> buttons;
++    for ( size_t i = 0; i < actions.size(); ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { 284, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        const Text text( actions[i] == Dialog::UPGRADE ? _( "Upgrade" ) : actions[i] == Dialog::DISMISS ? _( "Dismiss" ) : _( "Exit" ), FontType::normalWhite() );
++        text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
++        text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, pressed.width() - 8, pressed );
++        const int x = ( 320 - released.width() ) / 2;
++        buttons.emplace_back( std::make_unique<ButtonSprite>( x, 206 - int( actions.size() - 1 - i ) * 32, std::move( released ), std::move( pressed ) ) );
++    }
++    int scroll = 0, selected = int( actions.size() ) - 1, pressed = -1, result = Dialog::ZERO;
++    bool closed = false, down = !interactive && Platform3DS::isPhysicalTouchHeld(), moved = false;
++    Point start = Platform3DS::physicalTouchPosition(), last = start;
++    Uint32 began = SDL_GetTicks(), animationTick = began;
++    size_t frame = 0;
++    const CardScope scope( top, interactive ? &bottom : nullptr );
++    const auto draw = [&]() {
++        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawBorder( top, border );
++        const std::string title = std::string( troop.GetName() ) + " (" + std::to_string( troop.GetCount() ) + ")";
++        Text( title, Text( title, FontType::normalYellow() ).height( 376 ) <= 22 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 12, 8, 376, top );
++        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
++        if ( height > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
++        if ( interactive ) {
++            bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawBorder( bottom, border );
++            Text( troop.GetName(), FontType::normalYellow() ).draw( 12, 8, 296, bottom );
++            portrait.draw( bottom, { 12, 36, 104, 90 }, frame, reflected );
++            Text( std::to_string( troop.GetCount() ), FontType::normalWhite() ).draw( 124, 40, 184, bottom );
++            if ( flags & Dialog::UPGRADE ) {
++                Text( _( "Upgrade" ), FontType::smallWhite() ).draw( 124, 64, 184, bottom );
++                const Funds cost = troop.GetTotalUpgradeCost(); std::vector<int> used;
++                for ( int resource : { Resource::GOLD, Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS } )
++                    if ( cost.Get( resource ) ) used.push_back( resource );
++                for ( size_t i = 0; i < used.size(); ++i ) {
++                    const ResourceDialogElement element( used[i], std::to_string( cost.Get( used[i] ) ) ); const int width = 184 / int( used.size() );
++                    element.draw( bottom, { 124 + int( i ) * width + ( width - element.area().width ) / 2, 80 } );
++                }
++            }
++            for ( size_t i = 0; i < buttons.size(); ++i ) {
++                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
++                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y + area.height + 1, area.width, 2, border ); }
++            }
++        }
++        Display::instance().render();
++    };
++    const auto activate = [&]( int index ) {
++        if ( index < 0 || index >= int( actions.size() ) ) return;
++        const int action = actions[index]; down = false; pressed = -1;
++        if ( action == Dialog::CANCEL ) { result = Dialog::CANCEL; closed = true; }
++        else if ( action == Dialog::DISMISS ) {
++            if ( showStandardTextMessage( troop.GetPluralName( troop.GetCount() ), _( "Are you sure you want to dismiss this army?" ), Dialog::YES | Dialog::NO ) == Dialog::YES ) { result = action; closed = true; }
++        }
++        else if ( flags & Dialog::UPGRADE_DISABLE ) showResourceMessage( Text( "", {} ), Text( _( "You can't afford to upgrade your troops!" ), FontType::normalWhite() ), Dialog::OK, troop.GetTotalUpgradeCost() );
++        else if ( showResourceMessage( Text( "", {} ), Text( _( "Your troops can be upgraded, but it will cost you dearly. Do you wish to upgrade them?" ), FontType::normalWhite() ), Dialog::YES | Dialog::NO, troop.GetTotalUpgradeCost() ) == Dialog::YES ) { result = action; closed = true; }
++    };
++    const auto information = [&]( int index ) {
++        if ( index < 0 || index >= int( actions.size() ) ) return;
++        const int action = actions[index]; down = false; pressed = -1;
++        if ( action == Dialog::UPGRADE ) showResourceMessage( Text( _( "Upgrade" ), FontType::normalYellow() ), Text( _( "Upgrade your troops." ), FontType::normalWhite() ), Dialog::ZERO, troop.GetTotalUpgradeCost() );
++        else showStandardTextMessage( action == Dialog::DISMISS ? _( "Dismiss" ) : _( "Exit" ), action == Dialog::DISMISS ? _( "Dismiss this army." ) : _( "Exit this menu." ), Dialog::ZERO );
++    };
++    draw();
++    if ( Platform3DS::smokeTest() && ( !Save( top, troop.isBattle() ? "sdmc:/3ds/fheroes2/army-info-battle-top.bmp" : "sdmc:/3ds/fheroes2/army-info-top.bmp" ) || ( interactive && !Save( bottom, troop.isBattle() ? "sdmc:/3ds/fheroes2/army-info-battle-bottom.bmp" : "sdmc:/3ds/fheroes2/army-info-bottom.bmp" ) ) ) ) throw std::runtime_error( "Cannot save army card" );
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::KeyUp && !interactive && input.key == PanelKey::Information ) closed = true;
++            else if ( input.type == PanelInputType::Key ) {
++                switch ( input.key ) {
++                case PanelKey::Up: scroll -= 32; break;
++                case PanelKey::Down: scroll += 32; break;
++                case PanelKey::Left: if ( interactive ) selected = ( selected + int( actions.size() ) - 1 ) % actions.size(); break;
++                case PanelKey::Right: if ( interactive ) selected = ( selected + 1 ) % actions.size(); break;
++                case PanelKey::Confirm: if ( interactive ) activate( selected ); else closed = true; break;
++                case PanelKey::Cancel: result = interactive ? Dialog::CANCEL : Dialog::ZERO; closed = true; break;
++                case PanelKey::Information: if ( interactive ) information( selected ); break;
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                start = last = input.position; began = SDL_GetTicks(); down = true; moved = false; pressed = -1;
++                if ( interactive ) for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) { pressed = int( i ); selected = pressed; }
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && pressed < 0 ) scroll += last.y - input.position.y;
++                last = input.position;
++            }
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( !interactive ) closed = true;
++                else if ( down && !moved && pressed >= 0 && ( buttons[pressed]->area() & last ) ) activate( pressed );
++                down = false; pressed = -1;
++            }
++            scroll = std::clamp( scroll, 0, std::max( 0, height - 188 ) );
++        }
++        if ( interactive && down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) { information( pressed ); redraw = true; }
++        const Uint32 now = SDL_GetTicks();
++        if ( interactive && now - animationTick >= 75 ) { frame += ( now - animationTick ) / 75; animationTick = now; redraw = true; }
++        if ( redraw && !closed ) draw();
++    }
++    lastScroll = scroll; lastStats = stats; lastEffects = effectCount;
++    return result;
++}
++void Interface3DS::testArmyInfo()
++{
++    using namespace fheroes2;
++    const auto key = []( int button, bool down ) {
++        SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP;
++        e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e;
++    };
++    const auto touch = []( Uint32 type, int x, int y ) {
++        SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0;
++        e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e;
++    };
++    const auto crop = Platform3DS::viewport(); const auto * strip = Platform3DS::commandStripImage();
++    Image frame; Copy( Display::instance(), frame );
++    const auto run = [&]( const Troop & troop, int flags, std::vector<TimedEvent> sequence, bool held = false ) {
++        const auto id = troop.GetID(); const auto count = troop.GetCount();
++        if ( held ) { SDL_Event e = touch( SDL_FINGERDOWN, 50, 180 ); SDL_PushEvent( &e ); LocalEvent::Get().HandleEvents(); }
++        const int result = runInjectedInput( [&]() { return Dialog::ArmyInfo( troop, flags, false ); }, std::move( sequence ) );
++        if ( troop.GetID() != id || troop.GetCount() != count || Platform3DS::viewport() != crop || Platform3DS::commandStripImage() != strip
++             || std::memcmp( frame.image(), Display::instance().image(), frame.width() * frame.height() ) != 0 )
++            throw std::runtime_error( "Army card changed troop/frame/viewport/strip" );
++        return result;
++    };
++    const auto close = std::vector<TimedEvent>{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    const Troop archer( Monster::ARCHER, 10 ); const int flags = Dialog::BUTTONS | Dialog::UPGRADE | Dialog::DISMISS;
++    if ( run( archer, flags, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::CANCEL )
++        throw std::runtime_error( "Army card default close differs" );
++    const auto confirmation = [&]( int y, bool accept, bool disabled = false ) {
++        std::vector<TimedEvent> sequence{ { 250, touch( SDL_FINGERDOWN, 160, y ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++            { 200, key( accept ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) },
++            { 80, key( accept ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++        if ( !accept || disabled ) { sequence.emplace_back( 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) ); sequence.emplace_back( 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) ); }
++        return run( archer, flags | ( disabled ? Dialog::UPGRADE_DISABLE : 0 ), std::move( sequence ) );
++    };
++    if ( confirmation( 155, true ) != Dialog::UPGRADE || confirmation( 155, false ) != Dialog::CANCEL
++         || confirmation( 155, true, true ) != Dialog::CANCEL || confirmation( 185, true ) != Dialog::DISMISS
++         || confirmation( 185, false ) != Dialog::CANCEL ) throw std::runtime_error( "Army card confirmation contract differs" );
++    if ( run( archer, Dialog::BUTTONS, close ) != Dialog::CANCEL ) throw std::runtime_error( "Army card forbidden actions differ" );
++    if ( run( archer, flags, { { 250, touch( SDL_FINGERDOWN, 160, 155 ) }, { 80, touch( SDL_FINGERMOTION, 160, 120 ) },
++        { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL )
++        throw std::runtime_error( "Army card drag activated action" );
++    if ( run( archer, flags, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL )
++        throw std::runtime_error( "Army card nested information differs" );
++    const Troop dragon( Monster::BLACK_DRAGON, 5 );
++    if ( run( dragon, 0, { { 250, touch( SDL_FINGERMOTION, 50, 20 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } }, true ) != Dialog::ZERO || lastScroll <= 0 )
++        throw std::runtime_error( "Army card held-stylus scroll differs" );
++    struct BattleTroop final : Troop {
++        BattleTroop() : Troop( Monster::ARCHER, 3 ) {}
++        bool isBattle() const override { return true; }
++        bool isModes( uint32_t mode ) const override { return ( mode & ( Battle::SP_BLESS | Battle::CAP_MIRRORIMAGE ) ) != 0; }
++        uint32_t GetAffectedDuration( uint32_t ) const override { return 3; }
++        std::string GetAttackString() const override { return "9 (3)"; }
++        std::string GetDefenseString() const override { return "8 (2)"; }
++        std::string GetShotString() const override { return "4"; }
++        uint32_t GetHitPointsLeft() const override { return 17; }
++    } battle;
++    if ( run( battle, 0, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_B, false ) } } ) != Dialog::ZERO || lastScroll <= 0 || lastEffects != 1 || lastStats.find( "9 (3)" ) == std::string::npos
++        || lastStats.find( "8 (2)" ) == std::string::npos || lastStats.find( "17" ) == std::string::npos ) throw std::runtime_error( "Army card battle statistics/effects differ" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    const Troop redDragon( Monster::RED_DRAGON, 5 ); const int evil = run( redDragon, flags, close );
++    Settings::Get().setInterfaceType( previous );
++    if ( evil != Dialog::CANCEL ) throw std::runtime_error( "Army card Evil UI differs" );
++    COUT( "3DS ARMY INFO SMOKE: PASS actual_dialog upgrade_dismiss_confirm_cancel unaffordable forbidden_actions drag held_scroll battle_stats_effects nested_info evil unchanged_troop_frame_context" )
++}
++
++
++#endif
 diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp
 new file mode 100644
 index 0000000..f85b17b
@@ -2483,10 +2886,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..67418a2
+index 0000000..85386db
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1412 @@
+@@ -0,0 +1,1415 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -2511,6 +2914,7 @@ index 0000000..67418a2
 +#include "settings.h"
 +#include "heroes.h"
 +#include "army_troop.h"
++#include "battle.h"
 +#include "monster_info.h"
 +#include "monster_anim.h"
 +#include "kingdom.h"
@@ -3092,6 +3496,7 @@ index 0000000..67418a2
 +    count = value; fast = slots != 0;
 +    return slots ? slots : 2;
 +}
++
 +
 +void Interface3DS::testArmySplit()
 +{
@@ -3753,6 +4158,7 @@ index 0000000..67418a2
 +    events.resetFor3DSPanel();
 +    testBattleLog();
 +    testArmySplit();
++    testArmyInfo();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +
@@ -3901,10 +4307,10 @@ index 0000000..67418a2
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..13a66de
+index 0000000..0a98d83
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,33 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -3934,5 +4340,7 @@ index 0000000..13a66de
 +    void testRecruit();
 +    int showArmySplit( int32_t freeSlots, int32_t maximum, int32_t & count, bool & fast, const std::string & name );
 +    void testArmySplit();
++    int showArmyInfo( const Troop & troop, int flags, bool reflected );
++    void testArmyInfo();
 +}
 +#endif
