@@ -636,7 +636,7 @@ index ce25e88..4c643bb 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..8e664c9 100644
+index 69d39fb..9fdd80b 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,14 @@
@@ -682,20 +682,22 @@ index 69d39fb..8e664c9 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +330,46 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +330,48 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
 +#if defined( __3DS__ )
 +    COUT( "3DS MAIN MENU READY" )
 +    if ( Platform3DS::smokeTest() ) {
++        const bool savedHighResolution = Platform3DS::highResolutionEnabled();
++        COUT( "3DS DISPLAY STARTUP preference=" << ( savedHighResolution ? "on" : "off" ) )
++        Platform3DS::setHighResolutionEnabled( false );
 +        Platform3DS::requestCapture();
 +        display.render();
 +        if ( !Platform3DS::supportsHighResolutionModel( 0 ) || Platform3DS::supportsHighResolutionModel( 3 )
 +             || !Platform3DS::supportsHighResolutionModel( 5 ) || Platform3DS::supportsHighResolutionModel( 255 ) )
 +            throw std::runtime_error( "High-resolution model compatibility" );
 +        if ( !Platform3DS::highResolutionSupported() ) throw std::runtime_error( "High resolution unavailable on emulated 3DS" );
-+        const bool savedHighResolution = Platform3DS::highResolutionEnabled();
 +        // Exercise the real preference writer; the emulator runner restores its temporary configuration.
 +        Platform3DS::setHighResolutionEnabled( false );
 +        Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true );
@@ -1041,7 +1043,7 @@ index 353da3b..20c346e 100644
      os << std::endl << "# Resolution: in-game width x height : on-screen width x height" << std::endl;
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..389ecc3
+index 0000000..298719b
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
 @@ -0,0 +1,402 @@
@@ -1061,7 +1063,7 @@ index 0000000..389ecc3
 +    fheroes2::Point crop;
 +    bool touchHeld = false;
 +    bool capture = false;
-+    bool highResolution = false;
++    bool highResolution = true;
 +    bool displayRefresh = false;
 +    bool displayModifierHeld = false;
 +    bool displayStartCaptured = false;

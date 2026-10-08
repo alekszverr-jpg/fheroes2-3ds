@@ -4,9 +4,9 @@ A work-in-progress Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fher
 
 **English** | [Русский](README_RU.md)
 
-**[Download preview 0.3.5](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.5)** — download `fheroes2-menu-preview-0.3.5.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
+**[Download preview 0.3.6](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.6)** — download `fheroes2-menu-preview-0.3.6.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
 
-Current preview: **0.3.5**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. The chest Gold choice was reported working on New 3DS XL. High-resolution output in 0.3.5 still needs hardware validation. Physical Old 3DS compatibility is unverified.
+Current preview: **0.3.6**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. The chest Gold choice was reported working on New 3DS XL. The user reports a substantial image-quality improvement on New 3DS XL; high-resolution output is now the default. Long-session performance remains unmeasured. Physical Old 3DS compatibility is unverified.
 
 ## Features
 
