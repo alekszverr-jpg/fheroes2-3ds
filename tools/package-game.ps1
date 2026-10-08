@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.14'
+$version = '0.3.15'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -30,6 +30,9 @@ $manifest = [ordered]@{
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
+    native_combat_spellbook='CMBT-only native six-row lower spell list, costs/mana, explicit confirm and page controls; hero-aware top description/stylus scroll and held info; original learned spells/scrolls, costs, CanCastSpell and caller cast/target/payment rules'
+    hardware_combat_spellbook='0.3.15 pending New 3DS XL casting/target/cancel/mana/round/scroll/page validation; no physical Old 3DS'
+    emulated_combat_spellbook='Russian New/Old and English New: actual combat book learned spells/scroll filter, Snake-Ring cost bonus, touch/controller choice, explicit confirm, pages/restoration, cancel/button drag, scroll preserves selection, long real descriptions, nested/held info, readonly, zero mana, empty/missing book, Evil UI, unchanged hero/frame/context; real Arena callback and HUD restore; actual casting/target/payment/round not exercised'
     native_army_info='Native 400x240 top animated portrait/count, normal-font statistics, stack upgrade cost, properties and active spells; lower compact action dock over frozen detail, size follows available actions; original confirmations and caller contract'
     hardware_army_info='0.3.13 user reports remaining cases generally working on New 3DS XL; requests less empty lower layout/larger top statistics; 0.3.14 layout pending physical validation, Old hardware unavailable'
     emulated_army_info='Russian New/Old and English New: actual ArmyInfo upgrade/dismiss YES/NO, unaffordable, forbidden controls, no-upgrade layout, drag cancellation, held-stylus/D-pad scroll, synthetic battle bonuses/shots/health/effects, nested info and Evil UI; real Arena unit closes and restores HUD/frame/viewport/actions; caller payments/army mutations not exercised'
