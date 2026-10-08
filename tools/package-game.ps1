@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
-$package = Join-Path $workspace 'dist/fheroes2-menu-preview'
+$staging = Join-Path $workspace ("build/packaging/0.3.2-" + [Guid]::NewGuid().ToString('N'))
+$package = Join-Path $staging 'fheroes2-menu-preview'
 $app = Join-Path $package '3ds/fheroes2'
 New-Item -ItemType Directory -Force $app | Out-Null
 foreach ($name in @('fheroes2.3dsx','fheroes2.smdh')) { Copy-Item -LiteralPath (Join-Path $workspace "build/game/$name") -Destination $app -Force }
@@ -9,7 +10,10 @@ $data = Join-Path $app 'files/data'
 New-Item -ItemType Directory -Force $data | Out-Null
 Copy-Item -Path (Join-Path $workspace 'fheroes2/files/data/*.h2d') -Destination $data -Force
 Copy-Item -LiteralPath (Join-Path $workspace '3ds-game/INSTALL_RU.md') -Destination (Join-Path $package 'INSTALL_RU.md') -Force
+Copy-Item -LiteralPath (Join-Path $workspace '3ds-game/INSTALL.md') -Destination (Join-Path $package 'INSTALL.md') -Force
 Copy-Item -LiteralPath (Join-Path $workspace 'fheroes2/LICENSE') -Destination $package -Force
+Copy-Item -LiteralPath (Join-Path $workspace 'vendor/SDL2/LICENSE.txt') -Destination (Join-Path $package 'SDL2-LICENSE.txt') -Force
+Copy-Item -LiteralPath (Join-Path $workspace 'vendor/SDL2_mixer/LICENSE.txt') -Destination (Join-Path $package 'SDL2_mixer-LICENSE.txt') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'sdk-lock.json') -Destination $package -Force
 $manifest = [ordered]@{
     port_version='0.3.2'; upstream='9754feff8501dbb69df95f3b999156a32eb8d7d3'
@@ -31,12 +35,15 @@ Copy-Item -LiteralPath (Join-Path $workspace '3ds-game/INSTALL_RU.md') -Destinat
 $packageLang = Join-Path $app 'files/lang'
 New-Item -ItemType Directory -Force $packageLang | Out-Null
 if (Test-Path (Join-Path $privateApp 'files/lang/ru.mo')) { Copy-Item -LiteralPath (Join-Path $privateApp 'files/lang/ru.mo') -Destination $packageLang -Force }
-Set-Content -LiteralPath (Join-Path $app 'fheroes2.cfg') -Value "first time game run = off`nlang = ru`nmusic = external" -Encoding ascii
+Set-Content -LiteralPath (Join-Path $app 'fheroes2.cfg') -Value "first time game run = off`nlang = `nmusic = external" -Encoding ascii
 Compress-Archive -Path (Join-Path $package '*') -DestinationPath (Join-Path $workspace 'dist/fheroes2-menu-preview-0.3.2.zip') -Force
 
-$source = Join-Path $workspace 'dist/fheroes2-menu-source'
+$source = Join-Path $staging 'fheroes2-menu-source'
 New-Item -ItemType Directory -Force $source | Out-Null
-foreach ($directory in @('3ds-game','cmake','tools')) { Copy-Item -LiteralPath (Join-Path $workspace $directory) -Destination $source -Recurse -Force }
+foreach ($directory in @('3ds-game','3ds-platform-probe','cmake','tools')) { Copy-Item -LiteralPath (Join-Path $workspace $directory) -Destination $source -Recurse -Force }
+foreach ($name in @('README.md','README_RU.md','CONTRIBUTING.md','LICENSE','.gitignore','.gitattributes')) {
+    Copy-Item -LiteralPath (Join-Path $workspace $name) -Destination $source -Force
+}
 Copy-Item -LiteralPath (Join-Path $workspace 'patches') -Destination $source -Recurse -Force
 $sourceEngine = Join-Path $source 'fheroes2'
 New-Item -ItemType Directory -Force $sourceEngine | Out-Null

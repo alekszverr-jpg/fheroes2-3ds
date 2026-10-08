@@ -2,6 +2,10 @@
 
 A work-in-progress Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-source Heroes of Might and Magic II engine.
 
+**English** | [Русский](README_RU.md)
+
+**[Download preview 0.3.2](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.2)** — download `fheroes2-menu-preview-0.3.2.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
+
 Current preview: **0.3.2**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. Preview 0.3.2 has passed automated New/Old emulator checks and still needs hardware validation. Physical Old 3DS compatibility is unverified.
 
 ## Features
@@ -19,7 +23,7 @@ Stereo 3D and adapted per-screen dialogs are not implemented yet. The next plann
 
 The application requires your own original Heroes II game data. Original game data, music, maps, saves and local SDK files are excluded from this repository.
 
-Place the application at `/3ds/fheroes2/fheroes2.3dsx`, with `fheroes2.smdh` beside it. The engine looks for game data under `/3ds/fheroes2/`; see [installation and controls in Russian](3ds-game/INSTALL_RU.md) for the complete directory layout. Start the application from Homebrew Launcher. Preserve existing configuration and saves when updating.
+Extract the release ZIP to the root of your SD card, then add your original game data under `/3ds/fheroes2/`. Start the application from Homebrew Launcher. Preserve existing configuration and saves when updating. See the complete [English installation and controls guide](3ds-game/INSTALL.md) or [Russian guide](3ds-game/INSTALL_RU.md). New installations default to English; Russian can be selected in the game settings.
 
 ## Build on Windows
 
