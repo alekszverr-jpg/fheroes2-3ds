@@ -1,0 +1,1645 @@
+diff --git a/files/lang/ru.po b/files/lang/ru.po
+index 679b71a..597a431 100644
+--- a/files/lang/ru.po
++++ b/files/lang/ru.po
+@@ -12789,6 +12789,24 @@ msgstr "северо-восток"
+ msgid "west"
+ msgstr "запад"
+ 
++msgid "Commands"
++msgstr "Команды"
++
++msgid "Previous Hero"
++msgstr "Предыдущий герой"
++
++msgid "Next Castle"
++msgstr "Следующий замок"
++
++msgid "Center on Hero"
++msgstr "К герою"
++
++msgid "Close"
++msgstr "Закрыть"
++
++msgid "D-pad: select  A: accept  B/Y/L: close"
++msgstr "D-pad: выбор  A: выполнить  B/Y/L: назад"
++
+ msgid "center"
+ msgstr "середин"
+ 
+@@ -12844,3 +12862,6 @@ msgstr "Возрождается неведомая сила..."
+ 
+ #~ msgid "Create a new map from scratch."
+ #~ msgstr "Создать новую карту с нуля."
++
++msgid "Start the Hero's movement along the current path or re-visit the object occupied by the Hero."
++msgstr "Начать движение героя по выбранному пути или повторно посетить объект под героем."
+\ No newline at end of file
+diff --git a/src/engine/core.cpp b/src/engine/core.cpp
+index d50ca80..051a3d0 100644
+--- a/src/engine/core.cpp
++++ b/src/engine/core.cpp
+@@ -119,10 +119,16 @@ namespace
+ 
+         if ( SDL_Init( sdlFlags ) < 0 ) {
+             ERROR_LOG( SDL_GetError() )
++#if defined( __3DS__ )
++            SDL_Quit();
++            if ( SDL_Init( sdlFlags & ~SDL_INIT_AUDIO ) < 0 ) return false;
++            COUT( "3DS audio unavailable: continuing without audio" )
++#else
+             return false;
++#endif
+         }
+ 
+-        if ( components.count( System::SystemInitializationComponent::Audio ) > 0 ) {
++        if ( components.count( System::SystemInitializationComponent::Audio ) > 0 && SDL_WasInit( SDL_INIT_AUDIO ) ) {
+             Audio::Init();
+         }
+ 
+@@ -173,7 +179,7 @@ namespace System
+     {
+         std::set<SystemInitializationComponent> components{ SystemInitializationComponent::Audio, SystemInitializationComponent::Video };
+ 
+-#if defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH )
++#if defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH ) || defined( __3DS__ )
+         components.emplace( SystemInitializationComponent::GameController );
+ #endif
+ 
+diff --git a/src/engine/localevent.cpp b/src/engine/localevent.cpp
+index 145ca33..57fae25 100644
+--- a/src/engine/localevent.cpp
++++ b/src/engine/localevent.cpp
+@@ -65,6 +65,7 @@
+ #include "logging.h"
+ #include "render_processor.h"
+ #include "screen.h"
++#include "platform_3ds.h"
+ 
+ namespace
+ {
+@@ -930,6 +931,9 @@ namespace EventProcessing
+ 
+         static void onKeyboardEvent( LocalEvent & eventHandler, const SDL_KeyboardEvent & event )
+         {
++#if defined( __3DS__ )
++            if ( Platform3DS::handlePanelKeyboard( event.keysym.sym, event.type == SDL_KEYDOWN ) ) return;
++#endif
+             const fheroes2::Key key = getKeyFromSDL( event.keysym.sym );
+             if ( key == fheroes2::Key::NONE ) {
+                 // We do not process this key.
+@@ -987,6 +991,10 @@ namespace EventProcessing
+             assert( ( button.state == SDL_PRESSED ) || ( button.state == SDL_RELEASED ) );
+ 
+             LocalEvent::ControllerButtonType buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_UNKNOWN;
++#if defined( __3DS__ )
++            if ( Platform3DS::handleAdventureDpad( button.button, button.state == SDL_PRESSED ) ) return;
++            if ( Platform3DS::handlePanelController( button.button, button.state == SDL_PRESSED ) ) return;
++#endif
+ 
+             switch ( button.button ) {
+             case SDL_CONTROLLER_BUTTON_A:
+@@ -1033,7 +1041,11 @@ namespace EventProcessing
+                 break;
+             }
+ 
+-#if defined( TARGET_NINTENDO_SWITCH )
++#if defined( __3DS__ )
++            if ( buttonType == LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_LEFT_SHOULDER ) {
++                buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_GUIDE;
++            }
++#elif defined( TARGET_NINTENDO_SWITCH )
+             // Custom button mapping for Nintendo Switch
+             if ( buttonType == LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_A ) {
+                 buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_B;
+@@ -1240,8 +1252,24 @@ LocalEvent & LocalEvent::Get()
+     return le;
+ }
+ 
++#if defined( __3DS__ )
++void LocalEvent::resetFor3DSPanel()
++{
++    reset();
++    _controllerTimer.reset();
++    _fingerIds = {};
++    _isTwoFingerGestureInProgress = false;
++    _stylusRightHeld = false;
++    Platform3DS::setTouchHeld( false );
++    Platform3DS::setTouchRightHeld( false );
++}
++#endif
++
+ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */, const bool allowExit /* = false */ )
+ {
++#if defined( __3DS__ )
++    Platform3DS::prepareAdventureInput();
++#endif
+     // Event processing might be computationally heavy.
+     // We want to make sure that we do not slow down by going into sleep mode when it is not needed.
+     const fheroes2::Time eventProcessingTimer;
+@@ -1266,7 +1294,23 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
+         return false;
+     }
+ 
+-    if ( _engine->isControllerValid() ) {
++#if defined( __3DS__ )
++    // Convert a stationary stylus hold before the upstream 850ms left-long-press action.
++    if ( _fingerIds.first && isMouseEventFromTouchpad() && isMouseLeftButtonPressed()
++         && !Platform3DS::isTouchViewportGesture() && SDL_GetTicks() - _stylusHoldStarted >= 550 ) {
++        _stylusRightHeld = true;
++        _currentMouseButton = MouseButtonType::MOUSE_BUTTON_RIGHT;
++        _mousePressRightPos = _mouseCursorPos;
++        resetStates( DRAG_ONGOING );
++        Platform3DS::setTouchRightHeld( true );
++    }
++#endif
++
++    if ( _engine->isControllerValid()
++#if defined( __3DS__ )
++         && !Platform3DS::commandPanelImage()
++#endif
++    ) {
+         ProcessControllerAxisMotion();
+     }
+ 
+@@ -1275,6 +1319,11 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
+ 
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
++#if defined( __3DS__ )
++    // Finish camera easing even when the pointer stops and the game is otherwise idle.
++    isDisplayRefreshRequired = isDisplayRefreshRequired || Platform3DS::needsViewportRefresh( SDL_GetTicks() );
++#endif
++
+     // To maintain color cycling animation we need to render the whole frame with an updated palette.
+     if ( isDisplayRefreshRequired || fheroes2::RenderProcessor::instance().isCyclingUpdateRequired() ) {
+         renderRoi = { 0, 0, display.width(), display.height() };
+@@ -1334,6 +1383,22 @@ void LocalEvent::onMouseWheelEvent( fheroes2::Point position )
+ 
+ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const int64_t touchId, const int64_t fingerId, fheroes2::PointBase2D<float> position )
+ {
++#if defined( __3DS__ )
++    const auto stripType = eventType == TouchFingerEventType::FINGER_EVENT_DOWN ? Platform3DS::PanelInputType::TouchDown
++                           : eventType == TouchFingerEventType::FINGER_EVENT_UP ? Platform3DS::PanelInputType::TouchUp
++                                                                               : Platform3DS::PanelInputType::TouchMove;
++    if ( Platform3DS::handleStripTouch( stripType, position.x, position.y ) ) {
++        if ( stripType == Platform3DS::PanelInputType::TouchDown ) resetFor3DSPanel();
++        return;
++    }
++    if ( Platform3DS::commandPanelImage() ) {
++        const auto type = eventType == TouchFingerEventType::FINGER_EVENT_DOWN ? Platform3DS::PanelInputType::TouchDown
++                          : eventType == TouchFingerEventType::FINGER_EVENT_UP ? Platform3DS::PanelInputType::TouchUp
++                                                                              : Platform3DS::PanelInputType::TouchMove;
++        Platform3DS::handlePanelTouch( type, position.x, position.y );
++        return;
++    }
++#endif
+     // ID of a finger here is a composite thing, and consists of a touch device id and a finger id. This
+     // should allow gestures to be handled correctly even when using different touchpads for different
+     // fingers.
+@@ -1368,9 +1433,30 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
+     }
+ 
+     if ( eventFingerId == _fingerIds.first ) {
++#if !defined( __3DS__ )
+         const fheroes2::Display & display = fheroes2::Display::instance();
++#endif
+ 
+-#if defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH )
++#if defined( __3DS__ )
++        if ( eventType == TouchFingerEventType::FINGER_EVENT_DOWN ) {
++            Platform3DS::beginTouch( position.x, position.y );
++            _stylusHoldStarted = SDL_GetTicks();
++            _stylusRightHeld = false;
++        }
++        else {
++            Platform3DS::setTouchHeld( eventType != TouchFingerEventType::FINGER_EVENT_UP );
++        }
++        if ( eventType == TouchFingerEventType::FINGER_EVENT_MOTION ) {
++            // Move before remapping the pointer so the rendered cursor remains under the stylus.
++            Platform3DS::followTouchMotion( position.x, position.y, SDL_GetTicks() );
++        }
++        // SDL's 3DS backend reports (0,0) on release; retain the last touched target.
++        const fheroes2::Point point = _stylusRightHeld ? _mousePressRightPos
++                                     : eventType == TouchFingerEventType::FINGER_EVENT_UP ? _mouseCursorPos
++                                                                                         : Platform3DS::touchPosition( position.x, position.y );
++        _emulatedPointerPos.x = point.x;
++        _emulatedPointerPos.y = point.y;
++#elif defined( TARGET_PS_VITA ) || defined( TARGET_NINTENDO_SWITCH )
+         // TODO: verify where it is even needed to do such weird woodoo magic for these targets.
+         const fheroes2::Size screenResolution = fheroes2::engine().getCurrentScreenResolution(); // current resolution of screen
+         const fheroes2::Rect windowRect = fheroes2::engine().getActiveWindowROI(); // scaled (logical) resolution
+@@ -1397,23 +1483,39 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
+         // If there is a two-finger gesture in progress, the first finger is only used to move the cursor.
+         // The operation of the left mouse button is not simulated.
+         if ( !_isTwoFingerGestureInProgress ) {
+-            if ( eventType == TouchFingerEventType::FINGER_EVENT_DOWN ) {
+-                _mousePressLeftPos = _mouseCursorPos;
++#if defined( __3DS__ )
++            if ( _stylusRightHeld ) {
++                _currentMouseButton = MouseButtonType::MOUSE_BUTTON_RIGHT;
++                if ( eventType == TouchFingerEventType::FINGER_EVENT_UP ) {
++                    _mouseReleaseRightPos = _mouseCursorPos;
++                    resetStates( MOUSE_PRESSED );
++                    resetStates( DRAG_ONGOING );
++                    setStates( MOUSE_RELEASED );
++                    _stylusRightHeld = false;
++                    Platform3DS::setTouchRightHeld( false );
++                }
++            }
++            else
++#endif
++            {
++                if ( eventType == TouchFingerEventType::FINGER_EVENT_DOWN ) {
++                    _mousePressLeftPos = _mouseCursorPos;
+ 
+-                _mouseButtonLongPressDelay.reset();
++                    _mouseButtonLongPressDelay.reset();
+ 
+-                setStates( MOUSE_PRESSED );
+-            }
+-            else if ( eventType == TouchFingerEventType::FINGER_EVENT_UP ) {
+-                _mouseReleaseLeftPos = _mouseCursorPos;
++                    setStates( MOUSE_PRESSED );
++                }
++                else if ( eventType == TouchFingerEventType::FINGER_EVENT_UP ) {
++                    _mouseReleaseLeftPos = _mouseCursorPos;
+ 
+-                resetStates( MOUSE_PRESSED );
+-                resetStates( DRAG_ONGOING );
++                    resetStates( MOUSE_PRESSED );
++                    resetStates( DRAG_ONGOING );
+ 
+-                setStates( MOUSE_RELEASED );
+-            }
++                    setStates( MOUSE_RELEASED );
++                }
+ 
+-            _currentMouseButton = MouseButtonType::MOUSE_BUTTON_LEFT;
++                _currentMouseButton = MouseButtonType::MOUSE_BUTTON_LEFT;
++            }
+         }
+     }
+     else if ( eventFingerId == _fingerIds.second ) {
+@@ -1565,7 +1667,11 @@ void LocalEvent::onControllerButtonEvent( const bool isPressed, const Controller
+             _currentKeyboardValue = fheroes2::Key::KEY_E;
+         }
+         else if ( buttonType == ControllerButtonType::CONTROLLER_BUTTON_Y ) {
++#if defined( __3DS__ )
++            _currentKeyboardValue = fheroes2::Key::KEY_F12;
++#else
+             _currentKeyboardValue = fheroes2::Key::KEY_C;
++#endif
+         }
+         else if ( buttonType == ControllerButtonType::CONTROLLER_BUTTON_BACK ) {
+             _currentKeyboardValue = fheroes2::Key::KEY_F;
+@@ -1588,6 +1694,9 @@ void LocalEvent::ProcessControllerAxisMotion()
+     _controllerTimer.reset();
+ 
+     if ( _controllerLeftXAxis != 0 || _controllerLeftYAxis != 0 ) {
++#if defined( __3DS__ )
++        Platform3DS::useControllerPointer();
++#endif
+         setStates( MOUSE_MOTION );
+ 
+         const int32_t xSign = ( _controllerLeftXAxis < 0 ) ? -1 : 1;
+@@ -1748,6 +1857,9 @@ void LocalEvent::onMouseButtonEvent( const bool isPressed, const MouseButtonType
+ 
+ bool LocalEvent::MouseClickLeft()
+ {
++#if defined( __3DS__ )
++    if ( isMouseEventFromTouchpad() && Platform3DS::isTouchViewportGesture() ) return false;
++#endif
+     if ( !( _actionStates & MOUSE_RELEASED ) ) {
+         return false;
+     }
+@@ -1767,6 +1879,9 @@ bool LocalEvent::MouseClickLeft()
+ 
+ bool LocalEvent::MouseClickLeft( const fheroes2::Rect & area )
+ {
++#if defined( __3DS__ )
++    if ( isMouseEventFromTouchpad() && Platform3DS::isTouchViewportGesture() ) return false;
++#endif
+     if ( !( _actionStates & MOUSE_RELEASED ) ) {
+         return false;
+     }
+@@ -1851,6 +1966,9 @@ bool LocalEvent::MouseClickRight( const fheroes2::Rect & area )
+ 
+ bool LocalEvent::MouseLongPressLeft( const fheroes2::Rect & rt )
+ {
++#if defined( __3DS__ )
++    if ( isMouseEventFromTouchpad() && Platform3DS::isTouchViewportGesture() ) return false;
++#endif
+     if ( !( _actionStates & MOUSE_PRESSED ) ) {
+         return false;
+     }
+diff --git a/src/engine/localevent.h b/src/engine/localevent.h
+index 2d0b52f..949c5d3 100644
+--- a/src/engine/localevent.h
++++ b/src/engine/localevent.h
+@@ -334,6 +334,9 @@ public:
+ 
+     void initController();
+     void CloseController();
++#if defined( __3DS__ )
++    void resetFor3DSPanel();
++#endif
+ 
+     void SetControllerPointerSpeed( const int newSpeed )
+     {
+@@ -483,6 +486,10 @@ private:
+     uint32_t _actionStates{ NO_EVENT };
+     fheroes2::Key _currentKeyboardValue{ fheroes2::Key::NONE };
+     MouseButtonType _currentMouseButton{ MouseButtonType::MOUSE_BUTTON_UNKNOWN };
++#if defined( __3DS__ )
++    uint32_t _stylusHoldStarted = 0;
++    bool _stylusRightHeld = false;
++#endif
+ 
+     fheroes2::Point _mousePressLeftPos;
+     fheroes2::Point _mousePressMiddlePos;
+diff --git a/src/engine/logging.cpp b/src/engine/logging.cpp
+index 66d6b85..d9bb58d 100644
+--- a/src/engine/logging.cpp
++++ b/src/engine/logging.cpp
+@@ -73,7 +73,7 @@ namespace
+ 
+ namespace Logging
+ {
+-#if defined( TARGET_NINTENDO_SWITCH ) || defined( _WIN32 )
++#if defined( TARGET_NINTENDO_SWITCH ) || defined( _WIN32 ) || defined( __3DS__ )
+     std::ofstream logFile;
+     // This mutex protects operations with logFile
+     std::mutex logMutex;
+@@ -120,7 +120,7 @@ namespace Logging
+         const std::scoped_lock<std::mutex> lock( logMutex );
+ 
+         logFile.open( "fheroes2.log", std::ofstream::app );
+-#elif defined( _WIN32 )
++#elif defined( _WIN32 ) || defined( __3DS__ )
+         const std::scoped_lock<std::mutex> lock( logMutex );
+ 
+         const std::string configDir = System::GetConfigDirectory( "fheroes2" );
+diff --git a/src/engine/logging.h b/src/engine/logging.h
+index d03305c..b158db4 100644
+--- a/src/engine/logging.h
++++ b/src/engine/logging.h
+@@ -66,7 +66,7 @@ enum
+     DBG_ALL_TRACE = DBG_ENGINE_TRACE | DBG_GAME_TRACE | DBG_BATTLE_TRACE | DBG_AI_TRACE | DBG_NETWORK_TRACE | DBG_OTHER_TRACE
+ };
+ 
+-#if defined( TARGET_NINTENDO_SWITCH ) || defined( _WIN32 )
++#if defined( TARGET_NINTENDO_SWITCH ) || defined( _WIN32 ) || defined( __3DS__ )
+ #include <fstream>
+ #include <mutex>
+ 
+@@ -103,7 +103,7 @@ namespace Logging
+         Logging::logFile.flush();                                                                                                                                        \
+         std::cerr << x << std::endl;                                                                                                                                     \
+     }
+-#elif defined( TARGET_NINTENDO_SWITCH ) || defined( _WIN32 )
++#elif defined( TARGET_NINTENDO_SWITCH ) || defined( _WIN32 ) || defined( __3DS__ )
+ #define COUT( x )                                                                                                                                                        \
+     {                                                                                                                                                                    \
+         const std::scoped_lock<std::mutex> _logfile_lock( Logging::logMutex ); /* The name was chosen on purpose to avoid name collisions with outer code blocks. */     \
+diff --git a/src/engine/screen.cpp b/src/engine/screen.cpp
+index cada8e3..3f2de9e 100644
+--- a/src/engine/screen.cpp
++++ b/src/engine/screen.cpp
+@@ -65,9 +65,35 @@
+ #include "logging.h"
+ #include "math_tools.h"
+ #include "system.h"
++#if defined( __3DS__ )
++#include <3ds.h>
++#include <malloc.h>
++#include <SDL_timer.h>
++#include "localevent.h"
++#include "platform_3ds.h"
++#endif
+ 
+ namespace
+ {
++    // newlib may define int32_t as long even though SDL's output parameters use int.
++    void getWindowPosition( SDL_Window * window, int32_t & x, int32_t & y )
++    {
++        int windowX = 0;
++        int windowY = 0;
++        SDL_GetWindowPosition( window, &windowX, &windowY );
++        x = windowX;
++        y = windowY;
++    }
++
++    void getWindowSize( SDL_Window * window, int32_t & width, int32_t & height )
++    {
++        int windowWidth = 0;
++        int windowHeight = 0;
++        SDL_GetWindowSize( window, &windowWidth, &windowHeight );
++        width = windowWidth;
++        height = windowHeight;
++    }
++
+     // Returns nearest screen supported resolution
+     fheroes2::ResolutionInfo GetNearestResolution( fheroes2::ResolutionInfo resolutionInfo, const std::vector<fheroes2::ResolutionInfo> & resolutions )
+     {
+@@ -263,6 +289,9 @@ namespace
+     }
+ 
+     const fheroes2::RGB * currentRGBPalette = RGBPalette();
++#if defined( __3DS__ )
++#include "screen_3ds.h"
++#endif
+ 
+ // If SDL library is used
+ #if !defined( TARGET_PS_VITA )
+@@ -590,6 +619,10 @@ namespace
+ 
+         RenderCursor()
+         {
++#if defined( __3DS__ )
++            forceSoftwareEmulation();
++            return;
++#endif
+             _emulation = false;
+ 
+             const int returnCode = SDL_ShowCursor( _show ? SDL_ENABLE : SDL_DISABLE );
+@@ -879,14 +912,14 @@ namespace
+ #endif
+ 
+                 // Update the window position, in case we get queried for it
+-                SDL_GetWindowPosition( _window, &_prevWindowPos.x, &_prevWindowPos.y );
++                getWindowPosition( _window, _prevWindowPos.x, _prevWindowPos.y );
+ 
+                 // If the window size has been manually changed to one that does not match any of the resolutions supported by the display, then after switching
+                 // to full-screen mode, the in-game display area may not occupy the entire screen, and black bars will remain on the sides of the screen. In this
+                 // case, even if it is specified to use the SDL_WINDOW_FULLSCREEN, the SDL_WINDOW_FULLSCREEN_DESKTOP will still be used under the hood. To avoid
+                 // this, we need to remember the window size (to restore it later when turning off full-screen mode) and then set the window size to the size of
+                 // the in-game display area before switching to the full-screen mode.
+-                SDL_GetWindowSize( _window, &_windowedSize.width, &_windowedSize.height );
++                getWindowSize( _window, _windowedSize.width, _windowedSize.height );
+ 
+                 if ( const fheroes2::Display & display = fheroes2::Display::instance(); display.width() != 0 && display.height() != 0 ) {
+                     assert( display.screenSize().width >= display.width() && display.screenSize().height >= display.height() );
+@@ -1067,7 +1100,7 @@ namespace
+                 return { -1, -1 };
+             }
+             fheroes2::Point result;
+-            SDL_GetWindowPosition( _window, &result.x, &result.y );
++            getWindowPosition( _window, result.x, result.y );
+             return result;
+         }
+ 
+@@ -1114,7 +1147,7 @@ namespace
+             if ( _window != nullptr ) {
+                 // Let's collect needed info about previous setup
+                 if ( !isFullScreen() ) {
+-                    SDL_GetWindowPosition( _window, &_prevWindowPos.x, &_prevWindowPos.y );
++                    getWindowPosition( _window, _prevWindowPos.x, _prevWindowPos.y );
+                 }
+                 _previousWindowTitle = System::encUTF8ToLocal( SDL_GetWindowTitle( _window ) );
+ 
+@@ -1401,8 +1434,8 @@ namespace
+             // On a Nintendo Switch the game is always fullscreen
+             _activeWindowROI = { 0, 0, _currentScreenResolution.width, _currentScreenResolution.height };
+ #else
+-            SDL_GetWindowPosition( _window, &_activeWindowROI.x, &_activeWindowROI.y );
+-            SDL_GetWindowSize( _window, &_activeWindowROI.width, &_activeWindowROI.height );
++            getWindowPosition( _window, _activeWindowROI.x, _activeWindowROI.y );
++            getWindowSize( _window, _activeWindowROI.width, _activeWindowROI.height );
+ #endif
+ 
+             return true;
+@@ -1453,7 +1486,11 @@ namespace fheroes2
+     }
+ 
+     Display::Display()
++#if defined( __3DS__ )
++        : _engine( new RenderEngine3DS )
++#else
+         : _engine( RenderEngine::create() )
++#endif
+         , _cursor( RenderCursor::create() )
+     {
+         _disableTransformLayer();
+diff --git a/src/engine/serialize.h b/src/engine/serialize.h
+index 9d31404..316c3e6 100644
+--- a/src/engine/serialize.h
++++ b/src/engine/serialize.h
+@@ -84,7 +84,7 @@
+ #define be32toh( x ) __builtin_bswap32( x )
+ #define le32toh( x ) ( x )
+ 
+-#elif defined( TARGET_NINTENDO_SWITCH )
++#elif defined( TARGET_NINTENDO_SWITCH ) || defined( __3DS__ )
+ #include <machine/endian.h>
+ #define LITTLE_ENDIAN _LITTLE_ENDIAN
+ #define BIG_ENDIAN _BIG_ENDIAN
+diff --git a/src/engine/system.cpp b/src/engine/system.cpp
+index e3d7171..8773662 100644
+--- a/src/engine/system.cpp
++++ b/src/engine/system.cpp
+@@ -82,6 +82,8 @@ namespace
+         return System::concatPath( "ux0:data", appName );
+ #elif defined( TARGET_NINTENDO_SWITCH )
+         return System::concatPath( "/switch", appName );
++#elif defined( __3DS__ )
++        return System::concatPath( "sdmc:/3ds", appName );
+ #elif defined( ANDROID )
+         (void)appName;
+ 
+@@ -264,7 +266,7 @@ namespace
+ 
+ bool System::isHandheldDevice()
+ {
+-#if defined( ANDROID ) || defined( __IPHONEOS__ )
++#if defined( ANDROID ) || defined( __IPHONEOS__ ) || defined( __3DS__ )
+     return true;
+ #else
+     return false;
+@@ -450,7 +452,7 @@ bool System::IsDirectory( const std::string_view path )
+ 
+ bool System::GetCaseInsensitivePath( const std::string_view path, std::string & correctedPath )
+ {
+-#if !defined( _WIN32 ) && !defined( ANDROID ) && !defined( TARGET_PS_VITA ) && !defined( __IPHONEOS__ )
++#if !defined( _WIN32 ) && !defined( ANDROID ) && !defined( TARGET_PS_VITA ) && !defined( __IPHONEOS__ ) && !defined( __3DS__ )
+     // The following code is based on https://github.com/OneSadCookie/fcaseopen and assumes the use of POSIX IEEE Std 1003.1-2001 pathnames
+     correctedPath.clear();
+ 
+diff --git a/src/fheroes2/game/fheroes2.cpp b/src/fheroes2/game/fheroes2.cpp
+index ce25e88..4c643bb 100644
+--- a/src/fheroes2/game/fheroes2.cpp
++++ b/src/fheroes2/game/fheroes2.cpp
+@@ -65,15 +65,24 @@ int main( int argc, char ** argv )
+ #endif
+ 
+     try {
++#if defined( __3DS__ )
++        Game::initLogging();
++        COUT( "3DS startup: early SD log ready" )
++#endif
+         auto hardwareComponent = Game::createHardwareComponent();
+ 
++#if !defined( __3DS__ )
+         Game::initLogging();
++#endif
+         Game::initDataDir();
+         Game::initConfigDir( argv[0] );
+ 
+         auto coreComponent = Game::createCoreComponent();
+         auto displayComponent = Game::createDisplayComponent();
+         auto dataComponent = Game::createDataComponent();
++#if defined( __3DS__ )
++        COUT( "3DS startup: display and game resources ready" )
++#endif
+         auto audioComponent = Game::createAudioComponent( dataComponent.get() );
+ 
+         Game::initPalette();
+@@ -84,6 +93,9 @@ int main( int argc, char ** argv )
+ 
+         try {
+             Game::runMainGameLoop();
++#if defined( __3DS__ )
++            COUT( "3DS normal game loop exit" )
++#endif
+         }
+         catch ( const fheroes2::InvalidDataResources & ex ) {
+             ERROR_LOG( ex.what() )
+diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
+index 69d39fb..16b57ff 100644
+--- a/src/fheroes2/game/game_mainmenu.cpp
++++ b/src/fheroes2/game/game_mainmenu.cpp
+@@ -58,6 +58,10 @@
+ #include "math_base.h"
+ #include "mus.h"
+ #include "screen.h"
++#include "platform_3ds.h"
++#if defined( __3DS__ )
++#include "ui_3ds_commands.h"
++#endif
+ #include "settings.h"
+ #include "system.h"
+ #include "translations.h"
+@@ -122,10 +126,12 @@ namespace
+ 
+ void Game::runMainGameLoop()
+ {
++#if !defined( __3DS__ )
+     fheroes2::showTeamInfo();
+     for ( const char * logo : { "NWCLOGO.SMK", "CYLOGO.SMK", "H2XINTRO.SMK" } ) {
+         Video::ShowVideo( { { logo, Video::VideoControl::PLAY_CUTSCENE } } );
+     }
++#endif
+ 
+     const CursorRestorer cursorRestorer( true, Cursor::POINTER );
+ 
+@@ -271,10 +277,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+         {
+             std::string body( _( "Welcome to Heroes of Might and Magic II powered by fheroes2 engine!" ) );
+ 
++#if defined( __3DS__ )
++            body += "\n\nCircle Pad: cursor. A: left click. B: right click. The bottom screen follows the cursor; touch it to click.";
++#else
+             if ( System::isTouchInputAvailable() ) {
+                 body += _(
+                     "\n\nTo simulate a right-click with a touch to get info on various items, you need to first touch and keep touching on the item of interest and then touch anywhere else on the screen. While holding the second finger, you can remove the first one from the screen and keep viewing the information on the item." );
+             }
++#endif
+ 
+             // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
+             if ( !System::isHandheldDevice() ) {
+@@ -316,6 +326,16 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+     buttonQuit.draw();
+ 
+     fheroes2::validateFadeInAndRender();
++#if defined( __3DS__ )
++    COUT( "3DS MAIN MENU READY" )
++    if ( Platform3DS::smokeTest() ) {
++        Platform3DS::requestCapture();
++        display.render();
++        Interface3DS::captureCommandPanelPreview();
++        COUT( "3DS MENU SMOKE: PASS" )
++        return fheroes2::GameMode::QUIT_GAME;
++    }
++#endif
+ 
+     const double scaleX = static_cast<double>( display.width() ) / fheroes2::Display::DEFAULT_WIDTH;
+     const double scaleY = static_cast<double>( display.height() ) / fheroes2::Display::DEFAULT_HEIGHT;
+diff --git a/src/fheroes2/game/game_startgame.cpp b/src/fheroes2/game/game_startgame.cpp
+index 49635b1..da760c8 100644
+--- a/src/fheroes2/game/game_startgame.cpp
++++ b/src/fheroes2/game/game_startgame.cpp
+@@ -86,6 +86,10 @@
+ #include "ui_text.h"
+ #include "ui_tool.h"
+ #include "week.h"
++#if defined( __3DS__ )
++#include "platform_3ds.h"
++#include "ui_3ds_commands.h"
++#endif
+ #include "world.h"
+ 
+ namespace
+@@ -1101,8 +1105,41 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
+         resetCursor();
+     };
+ 
++#if defined( __3DS__ )
++    struct AdventureDpadGuard
++    {
++        ~AdventureDpadGuard() { Platform3DS::setAdventureInputActive( false ); Platform3DS::cancelAdventureScroll(); }
++    } adventureDpadGuard;
++    bool dpadScrollPending = false;
++    Interface3DS::CommandStrip commandStrip;
++    const auto presentStrip = [&]() {
++        const Heroes * hero = GetFocusHeroes();
++        const bool path = hero && hero->GetPath().isValidForMovement();
++        const bool revisit = hero && MP2::isRevisitAllowedForObject( hero->getObjectTypeUnderHero(), hero->isShipMaster() );
++        const int movementFrame = path && hero->MayStillMove( false, true ) ? 2 : revisit ? 16 : 18;
++        const auto & heroes = myKingdom.GetHeroes();
++        const bool next = std::any_of( heroes.begin(), heroes.end(), []( const Heroes * h ) { return h->MayStillMove( false, false ); } );
++        std::array<bool, 8> enabled{ next, path || revisit, true, hero && hero->HaveSpellBook() && hero->MayCastAdventureSpells(), true, true, true, true };
++        if ( isHeroMoving ) enabled.fill( false );
++        return commandStrip.present( enabled, movementFrame, conf.isEvilInterfaceEnabled() );
++    };
++#endif
++
+     while ( res == fheroes2::GameMode::CANCEL ) {
++#if defined( __3DS__ )
++        if ( presentStrip() ) fheroes2::Display::instance().render();
++        Platform3DS::setAdventureInputActive( true );
++        const bool eventsReady = le.HandleEvents( Game::isDelayNeeded( delayTypes ), true );
++        Platform3DS::setAdventureInputActive( false );
++        // A pending scroll must not survive release while waiting for SCROLL_DELAY.
++        if ( dpadScrollPending ) { _gameArea.SetScroll( SCROLL_NONE ); dpadScrollPending = false; }
++        const auto stripAction = commandStrip.processInput();
++        // Only the map's input/render phases expose the strip. Dialogs, AI and combat use the full detail screen.
++        commandStrip.suspend();
++        if ( !eventsReady ) {
++#else
+         if ( !le.HandleEvents( Game::isDelayNeeded( delayTypes ), true ) ) {
++#endif
+             if ( Game::processExitEvent() == fheroes2::GameMode::QUIT_GAME ) {
+                 res = fheroes2::GameMode::QUIT_GAME;
+ 
+@@ -1124,6 +1161,45 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
+         }
+ #endif
+ 
++#if defined( __3DS__ )
++        if ( le.isKeyPressed( fheroes2::Key::KEY_F12 ) ) {
++            commandStrip.toggle();
++            presentStrip();
++            fheroes2::Display::instance().render();
++            continue;
++        }
++        if ( stripAction.index >= 0 ) {
++            le.resetFor3DSPanel();
++            if ( !isHeroMoving ) {
++                if ( stripAction.information ) Interface3DS::showStripInformation( stripAction.index );
++                else switch ( stripAction.index ) {
++                case 0: EventNextHero(); break;
++                case 1: res = EventHeroMovement(); break;
++                case 2: EventKingdomInfo(); break;
++                case 3: EventCastSpell(); break;
++                case 4:
++                    if ( myKingdom.HeroesMayStillMove()
++                         || Dialog::YES == fheroes2::showStandardTextMessage( _( "End Turn" ), _( "End your turn and let the computer take its turn." ), Dialog::YES | Dialog::NO ) ) {
++                        res = EventEndTurn();
++                    }
++                    break;
++                case 5: res = EventAdventureDialog(); break;
++                case 6: res = EventFileDialog(); break;
++                case 7: EventSystemDialog(); break;
++                default: break;
++                }
++            }
++            else stopHero = true;
++            // Movement can be started by a strip command before the regular animation phase.
++            // Disable commands immediately rather than waiting for the next movement tick.
++            isHeroMoving = GetFocusHeroes() && GetFocusHeroes()->isMoveEnabled();
++            redraw( REDRAW_ALL );
++            if ( res == fheroes2::GameMode::CANCEL ) presentStrip();
++            fheroes2::Display::instance().render();
++            continue; // A strip command must not also interact with the map.
++        }
++#endif
++
+         // Pending timer events
+         _statusPanel.TimerEventProcessing();
+ 
+@@ -1132,12 +1208,17 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
+             cursor.SetThemes( Cursor::WAIT );
+ 
+             // If the hero is currently moving, pressing any key or mouse button should stop him. No other actions are possible at this time.
+-            if ( le.isAnyKeyPressed() || le.MouseClickLeft() || le.isMouseRightButtonPressed() ) {
++            if ( le.isAnyKeyPressed() || le.MouseClickLeft() || le.isMouseRightButtonPressed()
++#if defined( __3DS__ )
++                 || Platform3DS::adventureScrollDirection() != fheroes2::Point()
++#endif
++            ) {
+                 stopHero = true;
+             }
+         }
+         else {
+             // Hotkeys
++
+             if ( le.isAnyKeyPressed() ) {
+                 // Adventure map control
+                 if ( HotKeyPressEvent( Game::HotKeyEvent::GLOBAL_APP_QUIT ) || HotKeyPressEvent( Game::HotKeyEvent::DEFAULT_CANCEL ) ) {
+@@ -1537,6 +1618,11 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
+ 
+         // Scrolling the game area
+         if ( !isHeroMoving ) {
++#if defined( __3DS__ )
++            if ( Interface3DS::queueDpadScroll( _gameArea ) ) {
++                dpadScrollPending = true;
++            }
++#endif
+             if ( _gameArea.NeedScroll() && Game::validateAnimationDelay( Game::DelayType::SCROLL_DELAY ) ) {
+                 assert( !_gameArea.isDragScroll() );
+ 
+@@ -1571,6 +1657,9 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
+             _gameArea.SetRedraw();
+         }
+ 
++#if defined( __3DS__ )
++        if ( presentStrip() ) setRedraw( REDRAW_GAMEAREA );
++#endif
+         if ( needRedraw() ) {
+             redraw( 0 );
+ 
+diff --git a/src/fheroes2/gui/interface_base.h b/src/fheroes2/gui/interface_base.h
+index 7358f70..3b4ac9f 100644
+--- a/src/fheroes2/gui/interface_base.h
++++ b/src/fheroes2/gui/interface_base.h
+@@ -27,6 +27,9 @@
+ #include "math_base.h"
+ #include "screen.h"
+ #include "ui_constants.h"
++#if defined( __3DS__ )
++#include "platform_3ds.h"
++#endif
+ 
+ namespace Interface
+ {
+@@ -90,11 +93,17 @@ namespace Interface
+ 
+         static bool isScrollLeft( const fheroes2::Point & cursorPos )
+         {
++#if defined( __3DS__ )
++            if ( Platform3DS::isTouchPointerActive() ) return false;
++#endif
+             return cursorPos.x < fheroes2::borderWidthPx;
+         }
+ 
+         static bool isScrollRight( const fheroes2::Point & cursorPos )
+         {
++#if defined( __3DS__ )
++            if ( Platform3DS::isTouchPointerActive() ) return false;
++#endif
+             const fheroes2::Display & display = fheroes2::Display::instance();
+ 
+             return cursorPos.x >= display.width() - fheroes2::borderWidthPx;
+@@ -102,11 +111,17 @@ namespace Interface
+ 
+         static bool isScrollTop( const fheroes2::Point & cursorPos )
+         {
++#if defined( __3DS__ )
++            if ( Platform3DS::isTouchPointerActive() ) return false;
++#endif
+             return cursorPos.y < fheroes2::borderWidthPx;
+         }
+ 
+         static bool isScrollBottom( const fheroes2::Point & cursorPos )
+         {
++#if defined( __3DS__ )
++            if ( Platform3DS::isTouchPointerActive() ) return false;
++#endif
+             const fheroes2::Display & display = fheroes2::Display::instance();
+ 
+             return cursorPos.y >= display.height() - fheroes2::borderWidthPx;
+diff --git a/src/fheroes2/gui/interface_gamearea.cpp b/src/fheroes2/gui/interface_gamearea.cpp
+index b8f496e..ab44ad5 100644
+--- a/src/fheroes2/gui/interface_gamearea.cpp
++++ b/src/fheroes2/gui/interface_gamearea.cpp
+@@ -62,6 +62,9 @@
+ #include "ui_constants.h"
+ #include "ui_object_rendering.h"
+ #include "world.h"
++#if defined( __3DS__ )
++#include "platform_3ds.h"
++#endif
+ 
+ namespace
+ {
+@@ -1075,6 +1078,17 @@ void Interface::GameArea::QueueEventProcessing()
+     const fheroes2::Point & mousePosition = le.getMouseCursorPos();
+     const Settings & conf = Settings::Get();
+ 
++#if defined( __3DS__ )
++    // Stylus movement belongs to the detail viewport, not the adventure-map camera.
++    if ( le.isMouseEventFromTouchpad() ) {
++        _mouseDraggingInitiated = false;
++        _mouseDraggingMovement = false;
++        _needRedrawByMouseDragging = false;
++        _inertiaHandler.reset();
++        if ( Platform3DS::isTouchViewportGesture() ) return;
++    }
++#endif
++
+     if ( !le.isMouseLeftButtonPressed() ) {
+         if ( _mouseDraggingMovement && conf.isMapSmoothScrollingEnabled() ) {
+             _inertiaHandler.commitRelease();
+@@ -1083,7 +1097,11 @@ void Interface::GameArea::QueueEventProcessing()
+         _mouseDraggingMovement = false;
+         _needRedrawByMouseDragging = false;
+     }
+-    else if ( _interface.useMouseDragMovement() ) {
++    else if ( _interface.useMouseDragMovement()
++#if defined( __3DS__ )
++              && !le.isMouseEventFromTouchpad()
++#endif
++    ) {
+         if ( !_mouseDraggingInitiated ) {
+             _mouseDraggingInitiated = true;
+             _lastMouseDragPosition = mousePosition;
+diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
+new file mode 100644
+index 0000000..d7eec49
+--- /dev/null
++++ b/src/engine/platform_3ds.cpp
+@@ -0,0 +1,292 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "platform_3ds.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <cmath>
++#include <filesystem>
++#include <deque>
++#include <set>
++#include <SDL.h>
++namespace
++{
++    fheroes2::Point crop;
++    bool touchHeld = false;
++    bool capture = false;
++    fheroes2::Point lastCursor;
++    fheroes2::Point target;
++    double cameraX = 0, cameraY = 0;
++    uint32_t lastUpdate = 0;
++    bool initialized = false;
++    bool anchorAfterTouch = false;
++    bool touchViewportChanged = false;
++    bool touchMotionInitialized = false;
++    uint32_t lastTouchMotion = 0;
++    bool touchViewportGesture = false;
++    bool touchPointerActive = false;
++    fheroes2::Point touchStart;
++    bool touchRightHeld = false;
++    const fheroes2::Image * panelImage = nullptr;
++    const fheroes2::Image * stripImage = nullptr;
++    bool stripTouchCaptured = false;
++    int previousDetailHeight = 240;
++    std::deque<Platform3DS::PanelInput> panelInputs;
++    uint32_t panelControllerHeld = 0;
++    std::set<int> panelKeyboardHeld;
++    fheroes2::Size frameSize{ 800, 480 };
++    bool adventureInputActive = false;
++    uint8_t adventureDpadHeld = 0;
++    uint8_t adventureDpadCaptured = 0;
++}
++namespace Platform3DS
++{
++    void setVirtualFrameSize( const fheroes2::Size size )
++    {
++        frameSize = { std::max<int32_t>( 320, size.width ), std::max<int32_t>( 240, size.height ) };
++        crop.x = std::clamp<int32_t>( crop.x, 0, frameSize.width - 320 );
++        crop.y = std::clamp<int32_t>( crop.y, 0, frameSize.height - detailHeight() );
++        resetViewportFollow();
++    }
++    fheroes2::Size virtualFrameSize() { return frameSize; }
++    void setAdventureInputActive( const bool active ) { adventureInputActive = active; }
++    void cancelAdventureScroll() { adventureDpadHeld = 0; }
++    void prepareAdventureInput()
++    {
++        // A nested event loop belongs to a dialog, combat or AI. Require a fresh press after it.
++        if ( !adventureInputActive ) cancelAdventureScroll();
++    }
++    bool handleAdventureDpad( const int button, const bool pressed )
++    {
++        uint8_t bit = 0;
++        switch ( button ) {
++        case SDL_CONTROLLER_BUTTON_DPAD_LEFT: bit = 1; break;
++        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: bit = 2; break;
++        case SDL_CONTROLLER_BUTTON_DPAD_UP: bit = 4; break;
++        case SDL_CONTROLLER_BUTTON_DPAD_DOWN: bit = 8; break;
++        default: return false;
++        }
++        if ( !pressed ) {
++            const bool captured = ( adventureDpadCaptured & bit ) != 0;
++            adventureDpadHeld &= ~bit;
++            adventureDpadCaptured &= ~bit;
++            return captured;
++        }
++        adventureDpadCaptured &= ~bit;
++        adventureDpadHeld &= ~bit;
++        if ( !adventureInputActive || panelImage ) return false;
++        adventureDpadHeld |= bit;
++        adventureDpadCaptured |= bit;
++        return true;
++    }
++    fheroes2::Point adventureScrollDirection()
++    {
++        return { int32_t( ( adventureDpadHeld & 2 ) != 0 ) - int32_t( ( adventureDpadHeld & 1 ) != 0 ),
++                 int32_t( ( adventureDpadHeld & 8 ) != 0 ) - int32_t( ( adventureDpadHeld & 4 ) != 0 ) };
++    }
++    const fheroes2::Image * commandStripImage() { return stripImage; }
++    void setCommandStripImage( const fheroes2::Image * image ) { stripImage = image; }
++    int detailHeight() { return stripImage ? 200 : 240; }
++    bool handleStripTouch( const PanelInputType type, const float x, const float y )
++    {
++        if ( type == PanelInputType::TouchDown ) stripTouchCaptured = stripImage && y >= 200.0f / 240;
++        if ( !stripTouchCaptured ) return false;
++        // Capture the entire gesture, including release after hiding the strip or opening a dialog.
++        if ( stripImage ) handlePanelTouch( type, x, y );
++        if ( type == PanelInputType::TouchUp ) stripTouchCaptured = false;
++        return true;
++    }
++    const fheroes2::Image * commandPanelImage() { return panelImage; }
++    void setCommandPanelImage( const fheroes2::Image * image ) { panelImage = image; panelInputs.clear(); }
++    bool consumePanelInput( PanelInput & input )
++    {
++        if ( panelInputs.empty() ) return false;
++        input = panelInputs.front(); panelInputs.pop_front(); return true;
++    }
++    fheroes2::Rect panelButtonRect( const int index ) { return { 8 + ( index % 2 ) * 156, 42 + ( index / 2 ) * 42, 148, 38 }; }
++    int panelButtonAt( const fheroes2::Point point )
++    {
++        for ( int i = 0; i < 8; ++i ) if ( panelButtonRect( i ) & point ) return i;
++        return -1;
++    }
++    bool handlePanelController( const int button, const bool pressed )
++    {
++        const uint32_t bit = button >= 0 && button < 32 ? uint32_t( 1 ) << button : 0;
++        if ( !panelImage ) {
++            if ( !( panelControllerHeld & bit ) ) return false;
++            if ( !pressed ) panelControllerHeld &= ~bit;
++            return true; // Swallow the release of a button that closed the panel.
++        }
++        if ( !pressed ) { panelControllerHeld &= ~bit; return true; }
++        panelControllerHeld |= bit;
++        PanelKey key;
++        switch ( button ) {
++        case SDL_CONTROLLER_BUTTON_DPAD_UP: key = PanelKey::Up; break;
++        case SDL_CONTROLLER_BUTTON_DPAD_DOWN: key = PanelKey::Down; break;
++        case SDL_CONTROLLER_BUTTON_DPAD_LEFT: key = PanelKey::Left; break;
++        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: key = PanelKey::Right; break;
++        case SDL_CONTROLLER_BUTTON_A:
++        case SDL_CONTROLLER_BUTTON_START: key = PanelKey::Confirm; break;
++        case SDL_CONTROLLER_BUTTON_B:
++        case SDL_CONTROLLER_BUTTON_Y:
++        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: key = PanelKey::Cancel; break;
++        default: return true;
++        }
++        panelInputs.push_back( { PanelInputType::Key, key, {} } );
++        return true;
++    }
++    bool handlePanelKeyboard( const int key, const bool pressed )
++    {
++        if ( !panelImage ) {
++            if ( !panelKeyboardHeld.count( key ) ) return false;
++            if ( !pressed ) panelKeyboardHeld.erase( key );
++            return true;
++        }
++        if ( !pressed ) { panelKeyboardHeld.erase( key ); return true; }
++        panelKeyboardHeld.insert( key );
++        PanelKey panelKey;
++        switch ( key ) {
++        case SDLK_UP: panelKey = PanelKey::Up; break;
++        case SDLK_DOWN: panelKey = PanelKey::Down; break;
++        case SDLK_LEFT: panelKey = PanelKey::Left; break;
++        case SDLK_RIGHT: panelKey = PanelKey::Right; break;
++        case SDLK_RETURN: panelKey = PanelKey::Confirm; break;
++        case SDLK_ESCAPE:
++        case SDLK_F12: panelKey = PanelKey::Cancel; break;
++        default: return true;
++        }
++        panelInputs.push_back( { PanelInputType::Key, panelKey, {} } );
++        return true;
++    }
++    void handlePanelTouch( const PanelInputType type, const float x, const float y )
++    {
++        panelInputs.push_back( { type, PanelKey::Cancel,
++                                { std::clamp<int32_t>( static_cast<int32_t>( std::floor( x * 320 ) ), 0, 319 ),
++                                  std::clamp<int32_t>( static_cast<int32_t>( std::floor( y * 240 ) ), 0, 239 ) } } );
++    }
++    fheroes2::Point viewport() { return crop; }
++    void resetViewportFollow()
++    {
++        touchHeld = false;
++        anchorAfterTouch = false;
++        initialized = false;
++        touchViewportChanged = false;
++        touchMotionInitialized = false;
++        touchViewportGesture = false;
++        touchPointerActive = false;
++        touchRightHeld = false;
++        cameraX = crop.x;
++        cameraY = crop.y;
++        target = crop;
++    }
++    bool needsViewportRefresh( const uint32_t now )
++    {
++        return touchViewportChanged || ( !touchHeld && !anchorAfterTouch && target != crop && now - lastUpdate >= 16 );
++    }
++    void followCursor( const fheroes2::Point cursor, const uint32_t now, const bool buttonHeld )
++    {
++        const int height = detailHeight();
++        if ( height != previousDetailHeight ) initialized = false;
++        previousDetailHeight = height;
++        const int maxX = frameSize.width - 320, maxY = frameSize.height - height;
++        crop.x = std::clamp<int32_t>( crop.x, 0, maxX );
++        crop.y = std::clamp<int32_t>( crop.y, 0, maxY );
++        cameraX = std::clamp( cameraX, 0.0, double( maxX ) );
++        cameraY = std::clamp( cameraY, 0.0, double( maxY ) );
++        const uint32_t elapsed = initialized ? now - lastUpdate : 16;
++        lastUpdate = now;
++        if ( touchHeld || buttonHeld || anchorAfterTouch ) {
++            // Discard remaining camera motion so releasing a click cannot move its target.
++            target = crop;
++            if ( !touchHeld ) {
++                cameraX = crop.x;
++                cameraY = crop.y;
++            }
++            touchViewportChanged = false;
++            lastCursor = cursor;
++            initialized = true;
++            anchorAfterTouch = false;
++            return;
++        }
++        if ( !initialized || cursor != lastCursor ) {
++            // A 64x48 stationary zone around the detail screen's centre prevents jitter.
++            if ( cursor.x < crop.x + 128 ) target.x = cursor.x - 128;
++            else if ( cursor.x > crop.x + 192 ) target.x = cursor.x - 192;
++            if ( cursor.y < crop.y + height / 2 - 24 ) target.y = cursor.y - ( height / 2 - 24 );
++            else if ( cursor.y > crop.y + height / 2 + 24 ) target.y = cursor.y - ( height / 2 + 24 );
++            target.x = std::clamp<int32_t>( target.x, 0, maxX );
++            target.y = std::clamp<int32_t>( target.y, 0, maxY );
++        }
++        lastCursor = cursor;
++        initialized = true;
++        // Time-based easing; cap gaps after blocking dialogs or suspend.
++        const double blend = 1.0 - std::exp( -static_cast<double>( std::min<uint32_t>( elapsed, 50 ) ) / 90.0 );
++        cameraX += ( target.x - cameraX ) * blend;
++        cameraY += ( target.y - cameraY ) * blend;
++        // Even a sudden pointer warp must remain visible. Screen edges clamp naturally.
++        cameraX = std::clamp( cameraX, double( std::max<int32_t>( 0, cursor.x - 319 ) ), double( std::min<int32_t>( maxX, cursor.x ) ) );
++        target.y = std::clamp<int32_t>( target.y, 0, maxY );
++        cameraY = std::clamp( cameraY, double( std::max<int32_t>( 0, cursor.y - height + 1 ) ), double( std::min<int32_t>( maxY, cursor.y ) ) );
++        crop = { static_cast<int32_t>( std::round( cameraX ) ), static_cast<int32_t>( std::round( cameraY ) ) };
++    }
++    fheroes2::Point touchPosition( const float x, const float y )
++    {
++        return { crop.x + std::clamp<int32_t>( static_cast<int32_t>( std::floor( x * 320 ) ), 0, 319 ),
++                 crop.y + std::clamp<int32_t>( static_cast<int32_t>( std::floor( y * 240 ) ), 0, detailHeight() - 1 ) };
++    }
++    void setTouchHeld( const bool held )
++    {
++        if ( held != touchHeld ) {
++            touchMotionInitialized = false;
++            cameraX = crop.x;
++            cameraY = crop.y;
++        }
++        if ( touchHeld && !held ) anchorAfterTouch = true;
++        touchHeld = held;
++    }
++    void beginTouch( const float x, const float y )
++    {
++        setTouchHeld( true );
++        const auto point = touchPosition( x, y );
++        touchStart = { point.x - crop.x, point.y - crop.y };
++        touchViewportGesture = false;
++        touchPointerActive = true;
++        touchRightHeld = false;
++    }
++    bool isTouchViewportGesture() { return touchViewportGesture; }
++    bool isTouchPointerActive() { return touchPointerActive; }
++    void useControllerPointer() { if ( !touchHeld ) touchPointerActive = false; }
++    void setTouchRightHeld( const bool held ) { touchRightHeld = held; }
++    void followTouchMotion( const float x, const float y, const uint32_t now )
++    {
++        if ( !touchHeld || touchRightHeld ) return;
++        const auto point = touchPosition( x, y );
++        const int32_t localX = point.x - crop.x, localY = point.y - crop.y;
++        // Use physical stylus displacement, independent of the moving virtual crop.
++        if ( std::abs( localX - touchStart.x ) >= 10 || std::abs( localY - touchStart.y ) >= 10 ) touchViewportGesture = true;
++        // Ignore small pen jitter so tapping a button near an edge cannot pan or cancel its click.
++        if ( !touchViewportGesture ) return;
++        const int32_t shiftX = localX < 128 ? localX - 128 : ( localX > 192 ? localX - 192 : 0 );
++        const int height = detailHeight();
++        const int low = height / 2 - 24, high = height / 2 + 24;
++        const int32_t shiftY = localY < low ? localY - low : ( localY > high ? localY - high : 0 );
++        const uint32_t elapsed = touchMotionInitialized ? now - lastTouchMotion : 16;
++        lastTouchMotion = now;
++        touchMotionInitialized = true;
++        const double blend = 1.0 - std::exp( -static_cast<double>( std::min<uint32_t>( elapsed, 50 ) ) / 90.0 );
++        cameraX = std::clamp( cameraX + shiftX * blend, 0.0, double( frameSize.width - 320 ) );
++        cameraY = std::clamp( cameraY + shiftY * blend, 0.0, double( frameSize.height - height ) );
++        const fheroes2::Point nextCrop{ static_cast<int32_t>( std::round( cameraX ) ), static_cast<int32_t>( std::round( cameraY ) ) };
++        touchViewportChanged = touchViewportChanged || nextCrop != crop;
++        if ( nextCrop != crop ) touchViewportGesture = true;
++        crop = nextCrop;
++        // Touch moves the camera only on motion events: a still press cannot keep scrolling.
++        target = crop;
++    }
++    bool smokeTest()
++    {
++        static const bool enabled = std::filesystem::exists( "sdmc:/3ds/fheroes2/menu-smoke.enabled" );
++        return enabled;
++    }
++    void requestCapture() { capture = true; }
++    bool consumeCapture() { const bool result = capture; capture = false; return result; }
++}
++#endif
+diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
+new file mode 100644
+index 0000000..c78c21a
+--- /dev/null
++++ b/src/engine/platform_3ds.h
+@@ -0,0 +1,46 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#if defined( __3DS__ )
++#include "math_base.h"
++namespace fheroes2 { class Image; }
++namespace Platform3DS
++{
++    enum class PanelKey { Up, Down, Left, Right, Confirm, Cancel };
++    enum class PanelInputType { Key, TouchDown, TouchMove, TouchUp };
++    struct PanelInput { PanelInputType type; PanelKey key = PanelKey::Cancel; fheroes2::Point position; };
++    const fheroes2::Image * commandPanelImage();
++    void setCommandPanelImage( const fheroes2::Image * image );
++    bool consumePanelInput( PanelInput & input );
++    bool handlePanelController( int button, bool pressed );
++    bool handlePanelKeyboard( int key, bool pressed );
++    void handlePanelTouch( PanelInputType type, float x, float y );
++    fheroes2::Rect panelButtonRect( int index );
++    int panelButtonAt( fheroes2::Point point );
++    const fheroes2::Image * commandStripImage();
++    void setCommandStripImage( const fheroes2::Image * image );
++    bool handleStripTouch( PanelInputType type, float x, float y );
++    int detailHeight();
++    void setVirtualFrameSize( fheroes2::Size size );
++    fheroes2::Size virtualFrameSize();
++    void setAdventureInputActive( bool active );
++    void prepareAdventureInput();
++    void cancelAdventureScroll();
++    bool handleAdventureDpad( int button, bool pressed );
++    fheroes2::Point adventureScrollDirection();
++    fheroes2::Point viewport();
++    void followCursor( fheroes2::Point cursor, uint32_t now, bool buttonHeld = false );
++    bool needsViewportRefresh( uint32_t now );
++    void resetViewportFollow();
++    fheroes2::Point touchPosition( float x, float y );
++    void followTouchMotion( float x, float y, uint32_t now );
++    void setTouchHeld( bool held );
++    void beginTouch( float x, float y );
++    bool isTouchViewportGesture();
++    bool isTouchPointerActive();
++    void useControllerPointer();
++    void setTouchRightHeld( bool held );
++    bool smokeTest();
++    void requestCapture();
++    bool consumeCapture();
++}
++#endif
+diff --git a/src/engine/screen_3ds.h b/src/engine/screen_3ds.h
+new file mode 100644
+index 0000000..9da454e
+--- /dev/null
++++ b/src/engine/screen_3ds.h
+@@ -0,0 +1,112 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++// Included inside screen.cpp's anonymous namespace after currentRGBPalette.
++class RenderEngine3DS final : public fheroes2::BaseRenderEngine
++{
++public:
++    bool isFullScreen() const override { return true; }
++    void toggleFullScreen() override {}
++    std::vector<fheroes2::ResolutionInfo> getAvailableResolutions() const override { return { { 800, 480 } }; }
++    fheroes2::Rect getActiveWindowROI() const override { return { 0, 0, 800, 480 }; }
++    fheroes2::Size getCurrentScreenResolution() const override { return { 800, 480 }; }
++    ~RenderEngine3DS() override { clear(); }
++private:
++    SDL_Window * _top = nullptr;
++    SDL_Window * _bottom = nullptr;
++    std::array<uint32_t, 256> _colors{};
++    Uint32 _reportTime = 0;
++    unsigned _frames = 0;
++    double _drawTime = 0;
++
++    void clear() override
++    {
++        SDL_DestroyWindow( _bottom ); _bottom = nullptr;
++        SDL_DestroyWindow( _top ); _top = nullptr;
++        Platform3DS::resetViewportFollow();
++    }
++    bool allocate( fheroes2::ResolutionInfo & resolution, bool ) override
++    {
++        clear();
++        resolution = { 800, 480 };
++        Platform3DS::setVirtualFrameSize( { resolution.gameWidth, resolution.gameHeight } );
++        _top = SDL_CreateWindow( "fheroes2", SDL_WINDOWPOS_UNDEFINED_DISPLAY( 0 ), SDL_WINDOWPOS_UNDEFINED_DISPLAY( 0 ), 400, 240, SDL_WINDOW_FULLSCREEN );
++        _bottom = SDL_CreateWindow( "fheroes2 detail", SDL_WINDOWPOS_UNDEFINED_DISPLAY( 1 ), SDL_WINDOWPOS_UNDEFINED_DISPLAY( 1 ), 320, 240, SDL_WINDOW_FULLSCREEN );
++        if ( !_top || !_bottom ) { ERROR_LOG( SDL_GetError() ) clear(); return false; }
++        gfxSet3D( false );
++        gfxSetScreenFormat( GFX_TOP, GSP_RGBA8_OES );
++        gfxSetScreenFormat( GFX_BOTTOM, GSP_RGBA8_OES );
++        updatePalette( StandardPaletteIndexes() );
++        _reportTime = SDL_GetTicks(); _frames = 0; _drawTime = 0;
++        COUT( "3DS native renderer ready: virtual=800x480 top=400x240 bottom=320x240 scale=1/2" )
++        return true;
++    }
++    bool isMouseCursorActive() const override { return true; }
++    void updatePalette( const std::vector<uint8_t> & ids ) override
++    {
++        if ( ids.size() != _colors.size() ) return;
++        for ( size_t i = 0; i < ids.size(); ++i ) {
++            const auto & rgb = currentRGBPalette[ids[i]];
++            _colors[i] = ( uint32_t( rgb.r ) << 24 ) | ( uint32_t( rgb.g ) << 16 ) | ( uint32_t( rgb.b ) << 8 ) | 255;
++        }
++    }
++    static void snapshot( const uint32_t * framebuffer, const int width, const char * path )
++    {
++        SDL_Surface * surface = SDL_CreateRGBSurfaceWithFormat( 0, width, 240, 32, SDL_PIXELFORMAT_RGBA8888 );
++        if ( !surface ) { ERROR_LOG( SDL_GetError() ) return; }
++        for ( int y = 0; y < 240; ++y ) {
++            auto * row = reinterpret_cast<uint32_t *>( static_cast<uint8_t *>( surface->pixels ) + y * surface->pitch );
++            for ( int x = 0; x < width; ++x ) row[x] = framebuffer[x * 240 + 239 - y];
++        }
++        if ( SDL_SaveBMP( surface, path ) < 0 ) { ERROR_LOG( SDL_GetError() ) }
++        SDL_FreeSurface( surface );
++    }
++    void render( const fheroes2::Display & display, const fheroes2::Rect & ) override
++    {
++        if ( !_top || display.empty() ) return;
++        const Uint64 begin = SDL_GetPerformanceCounter();
++        const auto & events = LocalEvent::Get();
++        const auto * panel = Platform3DS::commandPanelImage();
++        const auto * strip = Platform3DS::commandStripImage();
++        Platform3DS::followCursor( events.getMouseCursorPos(), SDL_GetTicks(),
++                                   panel || events.isMouseLeftButtonPressed() || events.isMouseRightButtonPressed() );
++        const auto crop = Platform3DS::viewport();
++        auto * top = reinterpret_cast<uint32_t *>( gfxGetFramebuffer( GFX_TOP, GFX_LEFT, nullptr, nullptr ) );
++        auto * bottom = reinterpret_cast<uint32_t *>( gfxGetFramebuffer( GFX_BOTTOM, GFX_LEFT, nullptr, nullptr ) );
++        const uint8_t * image = display.image();
++        const int frameWidth = display.width();
++        // Framebuffer columns are contiguous, stored bottom-to-top. No intermediate RGBA texture.
++        for ( int x = 0; x < 400; ++x ) {
++            uint32_t * out = top + x * 240;
++            for ( int y = 239; y >= 0; --y ) *out++ = _colors[image[y * 2 * frameWidth + x * 2]];
++        }
++        for ( int x = 0; x < 320; ++x ) {
++            uint32_t * out = bottom + x * 240;
++            for ( int y = 239; y >= 0; --y ) {
++                const uint8_t pixel = panel ? panel->image()[y * 320 + x]
++                                     : strip && y >= 200 ? strip->image()[( y - 200 ) * 320 + x]
++                                                         : image[( crop.y + y ) * frameWidth + crop.x + x];
++                *out++ = _colors[pixel];
++            }
++        }
++        const int left = crop.x / 2, right = left + 159, upper = crop.y / 2, lower = upper + Platform3DS::detailHeight() / 2 - 1;
++        const uint32_t red = 0xff3030ff;
++        for ( int x = left; x <= right; ++x ) { top[x * 240 + 239 - upper] = red; top[x * 240 + 239 - lower] = red; }
++        for ( int y = upper; y <= lower; ++y ) { top[left * 240 + 239 - y] = red; top[right * 240 + 239 - y] = red; }
++        _drawTime += 1000.0 * ( SDL_GetPerformanceCounter() - begin ) / SDL_GetPerformanceFrequency();
++        if ( Platform3DS::consumeCapture() ) {
++            snapshot( top, 400, panel || strip ? "sdmc:/3ds/fheroes2/panel-top.bmp" : "sdmc:/3ds/fheroes2/menu-top.bmp" );
++            snapshot( bottom, 320, panel || strip ? "sdmc:/3ds/fheroes2/panel-bottom.bmp" : "sdmc:/3ds/fheroes2/menu-bottom.bmp" );
++            COUT( "3DS menu snapshots saved" )
++            COUT( "3DS capture: mean_draw_ms=" << _drawTime / ( _frames + 1 ) << " used_alloc=" << mallinfo().uordblks << " linear_free=" << linearSpaceFree() )
++        }
++        gfxFlushBuffers();
++        gfxSwapBuffers();
++        gspWaitForVBlank();
++        ++_frames;
++        const Uint32 now = SDL_GetTicks();
++        if ( now - _reportTime >= 2000 ) {
++            COUT( "3DS RENDER fps=" << _frames * 1000.0 / ( now - _reportTime ) << " draw_ms=" << _drawTime / _frames
++                  << " used_alloc=" << mallinfo().uordblks << " linear_free=" << linearSpaceFree() )
++            _reportTime = now; _frames = 0; _drawTime = 0;
++        }
++    }
++};
+diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp
+new file mode 100644
+index 0000000..8ae0aa7
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_commands.cpp
+@@ -0,0 +1,225 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_commands.h"
++#if defined( __3DS__ )
++#include <cmath>
++#include <stdexcept>
++#include <SDL.h>
++#include "game_assets.h"
++#include "dialog.h"
++#include "icn.h"
++#include "interface_base.h"
++#include "interface_gamearea.h"
++#include "localevent.h"
++#include "logging.h"
++#include "pal.h"
++#include "platform_3ds.h"
++#include "screen.h"
++#include "settings.h"
++#include "translations.h"
++#include "ui_dialog.h"
++#include "world.h"
++namespace
++{
++    // Keep the user's choice across turns and loads in this session.
++    bool stripVisible = false;
++    int buttonAt( const fheroes2::Point point )
++    {
++        return point.x >= 0 && point.x < 320 && point.y >= 200 && point.y < 240 ? point.x / 40 : -1;
++    }
++}
++bool Interface3DS::queueDpadScroll( Interface::GameArea & area )
++{
++    const auto dpad = Platform3DS::adventureScrollDirection();
++    if ( dpad == fheroes2::Point() || area.isDragScroll() || Settings::Get().ScrollSpeed() == SCROLL_SPEED_NONE ) return false;
++    const int direction = ( dpad.x < 0 ? Interface::SCROLL_LEFT : dpad.x > 0 ? Interface::SCROLL_RIGHT : Interface::SCROLL_NONE )
++                          | ( dpad.y < 0 ? Interface::SCROLL_TOP : dpad.y > 0 ? Interface::SCROLL_BOTTOM : Interface::SCROLL_NONE );
++    area.SetScroll( direction );
++    area.SetUpdateCursor();
++    return true;
++}
++Interface3DS::CommandStrip::CommandStrip() : _image( 320, 40 ) {}
++Interface3DS::CommandStrip::~CommandStrip() { suspend(); }
++void Interface3DS::CommandStrip::toggle()
++{
++    stripVisible = !stripVisible;
++    _pressed = -1;
++    _dirty = true;
++    LocalEvent::Get().resetFor3DSPanel();
++    COUT( "3DS COMMAND STRIP visible=" << stripVisible )
++}
++bool Interface3DS::CommandStrip::present( const std::array<bool, 8> & enabled, const int movementFrame, const bool evil )
++{
++    if ( _enabled != enabled || _movementFrame != movementFrame || _evil != evil ) {
++        _enabled = enabled; _movementFrame = movementFrame; _evil = evil; _dirty = true;
++    }
++    const bool redraw = _dirty;
++    if ( stripVisible && _dirty ) draw();
++    _dirty = false;
++    Platform3DS::setCommandStripImage( stripVisible ? &_image : nullptr );
++    return redraw;
++}
++void Interface3DS::CommandStrip::suspend() { Platform3DS::setCommandStripImage( nullptr ); }
++void Interface3DS::CommandStrip::draw()
++{
++    _image.fill( fheroes2::GetColorId( 28, 21, 15 ) );
++    const std::array<int, 8> frames{ 0, _movementFrame, 4, 6, 8, 10, 12, 14 };
++    for ( int i = 0; i < 8; ++i ) {
++        const auto & sprite = Assets::getImage( _evil ? ICN::ADVEBTNS : ICN::ADVBTNS, frames[i] + ( i == _pressed && !_dragged && _enabled[i] ? 1 : 0 ) );
++        fheroes2::Image scaled( 40, 40 );
++        fheroes2::Resize( sprite, scaled );
++        if ( !_enabled[i] ) fheroes2::ApplyPalette( scaled, PAL::GetPalette( PAL::PaletteType::DARKENING ) );
++        fheroes2::Blit( scaled, _image, i * 40, 0 );
++    }
++}
++Interface3DS::StripAction Interface3DS::CommandStrip::processInput()
++{
++    StripAction action;
++    Platform3DS::PanelInput input;
++    while ( Platform3DS::consumePanelInput( input ) ) {
++        switch ( input.type ) {
++        case Platform3DS::PanelInputType::TouchDown:
++            _start = _last = input.position;
++            _pressed = buttonAt( input.position );
++            _started = SDL_GetTicks(); _dragged = false; _dirty = true;
++            break;
++        case Platform3DS::PanelInputType::TouchMove:
++            _last = input.position;
++            if ( std::abs( _last.x - _start.x ) >= 10 || std::abs( _last.y - _start.y ) >= 10 || buttonAt( _last ) != _pressed ) {
++                _dragged = true; _dirty = true;
++            }
++            break;
++        case Platform3DS::PanelInputType::TouchUp:
++            // SDL reports (0,0) on release. Match against the last real pen position.
++            if ( _pressed >= 0 && !_dragged && buttonAt( _last ) == _pressed ) {
++                const bool information = SDL_GetTicks() - _started >= 550;
++                if ( information || _enabled[_pressed] ) action = { _pressed, information };
++            }
++            _pressed = -1; _dirty = true;
++            break;
++        case Platform3DS::PanelInputType::Key: break;
++        }
++    }
++    if ( action.index < 0 && _pressed >= 0 && !_dragged && SDL_GetTicks() - _started >= 550 ) {
++        action = { _pressed, true };
++        _pressed = -1; _dirty = true;
++    }
++    if ( action.index >= 0 ) COUT( "3DS COMMAND STRIP index=" << action.index << " info=" << action.information )
++    return action;
++}
++void Interface3DS::showStripInformation( const int index )
++{
++    const std::array<const char *, 8> titles{ _( "Next Hero" ), _( "Hero Movement" ), _( "Kingdom Summary" ), _( "Cast Spell" ),
++                                             _( "End Turn" ), _( "Adventure Options" ), _( "File Options" ), _( "System Options" ) };
++    const std::array<const char *, 8> descriptions{
++        _( "Select the next Hero." ),
++        _( "Start the Hero's movement along the current path or re-visit the object occupied by the Hero." ),
++        _( "View a summary of your Kingdom." ), _( "Cast an adventure spell." ), _( "End your turn and let the computer take its turn." ),
++        _( "Bring up the adventure options menu." ),
++        _( "Bring up the file options menu, allowing you to load, save, start a new game or quit." ),
++        _( "Bring up the system options menu, allowing you to customize your game." ) };
++    if ( index >= 0 && index < 8 ) fheroes2::showStandardTextMessage( titles[index], descriptions[index], Dialog::OK );
++}
++void Interface3DS::captureCommandPanelPreview()
++{
++    const bool previousVisible = stripVisible;
++    stripVisible = true;
++    CommandStrip strip;
++    const std::array<bool, 8> enabled{ true, true, true, true, true, true, true, true };
++    strip.present( enabled, 2, false );
++    Platform3DS::requestCapture();
++    fheroes2::Display::instance().render();
++    auto & events = LocalEvent::Get();
++    const auto touch = [&events]( const Uint32 type, const float x, const float y ) {
++        SDL_Event event{}; event.type = type; event.tfinger.touchId = 1; event.tfinger.fingerId = 0;
++        event.tfinger.x = x; event.tfinger.y = y;
++        if ( SDL_PushEvent( &event ) != 1 ) throw std::runtime_error( "Strip smoke injection failed" );
++        for ( int attempt = 0; attempt < 4 && SDL_HasEvent( type ); ++attempt ) events.HandleEvents( false, true );
++        if ( SDL_HasEvent( type ) ) throw std::runtime_error( "Strip smoke event not drained" );
++    };
++    events.resetFor3DSPanel();
++    for ( int i = 0; i < 8; ++i ) {
++        touch( SDL_FINGERDOWN, ( i * 40 + 20 ) / 320.0f, 220 / 240.0f );
++        touch( SDL_FINGERUP, 0, 0 );
++        const auto action = strip.processInput();
++        if ( action.index != i || action.information || events.MouseClickLeft() ) throw std::runtime_error( "Strip tap action or isolation differs" );
++    }
++    auto disabled = enabled; disabled[3] = false;
++    strip.present( disabled, 18, false );
++    touch( SDL_FINGERDOWN, 140 / 320.0f, 220 / 240.0f ); touch( SDL_FINGERUP, 0, 0 );
++    if ( strip.processInput().index >= 0 ) throw std::runtime_error( "Disabled spell was activated" );
++    touch( SDL_FINGERDOWN, 140 / 320.0f, 220 / 240.0f ); strip.processInput(); SDL_Delay( 600 );
++    const auto info = strip.processInput();
++    if ( info.index != 3 || !info.information ) throw std::runtime_error( "Disabled spell information unavailable" );
++    strip.suspend(); touch( SDL_FINGERUP, 0, 0 );
++    if ( events.MouseClickLeft() ) throw std::runtime_error( "Strip held release leaked after suspension" );
++    strip.present( enabled, 2, false );
++    touch( SDL_FINGERDOWN, 20 / 320.0f, 220 / 240.0f );
++    touch( SDL_FINGERMOTION, 80 / 320.0f, 180 / 240.0f ); touch( SDL_FINGERUP, 0, 0 );
++    if ( strip.processInput().index >= 0 || events.MouseClickLeft() ) throw std::runtime_error( "Strip drag activated command or map" );
++    // Real map touches remain playable above the strip.
++    touch( SDL_FINGERDOWN, .5f, .5f ); touch( SDL_FINGERUP, 0, 0 );
++    if ( !events.MouseClickLeft() ) throw std::runtime_error( "Map tap above strip swallowed" );
++    strip.toggle(); strip.present( enabled, 2, false );
++    if ( Platform3DS::commandStripImage() ) throw std::runtime_error( "Strip toggle did not hide" );
++    stripVisible = previousVisible;
++    strip.suspend(); events.resetFor3DSPanel();
++    COUT( "3DS COMMAND STRIP SMOKE: PASS" )
++    // Exercise the production scroll dispatcher and real GameArea on a synthetic map.
++    // No tiles, game actions, player turns or saves are processed by this test.
++    class TestInterface final : public Interface::BaseInterface
++    {
++    public:
++        TestInterface() : BaseInterface( false ) {}
++        void redraw( uint32_t ) override {}
++        void mouseCursorAreaClickLeft( int32_t ) override {}
++        void mouseCursorAreaPressRight( int32_t ) const override {}
++        void mouseCursorAreaLongPressLeft( int32_t ) override {}
++        void reset() override {}
++        void updateCursor( int32_t ) override {}
++    } testInterface;
++    world.generateUninitializedMap( 72 );
++    auto & area = testInterface.getGameArea();
++    area.generate( { 640, 480 }, false );
++    const auto narrowROI = area.GetROI();
++    area.generate( { fheroes2::Display::instance().width(), fheroes2::Display::instance().height() }, false );
++    if ( area.GetROI().width != narrowROI.width + 160 || area.GetROI().height != narrowROI.height )
++        throw std::runtime_error( "Wide frame did not expand only map width" );
++    auto & settings = Settings::Get();
++    const int previousScrollSpeed = settings.ScrollSpeed();
++    settings.SetScrollSpeed( 2 );
++    const auto centre = area.getCurrentCenterInPixels();
++    const auto button = [&events]( const int id, const bool down ) {
++        SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP;
++        event.cbutton.button = id; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED;
++        if ( SDL_PushEvent( &event ) != 1 ) throw std::runtime_error( "Map scroll injection failed" );
++        for ( int attempt = 0; attempt < 4 && SDL_HasEvent( event.type ); ++attempt ) events.HandleEvents( false, true );
++        if ( SDL_HasEvent( event.type ) ) throw std::runtime_error( "Map scroll event not drained" );
++    };
++    Platform3DS::setAdventureInputActive( true );
++    button( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true );
++    button( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true );
++    for ( int i = 0; i < 5; ++i ) {
++        if ( !queueDpadScroll( area ) ) throw std::runtime_error( "Held D-pad did not queue map scroll" );
++        area.Scroll();
++    }
++    const auto moved = area.getCurrentCenterInPixels();
++    if ( moved.x <= centre.x || moved.y <= centre.y || events.isAnyKeyPressed() )
++        throw std::runtime_error( "D-pad did not pan map diagonally or triggered hero hotkey" );
++    button( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false );
++    button( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false );
++    if ( queueDpadScroll( area ) || area.NeedScroll() ) throw std::runtime_error( "Released D-pad queued another map scroll" );
++    area.Scroll();
++    if ( area.getCurrentCenterInPixels() != moved ) throw std::runtime_error( "Map moved after D-pad release" );
++    button( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true );
++    button( SDL_CONTROLLER_BUTTON_DPAD_UP, true );
++    for ( int i = 0; i < 5; ++i ) { queueDpadScroll( area ); area.Scroll(); }
++    if ( area.getCurrentCenterInPixels() != centre ) throw std::runtime_error( "Reverse diagonal scroll differs" );
++    settings.SetScrollSpeed( SCROLL_SPEED_NONE );
++    if ( queueDpadScroll( area ) ) throw std::runtime_error( "D-pad ignored disabled scrolling setting" );
++    settings.SetScrollSpeed( previousScrollSpeed );
++    button( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ); button( SDL_CONTROLLER_BUTTON_DPAD_UP, false );
++    Platform3DS::setAdventureInputActive( false ); Platform3DS::cancelAdventureScroll();
++    events.resetFor3DSPanel();
++    COUT( "3DS MAP SCROLL SMOKE: PASS virtual=800x480 map_width_extra=160 diagonal_hold_release=ok" )
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_commands.h b/src/fheroes2/gui/ui_3ds_commands.h
+new file mode 100644
+index 0000000..b3543b3
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_commands.h
+@@ -0,0 +1,35 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#if defined( __3DS__ )
++#include <array>
++#include "image.h"
++namespace Interface { class GameArea; }
++namespace Interface3DS
++{
++    struct StripAction { int index = -1; bool information = false; };
++    class CommandStrip
++    {
++    public:
++        CommandStrip();
++        ~CommandStrip();
++        void toggle();
++        bool present( const std::array<bool, 8> & enabled, int movementFrame, bool evil );
++        void suspend();
++        StripAction processInput();
++    private:
++        void draw();
++        fheroes2::Image _image;
++        std::array<bool, 8> _enabled{};
++        int _movementFrame = 2;
++        bool _evil = false;
++        bool _dirty = true;
++        int _pressed = -1;
++        fheroes2::Point _start, _last;
++        uint32_t _started = 0;
++        bool _dragged = false;
++    };
++    void showStripInformation( int index );
++    bool queueDpadScroll( Interface::GameArea & area );
++    void captureCommandPanelPreview();
++}
++#endif

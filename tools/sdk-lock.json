@@ -1,0 +1,86 @@
+[
+  {
+    "name": "devkitarm-binutils",
+    "version": "2.46.0-1",
+    "filename": "devkitarm-binutils-2.46.0-1-x86_64.pkg.tar.zst",
+    "sha256": "d19277f5ae8d7967fdef316faa6129fde44053a3fdf2057890148398d167e966"
+  },
+  {
+    "name": "devkitarm-gcc",
+    "version": "16.1.0-1",
+    "filename": "devkitarm-gcc-16.1.0-1-x86_64.pkg.tar.zst",
+    "sha256": "e88fd817412cd026fa50bf92ad40db04e03aed0253bd9f3bca77e28a86db0f6b"
+  },
+  {
+    "name": "devkitarm-newlib",
+    "version": "4.6.0.20260123-5",
+    "filename": "devkitarm-newlib-4.6.0.20260123-5-any.pkg.tar.zst",
+    "sha256": "d314c644c143bd5b104bd82cdc27602f6449cf907cb9c37ccfb8c0707182f89d"
+  },
+  {
+    "name": "devkitarm-crtls",
+    "version": "1.2.6-1",
+    "filename": "devkitarm-crtls-1.2.6-1-any.pkg.tar.zst",
+    "sha256": "65faf10f62c219a1a8a3a182b0c4c56da7992599035ea32b3d79e39e79f964bb"
+  },
+  {
+    "name": "devkitarm-rules",
+    "version": "1.6.0-4",
+    "filename": "devkitarm-rules-1.6.0-4-any.pkg.tar.zst",
+    "sha256": "35023b2b5f07a2dcfb600063854c712206341fb5df3ffbaf8ff825d3cbc15fcc"
+  },
+  {
+    "name": "general-tools",
+    "version": "1.4.4-1",
+    "filename": "general-tools-1.4.4-1-x86_64.pkg.tar.zst",
+    "sha256": "a0fcea1a26c4f472c2ac98c409847dbec9d8e86ed82cd8b02131454f63d239f1"
+  },
+  {
+    "name": "3dstools",
+    "version": "1.3.1-3",
+    "filename": "3dstools-1.3.1-3-x86_64.pkg.tar.zst",
+    "sha256": "cdbfcaab36889442483a864b64a2d08be493a3e3e7432e158c0580b3e817f7d8"
+  },
+  {
+    "name": "libctru",
+    "version": "2.7.0-1",
+    "filename": "libctru-2.7.0-1-any.pkg.tar.zst",
+    "sha256": "6bdf9734dbaea38f457d037793f9c39d8e778ac3b3c5904c583c8e2b96bada2d"
+  },
+  {
+    "name": "3ds-cmake",
+    "version": "1.5.2-1",
+    "filename": "3ds-cmake-1.5.2-1-any.pkg.tar.zst",
+    "sha256": "552d7fc61e14a73e9b46a4fce1464fec985a7c0a983ddf34238540807cb7341c"
+  },
+  {
+    "name": "devkitarm-cmake",
+    "version": "1.2.4-1",
+    "filename": "devkitarm-cmake-1.2.4-1-any.pkg.tar.zst",
+    "sha256": "2a9d5c2bcf954f0aa711da8a8cd33011953212ea4015d32b7ddb20f56b613385"
+  },
+  {
+    "name": "dkp-cmake-common-utils",
+    "version": "1.5.3-1",
+    "filename": "dkp-cmake-common-utils-1.5.3-1-any.pkg.tar.zst",
+    "sha256": "9ddb64ff16962e6532d2a2bce1d7ae8eef4f6f5b859f145c2e58b87b7b164701"
+  },
+  {
+    "name": "3ds-pkg-config",
+    "version": "0.28-5",
+    "filename": "3ds-pkg-config-0.28-5-any.pkg.tar.xz",
+    "sha256": "e6cec3633cb2ee7bd55378976683560217e2d3b65fea19eeee8a9dde9706176c"
+  },
+  {
+    "name": "dkp-toolchain-vars",
+    "version": "1.0.5-1",
+    "filename": "dkp-toolchain-vars-1.0.5-1-any.pkg.tar.zst",
+    "sha256": "e6e26af3147061090572b61c576114ee9a45d5ed8c77c7d93cc5f5559198c288"
+  },
+  {
+    "name": "3ds-zlib",
+    "version": "1.3.1-1",
+    "filename": "3ds-zlib-1.3.1-1-any.pkg.tar.zst",
+    "sha256": "c3be375285e6656996b939d7d9c31d34641642c0ce7d50b041568e5ac022c644"
+  }
+]

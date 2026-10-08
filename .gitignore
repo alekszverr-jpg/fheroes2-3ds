@@ -1,0 +1,24 @@
+/.toolchain/
+/vendor/
+/build/
+/dist/
+/sdmc/
+/fheroes2/
+/Heroes of Might and Magic II Gold/
+
+# Local game resources and runtime data must never be published.
+*.agg
+*.mp2
+*.mx2
+*.fh2m
+*.sav
+*.savc
+*.savh
+*.hgs
+*.log
+*.3dsx
+*.smdh
+*.elf
+*.zip
+.DS_Store
+Thumbs.db

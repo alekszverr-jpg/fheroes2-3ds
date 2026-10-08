@@ -1,0 +1,12 @@
+* text=auto
+*.ps1 text eol=lf
+*.cmake text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.patch text eol=lf whitespace=-blank-at-eol,-blank-at-eof
+*.txt text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf
+LICENSE text eol=lf
