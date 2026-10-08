@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.7
+# fheroes2 for Nintendo 3DS — preview 0.3.8
+
+## New in 0.3.8: touchscreen recruitment
+
+Use D-pad left/right or −/+ to change the quantity; down/MIN selects one, up/MAX selects the affordable maximum. Drag the slider for quick selection. A/Start or Okay confirms; L or Cancel closes without a purchase. Hold B or the portrait for creature information above, then release to return. Arrows below the portrait cycle through available downgrade variants when permitted by the original dialog; switching selects the newly affordable maximum. Holding quantity buttons does not repeat their action.
+
+Below the slider, each amount shows the total cost and remaining funds in parentheses, ordered like the resource icons above. Copy the application and `files/lang/ru.mo` when updating. Test actual castle/map-dwelling recruitment, cancellation, army quantities and gold/rare-resource deductions on hardware. This iteration has emulator validation; hardware validation is pending.
 
 ## Native hero level-up — preview 0.3.7
 

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.7'
+$version = '0.3.8'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -27,6 +27,9 @@ $manifest = [ordered]@{
     native_chest_choice='Fixed Gold/Experience buttons, rewards and context; scrolling description; original true=gold/false=experience caller contract; L chooses experience'
     hardware_chest_choice='User reports Gold choice works on New 3DS XL; Experience and level-up not separately confirmed'
     native_level_up='Touchscreen: two secondary choices, one skill confirmation, primary-only; top skill descriptions; original caller grants upgrades'
+    native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
+    hardware_recruitment='Pending actual recruitment and resource/army checks on New 3DS XL'
+    emulated_recruitment='Russian New/Old and English New: actual RecruitMonster, quantity/availability/rare-resource limits, touch/controller, slider, cancel/drag, nested top info, downgrade, empty treasury/dwelling, large quantities, Evil UI, unchanged funds/frame/viewport/strip'
     hardware_level_up='Pending real-match validation on New 3DS XL'
     emulated_level_up='Russian New/Old and English New: actual dialog, both slots and choices, upgraded skill, tap/controller, drag cancellation, nested descriptions, long name, Evil UI, unchanged hero/frame/viewport'
     high_resolution='R + Start; saved immediately; high-resolution default; Old 2DS or failed model query uses standard output'
