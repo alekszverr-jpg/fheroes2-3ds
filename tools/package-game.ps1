@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
+$version = '0.3.3'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
-$staging = Join-Path $workspace ("build/packaging/0.3.2-" + [Guid]::NewGuid().ToString('N'))
+$staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
 $package = Join-Path $staging 'fheroes2-menu-preview'
 $app = Join-Path $package '3ds/fheroes2'
 New-Item -ItemType Directory -Force $app | Out-Null
@@ -16,10 +17,13 @@ Copy-Item -LiteralPath (Join-Path $workspace 'vendor/SDL2/LICENSE.txt') -Destina
 Copy-Item -LiteralPath (Join-Path $workspace 'vendor/SDL2_mixer/LICENSE.txt') -Destination (Join-Path $package 'SDL2_mixer-LICENSE.txt') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'sdk-lock.json') -Destination $package -Force
 $manifest = [ordered]@{
-    port_version='0.3.2'; upstream='9754feff8501dbb69df95f3b999156a32eb8d7d3'
+    port_version=$version; upstream='9754feff8501dbb69df95f3b999156a32eb8d7d3'
     sdl2='4c2d9014afda49553c76f7045529207bb593f9b5'; sdl2_mixer='8f0c805d54dbd1ff6b4b784d351ca884b8fe5ee9'
     binary_sha256=(Get-FileHash (Join-Path $app 'fheroes2.3dsx') -Algorithm SHA256).Hash.ToLowerInvariant()
     renderer='native RGBA8 framebuffer, 800x480 indexed game frame, uniform half-size 400x240 overview'
+    native_messages='Common supported showMessage: native 400x240 information top, 320x240 answers bottom; long text scrolling, nested information, captured closing input; specialized dialogs retain original layouts'
+    hardware_native_messages='0.3.3 pending physical validation; synthetic New/Old emulator checks are not full gameplay'
+    emulated_native_messages='Russian New/Old and English New: top information, bottom OK, stylus NO, drag cancellation, long bottom/top scroll, nested resource information, viewport edge restoration and release isolation'
     hardware_game_test='User reports AI turns, battle, save/load working on New 3DS XL; restart between save/load not specified'
     hardware_menu_test='0.2.0 menu and match reported on New 3DS XL; 0.2.1 stick follow confirmed; 0.2.2 stylus follow confirmed; 0.2.4 controls and 0.3.0 panel reported working on New 3DS XL; 0.3.1 strip reported working on New 3DS XL; 0.3.2 wide frame and D-pad pending hardware check'; emulated_menu_test='New and Old; original icon strip touch selection, disabled commands, hold info, drag cancellation and 200px viewport bounds, 800px frame edges, contextual D-pad hold/diagonal/release and real GameArea scrolling on synthetic map'; original_assets_in_archive=$false
 }
@@ -36,7 +40,7 @@ $packageLang = Join-Path $app 'files/lang'
 New-Item -ItemType Directory -Force $packageLang | Out-Null
 if (Test-Path (Join-Path $privateApp 'files/lang/ru.mo')) { Copy-Item -LiteralPath (Join-Path $privateApp 'files/lang/ru.mo') -Destination $packageLang -Force }
 Set-Content -LiteralPath (Join-Path $app 'fheroes2.cfg') -Value "first time game run = off`nlang = `nmusic = external" -Encoding ascii
-Compress-Archive -Path (Join-Path $package '*') -DestinationPath (Join-Path $workspace 'dist/fheroes2-menu-preview-0.3.2.zip') -Force
+Compress-Archive -Path (Join-Path $package '*') -DestinationPath (Join-Path $workspace "dist/fheroes2-menu-preview-$version.zip") -Force
 
 $source = Join-Path $staging 'fheroes2-menu-source'
 New-Item -ItemType Directory -Force $source | Out-Null
@@ -61,5 +65,5 @@ foreach ($name in @('SDL2','SDL2_mixer')) {
 }
 Copy-Item -LiteralPath (Join-Path $package 'build-manifest.json') -Destination $source -Force
 Copy-Item -LiteralPath (Join-Path $workspace 'PORTING_PLAN_RU.md') -Destination $source -Force
-Compress-Archive -Path (Join-Path $source '*') -DestinationPath (Join-Path $workspace 'dist/fheroes2-menu-source-0.3.2.zip') -Force
+Compress-Archive -Path (Join-Path $source '*') -DestinationPath (Join-Path $workspace "dist/fheroes2-menu-source-$version.zip") -Force
 Write-Output "Menu preview package and source archive ready; private SD directory: $privateApp"

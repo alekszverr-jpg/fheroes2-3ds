@@ -1,10 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.2
+# fheroes2 for Nintendo 3DS — preview 0.3.3
 
 [Русский](INSTALL_RU.md) | [Project and downloads](https://github.com/alekszverr-jpg/fheroes2-3ds)
 
 ## Installation
 
-1. Download `fheroes2-menu-preview-0.3.2.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.2).
+1. Download `fheroes2-menu-preview-0.3.3.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.3).
 2. Extract its `3ds` directory to the root of the console's SD card.
 3. Add the original Heroes of Might and Magic II files from your own game installation to the directories below. The release does not include original game data, maps or music.
 4. Launch **fheroes2 3DS preview** from Homebrew Launcher.
@@ -23,7 +23,7 @@
 
 Copy the contents of your original `Data` and `Maps` directories into `data` and `maps`. For supported GOG `Tracks2` files, the preparation script renames `02-AudioTrack…ogg` to `Track02.ogg`, and similarly for the other tracks. External music is optional. Sound and long sessions still need separate hardware testing.
 
-When updating, back up your saves and configuration. Replace the application and bundled `files` resources, keeping your existing `fheroes2.cfg`, original resources and saves. When updating specifically from 0.3.1 to 0.3.2, replacing `fheroes2.3dsx` is sufficient.
+When updating, back up your saves and configuration. Replace the application and bundled `files` resources, keeping your existing `fheroes2.cfg`, original resources and saves. When updating specifically from 0.3.1 to 0.3.3, replacing `fheroes2.3dsx` is sufficient.
 
 New installations use English. Choose Russian in the game's language settings; its translation is bundled. Existing language settings remain yours. Intro videos are skipped on 3DS. The log is written to `/3ds/fheroes2/fheroes2.log`.
 
@@ -60,8 +60,18 @@ The detail viewport becomes 320×200 while the strip is visible. The strip hides
 
 ## Current validation and limitations
 
-Earlier previews have been tested on a physical New Nintendo 3DS XL: entering a match, AI turns, battles, saving/loading and the 0.3.1 command strip were reported working. Preview 0.3.2 passed New/Old Azahar checks for input, viewport boundaries, command-strip routing and real map scrolling on a synthetic map. These automated checks do not exercise a full match.
+Earlier previews have been tested on a physical New Nintendo 3DS XL: entering a match, AI turns, battles, saving/loading and the 0.3.1 command strip were reported working. Preview 0.3.3 passed New/Old Azahar checks for input, viewport boundaries, command-strip routing and real map scrolling on a synthetic map. These automated checks do not exercise a full match.
 
-The 800×480 frame and D-pad changes still need physical-console validation. Physical Old 3DS compatibility, audio and long-session stability are unverified. Informational popups on the top screen and interactive dialogs on the bottom screen are planned; this release still uses the existing game dialogs.
+The 800×480 frame, D-pad changes and native messages still need physical-console validation. Physical Old 3DS compatibility, audio and long-session stability are unverified. Native messages passed Russian New/Old and English New emulator checks.
+
+## Native messages in 0.3.3
+
+Common informational messages appear at native scale on the top screen while the bottom retains the game context or an open lower dialog. Release the opening B/stylus hold to close; A/Start or L can also dismiss information. The command-strip descriptions now use this informational path.
+
+Common OK, OK/Cancel and Yes/No messages appear on the bottom screen. Tap a button, or select it with D-pad left/right and confirm with A/Start. L chooses Cancel/No when available; single OK/Cancel windows retain their usual close behavior. The command strip is covered while a lower dialog is open.
+
+D-pad up/down scrolls long content. You can also drag the stylus in the text area; buttons remain fixed. Dragging out of a pressed button cancels the click. Hold a supported resource/artifact/spell/skill element for information on the top screen, then release to return to the lower dialog without selecting an answer.
+
+This first adaptation covers the common `showMessage` path with standard elements and passive images/animations. Chests, army/monster information, recruitment and custom interactive windows retain their original layout and input. They will be adapted separately. No stereo 3D is enabled.
 
 For a hardware report, include your console model, map/scenario, reproduction steps and `/3ds/fheroes2/fheroes2.log`.

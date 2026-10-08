@@ -43,7 +43,7 @@ target_link_libraries(fheroes2-3ds PRIVATE SDL2::SDL2main engine)
 find_program(THREEDSXTOOL 3dsxtool HINTS "${PROBE_SDK}/tools/bin" REQUIRED)
 find_program(SMDHTOOL smdhtool HINTS "${PROBE_SDK}/tools/bin" REQUIRED)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/fheroes2.smdh"
-    COMMAND "${SMDHTOOL}" --create "fheroes2 3DS preview" "Main menu and native two-screen renderer" "fheroes2 contributors / 3DS port"
+    COMMAND "${SMDHTOOL}" --create "fheroes2 3DS preview" "Native two-screen controls and dialogs" "fheroes2 contributors / 3DS port"
         "${PROBE_SDK}/libctru/default_icon.png" "${CMAKE_CURRENT_BINARY_DIR}/fheroes2.smdh"
     DEPENDS "${PROBE_SDK}/libctru/default_icon.png" VERBATIM)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/fheroes2.3dsx"

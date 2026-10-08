@@ -4,9 +4,9 @@ A work-in-progress Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fher
 
 **English** | [Русский](README_RU.md)
 
-**[Download preview 0.3.2](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.2)** — download `fheroes2-menu-preview-0.3.2.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
+**[Download preview 0.3.3](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.3)** — download `fheroes2-menu-preview-0.3.3.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
 
-Current preview: **0.3.2**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. Preview 0.3.2 has passed automated New/Old emulator checks and still needs hardware validation. Physical Old 3DS compatibility is unverified.
+Current preview: **0.3.3**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. Preview 0.3.3 has passed automated New/Old emulator checks and still needs hardware validation. Physical Old 3DS compatibility is unverified.
 
 ## Features
 
@@ -15,9 +15,10 @@ Current preview: **0.3.2**. The game has been run on a New Nintendo 3DS XL; AI t
 - Circle Pad cursor control; D-pad adventure-map scrolling, including diagonals.
 - Short stylus taps for left clicks and stationary holds for right-button information.
 - A toggleable bottom strip with the original adventure-map command icons.
+- Common informational messages at native resolution on the top screen; common OK/yes/no dialogs on the touchscreen, with fixed buttons and scrolling for long content.
 - SD logging and a separate platform/engine test application.
 
-Stereo 3D and adapted per-screen dialogs are not implemented yet. The next planned work is informational popups on the top screen and interactive dialogs on the bottom screen.
+Native messages currently cover the common `showMessage` path with text, supported resource/artifact/spell/skill elements and passive images/animations. Specialized windows (chests, army/monster information, recruitment, custom interactive elements) retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
 
 ## Installation
 

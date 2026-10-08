@@ -1,10 +1,12 @@
-param([ValidateSet('New','Old')][string]$Model = 'New', [int]$TimeoutSeconds = 90)
+param([ValidateSet('New','Old')][string]$Model = 'New', [int]$TimeoutSeconds = 90,
+      [ValidateSet('ru','en')][string]$Language = 'ru')
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $emulator = Join-Path $workspace '.toolchain/azahar/azahar.exe'
 $config = Join-Path $workspace '.toolchain/azahar/user/config/qt-config.ini'
 $sd = Join-Path $workspace '.toolchain/azahar/user/sdmc/3ds/fheroes2'
 $output = Join-Path $workspace "build/menu-tests/$Model"
+if ($Language -eq 'en') { $output += '-English' }
 Get-CimInstance Win32_Process -Filter "name='azahar.exe'" | Where-Object { $_.ExecutablePath -eq $emulator } | ForEach-Object { Stop-Process -Id $_.ProcessId }
 New-Item -ItemType Directory -Force $output | Out-Null
 & (Join-Path $PSScriptRoot 'prepare-game-data.ps1') -Destination $sd
@@ -15,7 +17,8 @@ $newConfig = [regex]::Replace($newConfig, '(?m)^is_new_3ds\\default=.*$', 'is_ne
 [IO.File]::WriteAllText($config, $newConfig)
 $gameConfig = Join-Path $sd 'fheroes2.cfg'
 $originalGameConfig = if (Test-Path $gameConfig) { [IO.File]::ReadAllText($gameConfig) } else { $null }
-Set-Content -LiteralPath $gameConfig -Value "first time game run = off`nlang = ru`nmusic = external" -Encoding ascii
+$gameLanguage = if ($Language -eq 'en') { '' } else { 'ru' }
+Set-Content -LiteralPath $gameConfig -Value "first time game run = off`nlang = $gameLanguage`nmusic = external" -Encoding ascii
 $log = Join-Path $sd 'fheroes2.log'
 if (Test-Path $log) { Move-Item -LiteralPath $log -Destination (Join-Path $output ("previous-" + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-ffff') + '.log')) }
 $marker = Join-Path $sd 'menu-smoke.enabled'
@@ -38,7 +41,8 @@ try {
     if (!$report.Contains('3DS MENU SMOKE: PASS')) { throw 'Menu test timeout' }
     if (!$report.Contains('3DS COMMAND STRIP SMOKE: PASS')) { throw 'Command panel smoke test incomplete' }
     if (!$report.Contains('3DS MAP SCROLL SMOKE: PASS')) { throw 'Adventure map scroll smoke test incomplete' }
-    foreach ($name in @('fheroes2.log','menu-top.bmp','menu-bottom.bmp','panel-top.bmp','panel-bottom.bmp')) { Copy-Item -LiteralPath (Join-Path $sd $name) -Destination $output -Force }
+    if (!$report.Contains('3DS NATIVE MESSAGES SMOKE: PASS')) { throw 'Native message smoke test incomplete' }
+    foreach ($name in @('fheroes2.log','menu-top.bmp','menu-bottom.bmp','panel-top.bmp','panel-bottom.bmp','info-top.bmp','info-bottom.bmp','dialog-top.bmp','dialog-bottom.bmp')) { Copy-Item -LiteralPath (Join-Path $sd $name) -Destination $output -Force }
     Write-Output "Menu $Model PASS: $output"
 } finally {
     if ($process -and !$process.HasExited) { Stop-Process -Id $process.Id }
