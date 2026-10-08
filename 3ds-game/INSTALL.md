@@ -1,10 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.3
+# fheroes2 for Nintendo 3DS — preview 0.3.4
 
 [Русский](INSTALL_RU.md) | [Project and downloads](https://github.com/alekszverr-jpg/fheroes2-3ds)
 
 ## Installation
 
-1. Download `fheroes2-menu-preview-0.3.3.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.3).
+1. Download `fheroes2-menu-preview-0.3.4.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.4).
 2. Extract its `3ds` directory to the root of the console's SD card.
 3. Add the original Heroes of Might and Magic II files from your own game installation to the directories below. The release does not include original game data, maps or music.
 4. Launch **fheroes2 3DS preview** from Homebrew Launcher.
@@ -72,6 +72,18 @@ Common OK, OK/Cancel and Yes/No messages appear on the bottom screen. Tap a butt
 
 D-pad up/down scrolls long content. You can also drag the stylus in the text area; buttons remain fixed. Dragging out of a pressed button cancels the click. Hold a supported resource/artifact/spell/skill element for information on the top screen, then release to return to the lower dialog without selecting an answer.
 
-This first adaptation covers the common `showMessage` path with standard elements and passive images/animations. Chests, army/monster information, recruitment and custom interactive windows retain their original layout and input. They will be adapted separately. No stereo 3D is enabled.
+This adaptation covers the common `showMessage` path with standard elements and passive images/animations. Army/monster information, recruitment and custom interactive windows retain their original layout and input. No stereo 3D is enabled.
+
+## Treasure chests in 0.3.4
+
+The gold/experience choice appears on the touchscreen with explicit **Gold** and **Experience** buttons. Reward icons and amounts, your current kingdom gold and experience needed for the next level stay visible while you scroll the description.
+
+Tap a button, or choose with D-pad left/right and confirm with A/Start. Gold is initially selected. **L chooses Experience**, preserving the original Escape/No behavior; the chest does not have a separate cancel option. Dragging away from a pressed button cancels that click.
+
+Hold a reward icon with the stylus, or hold B on the selected option, to display its information on the top screen. Release to return to the same chest choice; showing information does not grant a reward. The upstream game caller still grants the chosen gold or experience.
+
+Russian New/Old and English New Azahar checks exercised the actual chest dialog, both choices, controller navigation, L, drag cancellation, both nested descriptions, long text and the Evil interface. They checked that the dialog leaves reward granting to its caller and preserves the game frame/viewport. These are UI tests; collecting a chest in a real match still needs hardware validation. Other chest outcomes such as artifacts or sea-chest notices continue through the supported common message path where applicable.
+
+Updating from 0.3.3: replace only `/3ds/fheroes2/fheroes2.3dsx`, preserving configuration, original resources and saves.
 
 For a hardware report, include your console model, map/scenario, reproduction steps and `/3ds/fheroes2/fheroes2.log`.

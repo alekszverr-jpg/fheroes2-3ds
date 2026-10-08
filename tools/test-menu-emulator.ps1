@@ -42,6 +42,7 @@ try {
     if (!$report.Contains('3DS COMMAND STRIP SMOKE: PASS')) { throw 'Command panel smoke test incomplete' }
     if (!$report.Contains('3DS MAP SCROLL SMOKE: PASS')) { throw 'Adventure map scroll smoke test incomplete' }
     if (!$report.Contains('3DS NATIVE MESSAGES SMOKE: PASS')) { throw 'Native message smoke test incomplete' }
+    if (!$report.Contains('3DS CHEST SMOKE: PASS')) { throw 'Chest reward choice smoke test incomplete' }
     foreach ($name in @('fheroes2.log','menu-top.bmp','menu-bottom.bmp','panel-top.bmp','panel-bottom.bmp','info-top.bmp','info-bottom.bmp','dialog-top.bmp','dialog-bottom.bmp')) { Copy-Item -LiteralPath (Join-Path $sd $name) -Destination $output -Force }
     Write-Output "Menu $Model PASS: $output"
 } finally {

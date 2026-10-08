@@ -566,6 +566,35 @@ index e3d7171..8773662 100644
      // The following code is based on https://github.com/OneSadCookie/fcaseopen and assumes the use of POSIX IEEE Std 1003.1-2001 pathnames
      correctedPath.clear();
  
+diff --git a/src/fheroes2/dialog/dialog_chest.cpp b/src/fheroes2/dialog/dialog_chest.cpp
+index 6164235..3a9560d 100644
+--- a/src/fheroes2/dialog/dialog_chest.cpp
++++ b/src/fheroes2/dialog/dialog_chest.cpp
+@@ -40,10 +40,18 @@
+ #include "translations.h"
+ #include "ui_button.h"
+ #include "ui_text.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ #include "world.h"
+ 
+ bool Dialog::SelectGoldOrExp( const std::string & header, const std::string & message, uint32_t gold, uint32_t expr, const Heroes & hero )
+ {
++#if defined( __3DS__ )
++    return Interface3DS::showChestChoice( header, message, gold, expr,
++                                         world.GetKingdom( hero.GetColor() ).GetFunds().Get( Resource::GOLD ),
++                                         Heroes::GetExperienceFromLevel( hero.GetLevel() ) - hero.GetExperience() );
++#else
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     // setup cursor
+@@ -130,4 +138,5 @@ bool Dialog::SelectGoldOrExp( const std::string & header, const std::string & me
+     }
+ 
+     return result;
++#endif
+ }
 diff --git a/src/fheroes2/game/fheroes2.cpp b/src/fheroes2/game/fheroes2.cpp
 index ce25e88..4c643bb 100644
 --- a/src/fheroes2/game/fheroes2.cpp
@@ -606,7 +635,7 @@ index ce25e88..4c643bb 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..de154be 100644
+index 69d39fb..7fdd63f 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,11 @@
@@ -649,7 +678,7 @@ index 69d39fb..de154be 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +327,17 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +327,18 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -660,6 +689,7 @@ index 69d39fb..de154be 100644
 +        display.render();
 +        Interface3DS::captureCommandPanelPreview();
 +        Interface3DS::testNativeMessages();
++        Interface3DS::testChestChoice();
 +        COUT( "3DS MENU SMOKE: PASS" )
 +        return fheroes2::GameMode::QUIT_GAME;
 +    }
@@ -1752,10 +1782,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..07702ec
+index 0000000..5346ca9
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,335 @@
+@@ -0,0 +1,461 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -1764,6 +1794,9 @@ index 0000000..07702ec
 +#include <memory>
 +#include <cstring>
 +#include <stdexcept>
++#include <array>
++#include <functional>
++#include <utility>
 +#include <SDL.h>
 +#include "cursor.h"
 +#include "dialog.h"
@@ -1773,6 +1806,10 @@ index 0000000..07702ec
 +#include "platform_3ds.h"
 +#include "screen.h"
 +#include "settings.h"
++#include "heroes.h"
++#include "kingdom.h"
++#include "race.h"
++#include "world.h"
 +#include "resource.h"
 +#include "translations.h"
 +#include "ui_button.h"
@@ -1824,8 +1861,36 @@ index 0000000..07702ec
 +    struct Answer
 +    {
 +        int value;
-+        std::unique_ptr<Button> button;
++        std::unique_ptr<ButtonBase> button;
 +    };
++    struct ChestChoice
++    {
++        std::array<std::string, 2> labels;
++        std::array<std::string, 2> details;
++    };
++    using TimedEvent = std::pair<Uint32, SDL_Event>;
++    int runInjectedInput( const std::function<int()> & dialog, std::vector<TimedEvent> sequence )
++    {
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int {
++            auto & steps = *static_cast<std::vector<TimedEvent> *>( data );
++            for ( auto & step : steps ) {
++                SDL_Delay( step.first );
++                if ( SDL_PushEvent( &step.second ) != 1 ) return 1;
++            }
++            return 0;
++        }, "dialog-smoke", &sequence );
++        if ( !worker ) throw std::runtime_error( "Cannot start dialog test input" );
++        int result = 0, status = 0;
++        try { result = dialog(); }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status );
++        if ( status ) throw std::runtime_error( "Dialog test input injection failed" );
++        auto & events = LocalEvent::Get();
++        events.HandleEvents( false, true );
++        if ( events.MouseClickLeft() || events.isMouseRightButtonPressed() || Platform3DS::hasModalImages() )
++            throw std::runtime_error( "Modal input or image layer leaked after close" );
++        return result;
++    }
 +}
 +
 +bool Interface3DS::supportsMessage( const int buttons, const std::vector<const fheroes2::DialogElement *> & elements )
@@ -1839,21 +1904,22 @@ index 0000000..07702ec
 +    } );
 +}
 +
-+int Interface3DS::showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, const int buttons,
-+                             const std::vector<const fheroes2::DialogElement *> & elements )
++static int showNativeMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, const int buttons,
++                              const std::vector<const fheroes2::DialogElement *> & elements, const ChestChoice * chest = nullptr )
 +{
 +    using namespace fheroes2;
 +    const bool information = buttons == Dialog::ZERO;
 +    const CursorRestorer cursorRestorer( false );
 +    Image window( information ? 400 : 320, 240 );
 +    const int width = window.width() - 24;
-+    const int viewHeight = information ? 204 : 180;
++    const int rewardHeight = chest ? std::max( elements[0]->area().height, elements[1]->area().height ) : 0;
++    const int viewHeight = chest ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
 +    const uint8_t background = GetColorId( 35, 29, 24 );
 +    const uint8_t border = GetColorId( 150, 115, 63 );
 +    const int headerHeight = header.empty() ? 0 : header.height( width ) + 8;
 +    int height = headerHeight + ( body.empty() ? 0 : body.height( width ) + 8 );
 +    std::vector<Point> offsets( elements.size() );
-+    for ( size_t first = 0; first < elements.size(); ) {
++    for ( size_t first = 0; !chest && first < elements.size(); ) {
 +        size_t last = first;
 +        int rowWidth = 0, rowHeight = 0;
 +        while ( last < elements.size() ) {
@@ -1875,7 +1941,9 @@ index 0000000..07702ec
 +    content.fill( background );
 +    header.draw( 0, 0, width, content );
 +    body.draw( 0, headerHeight, width, content );
-+    for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->draw( content, offsets[i] );
++    if ( !chest ) for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->draw( content, offsets[i] );
++    else for ( size_t i = 0; i < elements.size(); ++i )
++        offsets[i] = { 80 + int( i ) * 160 - elements[i]->area().width / 2, 8 + viewHeight + 12 };
 +
 +    std::vector<Answer> answers;
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
@@ -1883,6 +1951,15 @@ index 0000000..07702ec
 +    if ( buttons & Dialog::OK ) answers.push_back( { Dialog::OK, std::make_unique<Button>( 0, 204, evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON, 0, 1 ) } );
 +    if ( buttons & Dialog::NO ) answers.push_back( { Dialog::NO, std::make_unique<Button>( 0, 204, evil ? ICN::BUTTON_SMALL_NO_EVIL : ICN::BUTTON_SMALL_NO_GOOD, 0, 1 ) } );
 +    if ( buttons & Dialog::CANCEL ) answers.push_back( { Dialog::CANCEL, std::make_unique<Button>( 0, 204, evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON, 0, 1 ) } );
++    if ( chest ) for ( size_t i = 0; i < answers.size(); ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { 136, 30 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        // Use the normal game font: the upstream button font does not contain all translated glyphs on this build.
++        const Text label( chest->labels[i], FontType::normalWhite() );
++        label.draw( 4, ( released.height() - label.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
++        label.draw( 3, ( pressed.height() - label.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
++        answers[i].button = std::make_unique<ButtonSprite>( 0, 204, std::move( released ), std::move( pressed ) );
++    }
 +    for ( size_t i = 0; i < answers.size(); ++i ) {
 +        const auto & button = answers[i].button;
 +        button->setPosition( ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) - button->area().width / 2,
@@ -1897,7 +1974,7 @@ index 0000000..07702ec
 +    int result = Dialog::ZERO;
 +    bool closed = false;
 +    const ModalScope scope( window, information );
-+    COUT( "3DS MESSAGE screen=" << ( information ? "top" : "bottom" ) << " content_height=" << height << " buttons=" << buttons )
++    COUT( "3DS MESSAGE screen=" << ( information ? "top" : "bottom" ) << " content_height=" << height << " buttons=" << buttons << " chest=" << ( chest != nullptr ) )
 +    const auto draw = [&]() {
 +        window.fill( background );
 +        StandardWindow::renderBackgroundImage( window, { 0, 0, window.width(), 240 }, 0, evil );
@@ -1905,10 +1982,14 @@ index 0000000..07702ec
 +        Copy( content, 0, scroll, window, 12, 8, width, viewHeight );
 +        if ( height > viewHeight ) {
 +            const Text hint( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() );
-+            hint.draw( 0, information ? 224 : 190, window.width(), window );
++            hint.draw( 0, chest ? 8 + viewHeight + 2 : information ? 224 : 190, window.width(), window );
 +        }
 +        if ( information ) {
 +            if ( height <= viewHeight ) Text( "A / L", FontType::smallWhite() ).draw( 0, 224, window.width(), window );
++        }
++        if ( chest ) for ( size_t i = 0; i < elements.size(); ++i ) {
++            elements[i]->draw( window, offsets[i] );
++            Text( chest->details[i], FontType::smallWhite() ).draw( 12 + int( i ) * 160, 184, 136, window );
 +        }
 +        for ( size_t i = 0; i < answers.size(); ++i ) {
 +            auto & button = answers[i].button;
@@ -1926,6 +2007,13 @@ index 0000000..07702ec
 +        return -1;
 +    };
 +    const auto elementAt = [&]( const Point point ) {
++        if ( chest ) {
++            for ( size_t i = 0; i < elements.size(); ++i ) {
++                const Rect roi{ offsets[i].x, offsets[i].y, elements[i]->area().width, elements[i]->area().height };
++                if ( roi & point ) return int( i );
++            }
++            return -1;
++        }
 +        if ( point.y < 8 || point.y >= 8 + viewHeight ) return -1;
 +        for ( size_t i = 0; i < elements.size(); ++i ) {
 +            const Rect roi{ 12 + offsets[i].x, 8 + offsets[i].y - scroll, elements[i]->area().width, elements[i]->area().height };
@@ -1963,6 +2051,7 @@ index 0000000..07702ec
 +                    else for ( const auto & answer : answers ) if ( answer.value == Dialog::NO || answer.value == Dialog::CANCEL ) { result = answer.value; closed = true; }
 +                    break;
 +                case PanelKey::Information:
++                    if ( chest && !down ) touchedElement = selected;
 +                    if ( information ) closed = true; else showInformation();
 +                    break;
 +                }
@@ -1974,7 +2063,7 @@ index 0000000..07702ec
 +            }
 +            else if ( input.type == PanelInputType::TouchMove && down ) {
 +                if ( std::abs( input.position.x - start.x ) >= 10 || std::abs( input.position.y - start.y ) >= 10 ) moved = true;
-+                if ( moved && pressed < 0 ) scroll += last.y - input.position.y;
++                if ( moved && pressed < 0 && ( !chest || start.y < 8 + viewHeight ) ) scroll += last.y - input.position.y;
 +                last = input.position;
 +            }
 +            else if ( input.type == PanelInputType::TouchUp ) {
@@ -1989,12 +2078,32 @@ index 0000000..07702ec
 +            // Passive elements have no popup. Do not repeatedly attempt to open one.
 +            touchedElement = -1;
 +        }
-+        for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->update( content, offsets[i] );
++        if ( !chest ) for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->update( content, offsets[i] );
 +        if ( !closed ) draw();
 +    }
 +    lastMessageScroll = scroll;
 +    COUT( "3DS MESSAGE CLOSED result=" << result << " scroll=" << scroll )
 +    return result;
++}
++
++int Interface3DS::showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, const int buttons,
++                              const std::vector<const fheroes2::DialogElement *> & elements )
++{
++    return showNativeMessage( header, body, buttons, elements );
++}
++
++bool Interface3DS::showChestChoice( const std::string & header, const std::string & body, const uint32_t gold, const uint32_t experience,
++                                   const uint32_t totalGold, const uint32_t experienceNeeded )
++{
++    using namespace fheroes2;
++    const ResourceDialogElement goldElement( Resource::GOLD, std::to_string( gold ) );
++    const ExperienceDialogElement experienceElement( experience );
++    const ChestChoice chest{ { _( "Gold" ), _( "Experience" ) },
++                             { _( "Total: " ) + std::to_string( totalGold ), _( "Need: " ) + std::to_string( experienceNeeded ) } };
++    const int result = showNativeMessage( Text( header, FontType::normalYellow() ), Text( body, FontType::normalWhite() ),
++                                         Dialog::YES | Dialog::NO, { &goldElement, &experienceElement }, &chest );
++    // The caller grants rewards: true keeps the gold; false gives the peasants the gold for experience.
++    return result == Dialog::YES;
 +}
 +
 +void Interface3DS::testNativeMessages()
@@ -2015,24 +2124,7 @@ index 0000000..07702ec
 +    };
 +    const auto run = [&]( const TextBase & title, const TextBase & text, const int buttons, const std::vector<const DialogElement *> & elements,
 +                          std::vector<TimedEvent> sequence ) {
-+        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int {
-+            auto & steps = *static_cast<std::vector<TimedEvent> *>( data );
-+            for ( auto & step : steps ) {
-+                SDL_Delay( step.first );
-+                if ( SDL_PushEvent( &step.second ) != 1 ) return 1;
-+            }
-+            return 0;
-+        }, "dialog-smoke", &sequence );
-+        if ( !worker ) throw std::runtime_error( "Cannot start dialog test input" );
-+        const int result = fheroes2::showMessage( title, text, buttons, elements );
-+        int status = 0;
-+        SDL_WaitThread( worker, &status );
-+        if ( status ) throw std::runtime_error( "Dialog test input injection failed" );
-+        // Drain releases arriving after a dialog closed on a controller press.
-+        events.HandleEvents( false, true );
-+        if ( events.MouseClickLeft() || events.isMouseRightButtonPressed() || Platform3DS::hasModalImages() )
-+            throw std::runtime_error( "Modal input or image layer leaked after close" );
-+        return result;
++        return runInjectedInput( [&]() { return fheroes2::showMessage( title, text, buttons, elements ); }, std::move( sequence ) );
 +    };
 +    const Text title( _( "Next Hero" ), FontType::normalYellow() );
 +    const Text text( _( "Select the next Hero." ), FontType::normalWhite() );
@@ -2090,17 +2182,83 @@ index 0000000..07702ec
 +    events.resetFor3DSPanel();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
++
++void Interface3DS::testChestChoice()
++{
++    using namespace fheroes2;
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT );
++    const auto experienceBefore = hero.GetExperience();
++    const auto goldBefore = world.GetKingdom( hero.GetColor() ).GetFunds().Get( Resource::GOLD );
++    const auto cropBefore = Platform3DS::viewport();
++    Image frameBefore;
++    Copy( Display::instance(), frameBefore );
++    const std::string header = _( "Treasure Chest" );
++    const std::string body = _( "After scouring the area, you fall upon a hidden treasure cache. You may take the gold or distribute the gold to the peasants for experience. Do you wish to keep the gold?" );
++    const auto controller = []( const int button, const bool pressed ) {
++        SDL_Event event{}; event.type = pressed ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP;
++        event.cbutton.button = button; event.cbutton.state = pressed ? SDL_PRESSED : SDL_RELEASED;
++        return event;
++    };
++    const auto touch = []( const Uint32 type, const int x, const int y ) {
++        SDL_Event event{}; event.type = type; event.tfinger.touchId = 1; event.tfinger.fingerId = 0;
++        event.tfinger.x = x / 320.0f; event.tfinger.y = y / 240.0f;
++        return event;
++    };
++    const auto run = [&]( const std::string & text, std::vector<TimedEvent> sequence, const uint32_t gold = 2000, const uint32_t experience = 1500 ) {
++        return runInjectedInput( [&]() { return Dialog::SelectGoldOrExp( header, text, gold, experience, hero ) ? 1 : 0; }, std::move( sequence ) );
++    };
++    Platform3DS::requestCapture();
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 1 )
++        throw std::runtime_error( "Chest gold tap changed the upstream reward branch" );
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 0 )
++        throw std::runtime_error( "Chest experience tap changed the upstream reward branch" );
++    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
++                     { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 0 )
++        throw std::runtime_error( "Chest D-pad selection differs" );
++    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 )
++        throw std::runtime_error( "Chest Escape no longer chooses experience" );
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERMOTION, 160, 190 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
++                     { 100, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 0 )
++        throw std::runtime_error( "Chest drag chose gold" );
++    const auto nestedBefore = nestedInformationReturns;
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 132 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
++                     { 300, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 0
++         || nestedInformationReturns != nestedBefore + 1 ) throw std::runtime_error( "Chest gold information chose a reward or lost the dialog" );
++    const auto experienceInfoBefore = nestedInformationReturns;
++    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
++                     { 100, controller( SDL_CONTROLLER_BUTTON_B, true ) }, { 500, controller( SDL_CONTROLLER_BUTTON_B, false ) },
++                     { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 0
++         || nestedInformationReturns != experienceInfoBefore + 1 ) throw std::runtime_error( "Chest experience information lost selection" );
++    std::string longText;
++    for ( int i = 0; i < 6; ++i ) longText += body + "\n";
++    if ( run( longText, { { 300, touch( SDL_FINGERDOWN, 160, 80 ) }, { 100, touch( SDL_FINGERMOTION, 160, 25 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
++                         { 100, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 1 || lastMessageScroll <= 0 )
++        throw std::runtime_error( "Long chest text hid the gold choice" );
++    if ( hero.GetExperience() != experienceBefore || world.GetKingdom( hero.GetColor() ).GetFunds().Get( Resource::GOLD ) != goldBefore )
++        throw std::runtime_error( "Chest dialog granted a reward instead of leaving it to the caller" );
++    auto & settings = Settings::Get();
++    const auto originalInterface = settings.getInterfaceType();
++    settings.setInterfaceType( InterfaceType::EVIL );
++    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) } }, 1000, 500 ) != 1 )
++        throw std::runtime_error( "Evil chest primary confirmation differs" );
++    settings.setInterfaceType( originalInterface );
++    if ( Platform3DS::viewport() != cropBefore || std::memcmp( frameBefore.image(), Display::instance().image(), frameBefore.width() * frameBefore.height() ) != 0 )
++        throw std::runtime_error( "Chest changed the game context" );
++    COUT( "3DS CHEST SMOKE: PASS gold experience dpad escape drag_cancel nested_gold nested_experience long_text evil caller_rewards context_restore" )
++}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..b36fd19
+index 0000000..b0d58fb
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,18 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
 +#include <vector>
++#include <cstdint>
++#include <string>
 +namespace fheroes2 { class TextBase; class DialogElement; }
 +namespace Interface3DS
 +{
@@ -2108,5 +2266,8 @@ index 0000000..b36fd19
 +    int showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, int buttons,
 +                     const std::vector<const fheroes2::DialogElement *> & elements );
 +    void testNativeMessages();
++    bool showChestChoice( const std::string & header, const std::string & body, uint32_t gold, uint32_t experience,
++                          uint32_t totalGold, uint32_t experienceNeeded );
++    void testChestChoice();
 +}
 +#endif
