@@ -1,5 +1,11 @@
 # fheroes2-3ds
 
+## Preview 0.3.11: battle log on the touchscreen
+
+Tap battle messages to open a full 320×240 lower-screen log. The upper screen retains the battlefield; the original log overlay is no longer drawn there. Complete entries wrap to the text width and the log opens at the latest events. D-pad up/down scrolls lines, left/right scrolls a page; stylus dragging scrolls in both directions. OK, A/Start, B or L closes the log and restores the HUD. Dragging from OK cancels the press; closing input does not reach battle controls.
+
+HUD messages now have padding below and inside the decorative frame, with one shortened line per message. Full action messages remain in the log. The 0.3.10 recruitment changes are included. On New 3DS XL, check a long battle log, scrolling both ways, closing and resuming combat/spell selection. Other specialized dialogs retain their existing layouts.
+
 ## Preview 0.3.10: larger animated recruitment portraits
 
 Recruitment portraits now occupy 104×90 instead of 86×44, using creature sprites and original idle frames with stable scale and aspect ratio. Variant arrows sit beside availability on the right. Quantity and purchase controls remain the same.
@@ -30,7 +36,7 @@ Current preview: **0.3.7**. The game has been run on a New Nintendo 3DS XL; AI t
 
 Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
 
-Development preview **0.3.10** includes native touchscreen recruitment, larger animated portraits, held-tooltip scrolling and a bottom battle footer with messages and Auto/Settings/Skip icons. The user reports other 0.3.8 recruitment behavior working on New 3DS XL; portrait/scroll fixes and the battle footer await hardware feedback. The latest published release above remains 0.3.7; see [development controls](3ds-game/INSTALL.md).
+Development preview **0.3.11** includes native touchscreen recruitment, larger animated portraits, held-tooltip scrolling and a bottom battle footer with messages and Auto/Settings/Skip icons. The user reports other 0.3.8 recruitment behavior working on New 3DS XL; portrait/scroll fixes and the battle footer await hardware feedback. The latest published release above remains 0.3.7; see [development controls](3ds-game/INSTALL.md).
 
 ## Installation
 

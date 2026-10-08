@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.10'
+$version = '0.3.11'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -30,9 +30,12 @@ $manifest = [ordered]@{
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.10 fixes await physical validation'
-    native_battle_hud='Original Auto/Settings/Skip icons and two message rows in a native 320x40 bottom HUD; old footer removed from game frame; original input handlers and battle geometry retained'
+    native_battle_log='Full 320x240 lower-screen modal, raw wrapped entries, latest events first, stylus/D-pad scrolling, fixed close control and release isolation; original upper overlay disabled'
+    hardware_battle_log='User reported 0.3.9 HUD text touching frame and original log duplicated/cropped across screens; 0.3.11 padding/log fixes pending hardware validation'
+    emulated_battle_log='New/Old Russian and New English: long/empty logs, latest/older/newer entries, D-pad/stylus, button drag cancellation, closure and unchanged game frame/viewport; actual battle-HUD log dispatch and input isolation'
+    native_battle_hud='Original Auto/Settings/Skip icons and two padded single-line messages in a native 320x40 bottom HUD; old footer removed from game frame; original input handlers and battle geometry retained'
     hardware_battle_hud='Pending New 3DS XL battle, autocombat interruption, skip/log/settings, spell-selection and post-battle checks'
-    emulated_battle_hud='Real synthetic Arena: footer removed, native three-button/log mapping, original SKIP dispatch, log toggle, settings restore, hold information, drag cancellation and viewport/lifetime; not full battle gameplay'
+    emulated_battle_hud='Real synthetic Arena: footer removed, native three-button/log mapping, original SKIP dispatch, native log dispatch, settings restore, hold information, drag cancellation and viewport/lifetime; not full battle gameplay'
     hardware_recruitment='0.3.8 user reports other recruitment behavior working on New 3DS XL without scenario breakdown; 0.3.10 portrait and held-scroll fixes pending'
     emulated_recruitment='Russian New/Old and English New: actual RecruitMonster, visibly animated enlarged portrait, independent held-stylus/D-pad scrolling and release isolation, quantity/availability/rare-resource limits, touch/controller, slider, cancel/drag, nested top info, downgrade, empty treasury/dwelling, large quantities, Evil UI, unchanged funds/frame/viewport/strip'
     hardware_level_up='Pending real-match validation on New 3DS XL'

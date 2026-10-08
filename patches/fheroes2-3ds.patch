@@ -581,10 +581,10 @@ index e3d7171..8773662 100644
      correctedPath.clear();
  
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..a5f4cf8 100644
+index f3e8496..b3b4e37 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
-@@ -22,6 +22,15 @@
+@@ -22,6 +22,16 @@
   ***************************************************************************/
  
  #include "battle_interface.h"
@@ -596,11 +596,34 @@ index f3e8496..a5f4cf8 100644
 +
 +#include "army.h"
 +#include "platform_3ds.h"
++#include "ui_3ds_dialog.h"
 +#endif
  
  #include <algorithm>
  #include <array>
-@@ -1146,6 +1155,9 @@ Battle::Status::Status()
+@@ -846,6 +856,11 @@ namespace Battle
+ 
+         void AddMessage( std::string str )
+         {
++#if defined( __3DS__ )
++            // Keep complete messages; the touchscreen log wraps them at its own width.
++            _messages.push_back( std::move( str ) );
++            return;
++#endif
+             // Check if message string fits the log width.
+             fheroes2::Text text( str, fheroes2::FontType::normalWhite() );
+             size_t pos = std::string::npos;
+@@ -966,6 +981,9 @@ namespace Battle
+             _isLogOpened = opened;
+         }
+ 
++#if defined( __3DS__ )
++        void showNativeLog() const { Interface3DS::showBattleLog( _messages ); }
++#endif
+         bool isOpenLog() const
+         {
+             return _isLogOpened;
+@@ -1146,6 +1164,9 @@ Battle::Status::Status()
  void Battle::Status::setMessage( std::string messageString, const bool top )
  {
      if ( top ) {
@@ -610,7 +633,7 @@ index f3e8496..a5f4cf8 100644
          _upperText.set( messageString, fheroes2::FontType::normalWhite() );
          // The text cannot go beyond the text area so it is important to truncate it when necessary.
          _upperText.fitToOneRow( width - offsetForTextBar * 2 );
-@@ -1165,6 +1177,24 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
+@@ -1165,6 +1186,20 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
  
  void Battle::Status::redraw( fheroes2::Image & output ) const
  {
@@ -618,16 +641,12 @@ index f3e8496..a5f4cf8 100644
 +    if ( auto * hud = Platform3DS::battleHUDImage() ) {
 +        fheroes2::Resize( _upperBackground, 0, 0, width, _upperBackground.height(), *hud, 40, 0, 240, 20 );
 +        fheroes2::Resize( _lowerBackground, 0, 0, width, _lowerBackground.height(), *hud, 40, 20, 240, 20 );
-+        // Two clipped rows per message retain long text without covering the controls.
-+        fheroes2::Image messages( 232, 40 );
-+        fheroes2::Copy( *hud, 44, 0, messages, 0, 0, 232, 40 );
-+        fheroes2::Image line( 232, 20 );
++        // Leave padding below the decorative top edge. Full messages remain in the log.
 +        const std::array<std::string, 2> texts{ _upperMessage3DS, _lastMessage };
 +        for ( int i = 0; i < 2; ++i ) {
-+            fheroes2::Copy( messages, 0, i * 20, line, 0, 0, 232, 20 );
-+            const fheroes2::Text text( texts[i], fheroes2::FontType::smallWhite() );
-+            text.draw( 0, text.height( 232 ) <= 10 ? 5 : 0, 232, line );
-+            fheroes2::Copy( line, 0, 0, *hud, 44, i * 20, 232, 20 );
++            fheroes2::Text text( texts[i], fheroes2::FontType::smallWhite() );
++            text.fitToOneRow( 224 );
++            text.draw( 48, i * 20 + 5, 224, *hud );
 +        }
 +        return;
 +    }
@@ -635,7 +654,7 @@ index f3e8496..a5f4cf8 100644
      fheroes2::Copy( _upperBackground, 0, 0, output, x, y, width, _upperBackground.height() );
      fheroes2::Copy( _lowerBackground, 0, 0, output, x, y + _upperBackground.height(), width, _lowerBackground.height() );
  
-@@ -1179,6 +1209,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
+@@ -1179,6 +1214,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
  
  void Battle::Status::clear()
  {
@@ -645,7 +664,7 @@ index f3e8496..a5f4cf8 100644
      _upperText.set( "", fheroes2::FontType::normalWhite() );
      _lowerText.set( "", fheroes2::FontType::normalWhite() );
      _lastMessage = "";
-@@ -1507,12 +1540,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
+@@ -1507,12 +1545,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
      // Battlefield area excludes the lower part where the status log is located.
      _mainSurface.resize( area.width, battlefieldHeight );
      _battleGround.resize( area.width, battlefieldHeight );
@@ -666,7 +685,7 @@ index f3e8496..a5f4cf8 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,11 +1714,35 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,19 +1719,201 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -702,8 +721,11 @@ index f3e8496..a5f4cf8 100644
  
      popup.redraw();
  
-@@ -1686,6 +1751,147 @@ void Battle::Interface::RedrawInterface()
++#if !defined( __3DS__ )
+     if ( listlog && listlog->isOpenLog() ) {
+         listlog->Redraw();
      }
++#endif
  }
  
 +#if defined( __3DS__ )
@@ -799,14 +821,29 @@ index f3e8496..a5f4cf8 100644
 +        ui.HumanBattleTurn( unit, actions, message );
 +        if ( actions.size() != 1 || actions.front().GetType() != CommandType::SKIP || !ui.humanturn_exit || ui._buttonSkip.isPressed() || !ui._needRedraw )
 +            throw std::runtime_error( "Battle HUD did not dispatch the original skip action" );
-+        for ( int i = 0; i < 2; ++i ) {
-+            events.resetFor3DSPanel();
-+            touch( SDL_FINGERDOWN, 160, 210 );
-+            touch( SDL_FINGERUP, 0, 0 );
-+            ui.HumanBattleTurn( unit, actions, message );
-+            if ( ui.listlog->isOpenLog() != ( i == 0 ) )
-+                throw std::runtime_error( "Battle HUD did not toggle the original battle log" );
-+        }
++        events.resetFor3DSPanel();
++        SDL_Thread * logCloser = SDL_CreateThread( []( void * ) -> int {
++            SDL_Delay( 300 );
++            SDL_Event event{};
++            event.type = SDL_CONTROLLERBUTTONDOWN;
++            event.cbutton.button = SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
++            event.cbutton.state = SDL_PRESSED;
++            if ( SDL_PushEvent( &event ) != 1 ) return 1;
++            SDL_Delay( 80 );
++            event.type = SDL_CONTROLLERBUTTONUP;
++            event.cbutton.state = SDL_RELEASED;
++            return SDL_PushEvent( &event ) == 1 ? 0 : 1;
++        }, "battle-log-smoke", nullptr );
++        if ( !logCloser ) throw std::runtime_error( "Cannot start log closure input" );
++        touch( SDL_FINGERDOWN, 160, 210 );
++        touch( SDL_FINGERUP, 0, 0 );
++        const size_t actionCount = actions.size();
++        ui.HumanBattleTurn( unit, actions, message );
++        int logStatus = 0;
++        SDL_WaitThread( logCloser, &logStatus );
++        events.HandleEvents( false, true );
++        if ( logStatus || ui.listlog->isOpenLog() || Platform3DS::hasModalImages() || events.MouseClickLeft() || actions.size() != actionCount )
++            throw std::runtime_error( "Battle native log leaked overlay, input or action" );
 +        SDL_Thread * settingsCloser = SDL_CreateThread(
 +            []( void * ) -> int {
 +                SDL_Delay( 300 );
@@ -843,14 +880,27 @@ index f3e8496..a5f4cf8 100644
 +    fheroes2::Copy( savedFrame, display );
 +    display.render();
 +    COUT(
-+        "3DS BATTLE HUD SMOKE: PASS real_arena top_footer_removed native_buttons_log_mapping skip_dispatch log_toggle settings_restore drag_cancel hold_info viewport_lifetime" )
++        "3DS BATTLE HUD SMOKE: PASS real_arena top_footer_removed native_buttons_log_mapping skip_dispatch native_log_dispatch settings_restore drag_cancel hold_info viewport_lifetime" )
 +}
 +#endif
 +
  void Battle::Interface::RedrawArmies()
  {
      // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
-@@ -3176,9 +3382,21 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3152,10 +3380,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+             Redraw();
+             _needRedraw = false;
+         }
++#if !defined( __3DS__ )
+         else if ( listlog && listlog->IsNeedRedraw() ) {
+             listlog->Redraw();
+             fheroes2::Display::instance().render( listlog->GetArea() );
+         }
++#endif
+     }
+ 
+     popup.reset();
+@@ -3176,9 +3406,21 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
      _highlightUnitMovementArea = nullptr;
      const bool highlightUnitMovementArea = conf.isBattleMovementAreaHighlightEnabled();
  
@@ -872,7 +922,20 @@ index f3e8496..a5f4cf8 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3583,7 +3801,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3468,7 +3710,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+             msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
+ 
+             if ( le.MouseClickLeft( status ) ) {
++#if defined( __3DS__ )
++                listlog->showNativeLog();
++                _needRedraw = true;
++#else
+                 listlog->SetOpenLog( !listlog->isOpenLog() );
++#endif
+             }
+             else if ( le.isMouseRightButtonPressedInArea( status ) ) {
+                 fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
+@@ -3583,7 +3830,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -2394,10 +2457,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..b972aad
+index 0000000..4ca6e81
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1120 @@
+@@ -0,0 +1,1243 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -2442,6 +2505,7 @@ index 0000000..b972aad
 +    using Platform3DS::PanelKey;
 +    unsigned nestedInformationReturns = 0;
 +    int lastMessageScroll = 0;
++    int lastBattleLogScroll = 0, lastBattleLogMaximum = 0;
 +    bool captureRecruitPortrait = false;
 +    unsigned recruitPortraitChanges = 0;
 +    bool captureRecruitLayout = false;
@@ -2713,6 +2777,127 @@ index 0000000..b972aad
 +    lastMessageScroll = scroll;
 +    COUT( "3DS MESSAGE CLOSED result=" << result << " scroll=" << scroll )
 +    return result;
++}
++
++void Interface3DS::showBattleLog( const std::vector<std::string> & messages )
++{
++    using namespace fheroes2;
++    const CursorRestorer cursorRestorer( false );
++    Image window( 320, 240 ), view( 284, 164 );
++    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const Rect textArea{ 12, 34, 284, 164 };
++    std::vector<int> offsets{ 0 };
++    for ( const auto & message : messages ) offsets.push_back( offsets.back() + Text( message, FontType::smallWhite() ).height( view.width() ) + 5 );
++    const int maximum = std::max( 0, offsets.back() - int( view.height() ) );
++    int scroll = maximum;
++    Button close( 0, 204, evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON, 0, 1 );
++    close.setPosition( ( 320 - close.area().width ) / 2, 204 );
++    bool closed = false, down = false, moved = false, buttonHeld = false;
++    Point start, last;
++    const ModalScope scope( window, false );
++    const auto draw = [&]() {
++        window.fill( background );
++        StandardWindow::renderBackgroundImage( window, { 0, 0, 320, 240 }, 0, evil );
++        DrawBorder( window, border );
++        Text( _( "Show logs" ), FontType::normalYellow() ).draw( 12, 8, 296, window );
++        view.fill( background );
++        const auto first = std::upper_bound( offsets.begin(), offsets.end(), scroll );
++        size_t i = first == offsets.begin() ? 0 : size_t( first - offsets.begin() - 1 );
++        for ( ; i < messages.size() && offsets[i] < scroll + view.height(); ++i )
++            Text( messages[i], FontType::smallWhite() ).draw( 0, offsets[i] - scroll, view.width(), view );
++        Copy( view, 0, 0, window, textArea.x, textArea.y, view.width(), view.height() );
++        if ( maximum ) {
++            Fill( window, 302, 34, 5, 164, background );
++            const int thumb = std::max( 8, int( int64_t( 164 ) * 164 / offsets.back() ) );
++            Fill( window, 302, 34 + int( int64_t( scroll ) * ( 164 - thumb ) / maximum ), 5, thumb, border );
++        }
++        if ( buttonHeld && !moved ) close.press(); else close.release();
++        close.draw( window );
++        Display::instance().render();
++    };
++    if ( Platform3DS::smokeTest() ) Platform3DS::requestCapture();
++    draw();
++    if ( Platform3DS::smokeTest() && !Save( window, "sdmc:/3ds/fheroes2/battle-log-bottom.bmp" ) )
++        throw std::runtime_error( "Cannot save native battle log" );
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = false;
++        Platform3DS::PanelInput input;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                switch ( input.key ) {
++                case PanelKey::Up: scroll -= 32; break;
++                case PanelKey::Down: scroll += 32; break;
++                case PanelKey::Left: scroll -= view.height(); break;
++                case PanelKey::Right: scroll += view.height(); break;
++                case PanelKey::Confirm:
++                case PanelKey::Cancel:
++                case PanelKey::Information: closed = true; break;
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                start = last = input.position; down = true; moved = false;
++                buttonHeld = close.area() & start;
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && ( textArea & start ) ) scroll += last.y - input.position.y;
++                last = input.position;
++            }
++            else if ( input.type == PanelInputType::TouchUp && down ) {
++                if ( !moved && buttonHeld && ( close.area() & last ) ) closed = true;
++                down = false; buttonHeld = false;
++            }
++            scroll = std::clamp( scroll, 0, maximum );
++        }
++        if ( redraw && !closed ) draw();
++    }
++    if ( Platform3DS::smokeTest() && messages.size() > 1 && !Save( window, "sdmc:/3ds/fheroes2/battle-log-scrolled-bottom.bmp" ) )
++        throw std::runtime_error( "Cannot save scrolled battle log" );
++    lastBattleLogScroll = scroll; lastBattleLogMaximum = maximum;
++    COUT( "3DS BATTLE LOG CLOSED scroll=" << scroll << " maximum=" << maximum << " entries=" << messages.size() )
++}
++
++void Interface3DS::testBattleLog()
++{
++    using namespace fheroes2;
++    std::vector<std::string> messages;
++    for ( int i = 1; i <= 40; ++i ) messages.push_back( std::to_string( i ) + ": " + _( "Skips the current creature. The current creature ends its turn and does not get to go again until the next round." ) );
++    const auto touch = []( Uint32 type, int x, int y ) {
++        SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0;
++        e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e;
++    };
++    const auto key = []( int button, bool pressed ) {
++        SDL_Event e{}; e.type = pressed ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP;
++        e.cbutton.button = button; e.cbutton.state = pressed ? SDL_PRESSED : SDL_RELEASED; return e;
++    };
++    const Point crop = Platform3DS::viewport();
++    const Image * strip = Platform3DS::commandStripImage();
++    Image frame; Copy( Display::instance(), frame );
++    const auto run = [&]( const std::vector<std::string> & content, std::vector<TimedEvent> input ) {
++        runInjectedInput( [&]() { showBattleLog( content ); return 0; }, std::move( input ) );
++        if ( Platform3DS::viewport() != crop || Platform3DS::commandStripImage() != strip
++             || std::memcmp( frame.image(), Display::instance().image(), frame.width() * frame.height() ) != 0 )
++            throw std::runtime_error( "Battle log changed upper frame/viewport/context" );
++    };
++    run( messages, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( lastBattleLogMaximum <= 0 || lastBattleLogScroll != lastBattleLogMaximum ) throw std::runtime_error( "Battle log did not open at latest entry" );
++    run( messages, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_UP, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_UP, false ) },
++                    { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } );
++    if ( lastBattleLogScroll >= lastBattleLogMaximum ) throw std::runtime_error( "Battle log D-pad did not scroll older entries" );
++    run( messages, { { 250, touch( SDL_FINGERDOWN, 160, 60 ) }, { 80, touch( SDL_FINGERMOTION, 160, 170 ) },
++                    { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, touch( SDL_FINGERDOWN, 160, 219 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } } );
++    if ( lastBattleLogScroll >= lastBattleLogMaximum ) throw std::runtime_error( "Battle log stylus did not scroll older entries" );
++    run( messages, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_UP, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_UP, false ) },
++                    { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++                    { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( lastBattleLogScroll != lastBattleLogMaximum ) throw std::runtime_error( "Battle log did not scroll back to newest entries" );
++    run( {}, { { 250, touch( SDL_FINGERDOWN, 160, 219 ) }, { 80, touch( SDL_FINGERMOTION, 160, 60 ) },
++               { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) } } );
++    if ( lastBattleLogMaximum || lastBattleLogScroll ) throw std::runtime_error( "Empty battle log did not clamp scroll" );
++    COUT( "3DS BATTLE LOG SMOKE: PASS bottom_width latest_entries wrapped_messages dpad_scroll stylus_scroll close_drag release_isolation upper_frame_unchanged" )
 +}
 +
 +int Interface3DS::showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, const int buttons,
@@ -3372,6 +3557,7 @@ index 0000000..b972aad
 +        throw std::runtime_error( "Native dialogs modified the game frame" );
 +    Platform3DS::setCommandStripImage( previousStrip );
 +    events.resetFor3DSPanel();
++    testBattleLog();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +
@@ -3520,10 +3706,10 @@ index 0000000..b972aad
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..c69d690
+index 0000000..a5f25a9
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,29 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -3542,6 +3728,8 @@ index 0000000..c69d690
 +    int showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, int buttons,
 +                     const std::vector<const fheroes2::DialogElement *> & elements );
 +    void testNativeMessages();
++    void showBattleLog( const std::vector<std::string> & messages );
++    void testBattleLog();
 +    bool showChestChoice( const std::string & header, const std::string & body, uint32_t gold, uint32_t experience,
 +                          uint32_t totalGold, uint32_t experienceNeeded );
 +    void testChestChoice();
