@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.9
+# fheroes2 for Nintendo 3DS — preview 0.3.10
+
+## Preview 0.3.10: larger animated recruitment portraits
+
+Recruitment portraits now occupy 104×90 instead of 86×44, using creature sprites and original idle frames with stable scale and aspect ratio. Variant arrows sit beside availability on the right. Quantity and purchase controls remain the same.
+
+Hold the portrait until information appears on the top screen, then move the stylus up/down without lifting it to scroll. D-pad up/down also scrolls while the stylus is held. Releasing the stylus closes information and restores the same recruitment selection, even after dragging; the closing gesture cannot activate recruitment buttons. B information still closes when B is released.
+
+On New 3DS XL, check small/large creatures, animation, variant switching and a long tooltip with both stylus dragging and D-pad scrolling while held. Release over the purchase button to verify isolation. The 0.3.9 battle HUD changes are included and still await separate hardware feedback.
 
 ## New in 0.3.9: battle footer
 

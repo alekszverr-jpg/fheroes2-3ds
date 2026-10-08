@@ -1,5 +1,13 @@
 # fheroes2-3ds
 
+## Preview 0.3.10: larger animated recruitment portraits
+
+Recruitment portraits now occupy 104×90 instead of 86×44, using creature sprites and original idle frames with stable scale and aspect ratio. Variant arrows sit beside availability on the right. Quantity and purchase controls remain the same.
+
+Hold the portrait until information appears on the top screen, then move the stylus up/down without lifting it to scroll. D-pad up/down also scrolls while the stylus is held. Releasing the stylus closes information and restores the same recruitment selection, even after dragging; the closing gesture cannot activate recruitment buttons. B information still closes when B is released.
+
+On New 3DS XL, check small/large creatures, animation, variant switching and a long tooltip with both stylus dragging and D-pad scrolling while held. Release over the purchase button to verify isolation. The 0.3.9 battle HUD changes are included and still await separate hardware feedback.
+
 A work-in-progress Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-source Heroes of Might and Magic II engine.
 
 **English** | [Русский](README_RU.md)
@@ -22,7 +30,7 @@ Current preview: **0.3.7**. The game has been run on a New Nintendo 3DS XL; AI t
 
 Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
 
-Development preview **0.3.9** adds native touchscreen recruitment and a bottom battle footer with messages and Auto/Settings/Skip icons. It has emulator validation and is awaiting an actual recruitment test on New 3DS XL. The latest published release above remains 0.3.7; see [development controls](3ds-game/INSTALL.md).
+Development preview **0.3.10** includes native touchscreen recruitment, larger animated portraits, held-tooltip scrolling and a bottom battle footer with messages and Auto/Settings/Skip icons. The user reports other 0.3.8 recruitment behavior working on New 3DS XL; portrait/scroll fixes and the battle footer await hardware feedback. The latest published release above remains 0.3.7; see [development controls](3ds-game/INSTALL.md).
 
 ## Installation
 
