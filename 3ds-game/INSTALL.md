@@ -1,10 +1,16 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.4
+# fheroes2 for Nintendo 3DS — preview 0.3.5
+
+## High-resolution top screen — preview 0.3.5
+
+Hold **R**, then press **Start** to switch 400×240 ↔ **800×240 in 2D**. The choice is saved immediately in `fheroes2.cfg` as `3ds high resolution = on/off`; new installations default to off. Stereo 3D is not enabled. Narrower physical pixels preserve the proportions and framing of the 800×480 game frame. Native top-screen information retains its readable size; the lower screen stays at 320×240. Old 2DS and failed model detection use standard output.
+
+Test on real hardware: compare fine map details, viewport borders, information and chest windows, then combat. R + Start inside a dialog must not confirm an answer. Restart to check the saved preference. Physical wide-mode quality and performance are pending validation.
 
 [Русский](INSTALL_RU.md) | [Project and downloads](https://github.com/alekszverr-jpg/fheroes2-3ds)
 
 ## Installation
 
-1. Download `fheroes2-menu-preview-0.3.4.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.4).
+1. Download `fheroes2-menu-preview-0.3.5.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.5).
 2. Extract its `3ds` directory to the root of the console's SD card.
 3. Add the original Heroes of Might and Magic II files from your own game installation to the directories below. The release does not include original game data, maps or music.
 4. Launch **fheroes2 3DS preview** from Homebrew Launcher.
@@ -74,7 +80,7 @@ D-pad up/down scrolls long content. You can also drag the stylus in the text are
 
 This adaptation covers the common `showMessage` path with standard elements and passive images/animations. Army/monster information, recruitment and custom interactive windows retain their original layout and input. No stereo 3D is enabled.
 
-## Treasure chests in 0.3.4
+## Treasure chests in 0.3.5
 
 The gold/experience choice appears on the touchscreen with explicit **Gold** and **Experience** buttons. Reward icons and amounts, your current kingdom gold and experience needed for the next level stay visible while you scroll the description.
 

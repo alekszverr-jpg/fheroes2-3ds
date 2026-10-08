@@ -4,13 +4,13 @@ A work-in-progress Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fher
 
 **English** | [Русский](README_RU.md)
 
-**[Download preview 0.3.4](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.4)** — download `fheroes2-menu-preview-0.3.4.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
+**[Download preview 0.3.5](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.5)** — download `fheroes2-menu-preview-0.3.5.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
 
-Current preview: **0.3.4**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. Preview 0.3.4 has passed automated New/Old emulator checks and still needs hardware validation. Physical Old 3DS compatibility is unverified.
+Current preview: **0.3.5**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. The chest Gold choice was reported working on New 3DS XL. High-resolution output in 0.3.5 still needs hardware validation. Physical Old 3DS compatibility is unverified.
 
 ## Features
 
-- An 800×480 game frame shown at half size on the full 400×240 top screen.
+- An 800×480 game frame filling the top screen: 400×240 standard or optional 800×240 high-resolution 2D, switched with R + Start and saved in configuration; standard output on Old 2DS.
 - A native-scale detail viewport on the touchscreen, following the cursor or stylus.
 - Circle Pad cursor control; D-pad adventure-map scrolling, including diagonals.
 - Short stylus taps for left clicks and stationary holds for right-button information.
@@ -19,7 +19,7 @@ Current preview: **0.3.4**. The game has been run on a New Nintendo 3DS XL; AI t
 - Native touchscreen treasure-chest choice with labeled Gold/Experience buttons, fixed reward amounts and top-screen information.
 - SD logging and a separate platform/engine test application.
 
-Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
+Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Hero level-up, army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
 
 ## Installation
 

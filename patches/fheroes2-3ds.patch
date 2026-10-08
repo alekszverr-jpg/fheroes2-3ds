@@ -67,7 +67,7 @@ index d50ca80..051a3d0 100644
  #endif
  
 diff --git a/src/engine/localevent.cpp b/src/engine/localevent.cpp
-index 145ca33..c6b57d5 100644
+index 145ca33..9deec7a 100644
 --- a/src/engine/localevent.cpp
 +++ b/src/engine/localevent.cpp
 @@ -65,6 +65,7 @@
@@ -88,18 +88,19 @@ index 145ca33..c6b57d5 100644
              const fheroes2::Key key = getKeyFromSDL( event.keysym.sym );
              if ( key == fheroes2::Key::NONE ) {
                  // We do not process this key.
-@@ -987,6 +991,10 @@ namespace EventProcessing
+@@ -987,6 +991,11 @@ namespace EventProcessing
              assert( ( button.state == SDL_PRESSED ) || ( button.state == SDL_RELEASED ) );
  
              LocalEvent::ControllerButtonType buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_UNKNOWN;
 +#if defined( __3DS__ )
++            if ( Platform3DS::handleDisplayController( button.button, button.state == SDL_PRESSED ) ) return;
 +            if ( Platform3DS::handleAdventureDpad( button.button, button.state == SDL_PRESSED ) ) return;
 +            if ( Platform3DS::handlePanelController( button.button, button.state == SDL_PRESSED ) ) return;
 +#endif
  
              switch ( button.button ) {
              case SDL_CONTROLLER_BUTTON_A:
-@@ -1033,7 +1041,11 @@ namespace EventProcessing
+@@ -1033,7 +1042,11 @@ namespace EventProcessing
                  break;
              }
  
@@ -112,7 +113,7 @@ index 145ca33..c6b57d5 100644
              // Custom button mapping for Nintendo Switch
              if ( buttonType == LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_A ) {
                  buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_B;
-@@ -1240,8 +1252,24 @@ LocalEvent & LocalEvent::Get()
+@@ -1240,8 +1253,24 @@ LocalEvent & LocalEvent::Get()
      return le;
  }
  
@@ -137,7 +138,7 @@ index 145ca33..c6b57d5 100644
      // Event processing might be computationally heavy.
      // We want to make sure that we do not slow down by going into sleep mode when it is not needed.
      const fheroes2::Time eventProcessingTimer;
-@@ -1266,7 +1294,23 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
+@@ -1266,7 +1295,23 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
          return false;
      }
  
@@ -162,7 +163,7 @@ index 145ca33..c6b57d5 100644
          ProcessControllerAxisMotion();
      }
  
-@@ -1275,6 +1319,11 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
+@@ -1275,6 +1320,11 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
  
      fheroes2::Display & display = fheroes2::Display::instance();
  
@@ -174,7 +175,7 @@ index 145ca33..c6b57d5 100644
      // To maintain color cycling animation we need to render the whole frame with an updated palette.
      if ( isDisplayRefreshRequired || fheroes2::RenderProcessor::instance().isCyclingUpdateRequired() ) {
          renderRoi = { 0, 0, display.width(), display.height() };
-@@ -1334,6 +1383,23 @@ void LocalEvent::onMouseWheelEvent( fheroes2::Point position )
+@@ -1334,6 +1384,23 @@ void LocalEvent::onMouseWheelEvent( fheroes2::Point position )
  
  void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const int64_t touchId, const int64_t fingerId, fheroes2::PointBase2D<float> position )
  {
@@ -198,7 +199,7 @@ index 145ca33..c6b57d5 100644
      // ID of a finger here is a composite thing, and consists of a touch device id and a finger id. This
      // should allow gestures to be handled correctly even when using different touchpads for different
      // fingers.
-@@ -1368,9 +1434,30 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
+@@ -1368,9 +1435,30 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
      }
  
      if ( eventFingerId == _fingerIds.first ) {
@@ -230,7 +231,7 @@ index 145ca33..c6b57d5 100644
          // TODO: verify where it is even needed to do such weird woodoo magic for these targets.
          const fheroes2::Size screenResolution = fheroes2::engine().getCurrentScreenResolution(); // current resolution of screen
          const fheroes2::Rect windowRect = fheroes2::engine().getActiveWindowROI(); // scaled (logical) resolution
-@@ -1397,23 +1484,39 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
+@@ -1397,23 +1485,39 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
          // If there is a two-finger gesture in progress, the first finger is only used to move the cursor.
          // The operation of the left mouse button is not simulated.
          if ( !_isTwoFingerGestureInProgress ) {
@@ -282,7 +283,7 @@ index 145ca33..c6b57d5 100644
          }
      }
      else if ( eventFingerId == _fingerIds.second ) {
-@@ -1565,7 +1668,11 @@ void LocalEvent::onControllerButtonEvent( const bool isPressed, const Controller
+@@ -1565,7 +1669,11 @@ void LocalEvent::onControllerButtonEvent( const bool isPressed, const Controller
              _currentKeyboardValue = fheroes2::Key::KEY_E;
          }
          else if ( buttonType == ControllerButtonType::CONTROLLER_BUTTON_Y ) {
@@ -294,7 +295,7 @@ index 145ca33..c6b57d5 100644
          }
          else if ( buttonType == ControllerButtonType::CONTROLLER_BUTTON_BACK ) {
              _currentKeyboardValue = fheroes2::Key::KEY_F;
-@@ -1588,6 +1695,9 @@ void LocalEvent::ProcessControllerAxisMotion()
+@@ -1588,6 +1696,9 @@ void LocalEvent::ProcessControllerAxisMotion()
      _controllerTimer.reset();
  
      if ( _controllerLeftXAxis != 0 || _controllerLeftYAxis != 0 ) {
@@ -304,7 +305,7 @@ index 145ca33..c6b57d5 100644
          setStates( MOUSE_MOTION );
  
          const int32_t xSign = ( _controllerLeftXAxis < 0 ) ? -1 : 1;
-@@ -1748,6 +1858,9 @@ void LocalEvent::onMouseButtonEvent( const bool isPressed, const MouseButtonType
+@@ -1748,6 +1859,9 @@ void LocalEvent::onMouseButtonEvent( const bool isPressed, const MouseButtonType
  
  bool LocalEvent::MouseClickLeft()
  {
@@ -314,7 +315,7 @@ index 145ca33..c6b57d5 100644
      if ( !( _actionStates & MOUSE_RELEASED ) ) {
          return false;
      }
-@@ -1767,6 +1880,9 @@ bool LocalEvent::MouseClickLeft()
+@@ -1767,6 +1881,9 @@ bool LocalEvent::MouseClickLeft()
  
  bool LocalEvent::MouseClickLeft( const fheroes2::Rect & area )
  {
@@ -324,7 +325,7 @@ index 145ca33..c6b57d5 100644
      if ( !( _actionStates & MOUSE_RELEASED ) ) {
          return false;
      }
-@@ -1851,6 +1967,9 @@ bool LocalEvent::MouseClickRight( const fheroes2::Rect & area )
+@@ -1851,6 +1968,9 @@ bool LocalEvent::MouseClickRight( const fheroes2::Rect & area )
  
  bool LocalEvent::MouseLongPressLeft( const fheroes2::Rect & rt )
  {
@@ -635,14 +636,17 @@ index ce25e88..4c643bb 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..7fdd63f 100644
+index 69d39fb..8e664c9 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
-@@ -58,6 +58,11 @@
+@@ -58,6 +58,14 @@
  #include "math_base.h"
  #include "mus.h"
  #include "screen.h"
 +#include "platform_3ds.h"
++#if defined( __3DS__ )
++#include <SDL_gamecontroller.h>
++#endif
 +#if defined( __3DS__ )
 +#include "ui_3ds_commands.h"
 +#include "ui_3ds_dialog.h"
@@ -650,7 +654,7 @@ index 69d39fb..7fdd63f 100644
  #include "settings.h"
  #include "system.h"
  #include "translations.h"
-@@ -122,10 +127,12 @@ namespace
+@@ -122,10 +130,12 @@ namespace
  
  void Game::runMainGameLoop()
  {
@@ -663,7 +667,7 @@ index 69d39fb..7fdd63f 100644
  
      const CursorRestorer cursorRestorer( true, Cursor::POINTER );
  
-@@ -271,10 +278,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -271,10 +281,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
          {
              std::string body( _( "Welcome to Heroes of Might and Magic II powered by fheroes2 engine!" ) );
  
@@ -678,7 +682,7 @@ index 69d39fb..7fdd63f 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +327,18 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +330,46 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -687,9 +691,37 @@ index 69d39fb..7fdd63f 100644
 +    if ( Platform3DS::smokeTest() ) {
 +        Platform3DS::requestCapture();
 +        display.render();
++        if ( !Platform3DS::supportsHighResolutionModel( 0 ) || Platform3DS::supportsHighResolutionModel( 3 )
++             || !Platform3DS::supportsHighResolutionModel( 5 ) || Platform3DS::supportsHighResolutionModel( 255 ) )
++            throw std::runtime_error( "High-resolution model compatibility" );
++        if ( !Platform3DS::highResolutionSupported() ) throw std::runtime_error( "High resolution unavailable on emulated 3DS" );
++        const bool savedHighResolution = Platform3DS::highResolutionEnabled();
++        // Exercise the real preference writer; the emulator runner restores its temporary configuration.
++        Platform3DS::setHighResolutionEnabled( false );
++        Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true );
++        if ( !Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_START, true ) || !Platform3DS::highResolutionEnabled() )
++            throw std::runtime_error( "High-resolution chord failed" );
++        Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false );
++        if ( !Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_START, false ) )
++            throw std::runtime_error( "High-resolution chord release leaked" );
++        Platform3DS::setHighResolutionEnabled( false );
++        if ( !conf.Read( System::concatPath( System::GetConfigDirectory( "fheroes2" ), Settings::configFileName ) )
++             || !Platform3DS::highResolutionEnabled() ) throw std::runtime_error( "High-resolution preference did not persist" );
++        Platform3DS::setDisplayPreferenceSaveCallback( nullptr );
++        Platform3DS::requestCapture();
++        display.render();
++        Platform3DS::setHighResolutionEnabled( false );
++        Platform3DS::requestCapture();
++        display.render();
++        Platform3DS::setHighResolutionEnabled( true );
++        display.render();
 +        Interface3DS::captureCommandPanelPreview();
 +        Interface3DS::testNativeMessages();
 +        Interface3DS::testChestChoice();
++        Platform3DS::setHighResolutionEnabled( false );
++        display.render();
++        Platform3DS::setHighResolutionEnabled( savedHighResolution );
++        COUT( "3DS HIGH RESOLUTION SMOKE: PASS" )
 +        COUT( "3DS MENU SMOKE: PASS" )
 +        return fheroes2::GameMode::QUIT_GAME;
 +    }
@@ -961,12 +993,58 @@ index ebf6296..dbb7edb 100644
          const bool isProperDialog = ( buttons != 0 );
  
          const int cusorTheme = isProperDialog ? ::Cursor::POINTER : ::Cursor::Get().Themes();
+diff --git a/src/fheroes2/system/settings.cpp b/src/fheroes2/system/settings.cpp
+index 353da3b..20c346e 100644
+--- a/src/fheroes2/system/settings.cpp
++++ b/src/fheroes2/system/settings.cpp
+@@ -42,6 +42,7 @@
+ #include "screen.h"
+ #include "serialize.h"
+ #include "settings.h"
++#include "platform_3ds.h"
+ #include "system.h"
+ #include "tinyconfig.h"
+ #include "translations.h"
+@@ -145,6 +146,11 @@ Settings & Settings::Get()
+ bool Settings::Read( const std::string & filePath )
+ {
+     // TODO: we shouldn't set any parameters for other classes as these class objects might not be initialized yet.
++#if defined( __3DS__ )
++    Platform3DS::setDisplayPreferenceSaveCallback( []() {
++        if ( !Settings::Get().Save( Settings::configFileName ) ) { ERROR_LOG( "Cannot save 3DS display preference" ) }
++    } );
++#endif
+     TinyConfig config( '=', '#' );
+ 
+     std::string sval;
+@@ -153,6 +159,10 @@ bool Settings::Read( const std::string & filePath )
+         return false;
+     }
+ 
++#if defined( __3DS__ )
++    if ( config.Exists( "3ds high resolution" ) )
++        Platform3DS::setHighResolutionEnabled( config.StrParams( "3ds high resolution" ) == "on" );
++#endif
+     // debug
+     if ( config.Exists( "debug" ) ) {
+         setDebug( config.IntParams( "debug" ) );
+@@ -420,6 +430,10 @@ std::string Settings::getOptionsString() const
+        << "# Only modify this file if you are absolutely sure of what you are doing!" << std::endl
+        << "# !!! WARNING !!!" << std::endl;
+ 
++#if defined( __3DS__ )
++    os << std::endl << "# High-resolution top screen (R + Start): on/off; unavailable on Old 2DS" << std::endl;
++    os << "3ds high resolution = " << ( Platform3DS::highResolutionEnabled() ? "on" : "off" ) << std::endl;
++#endif
+     const fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     os << std::endl << "# Resolution: in-game width x height : on-screen width x height" << std::endl;
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..8f288d2
+index 0000000..389ecc3
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,352 @@
+@@ -0,0 +1,402 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#if defined( __3DS__ )
@@ -977,11 +1055,17 @@ index 0000000..8f288d2
 +#include <set>
 +#include <vector>
 +#include <SDL.h>
++#include <3ds.h>
 +namespace
 +{
 +    fheroes2::Point crop;
 +    bool touchHeld = false;
 +    bool capture = false;
++    bool highResolution = false;
++    bool displayRefresh = false;
++    bool displayModifierHeld = false;
++    bool displayStartCaptured = false;
++    void ( *saveDisplayPreference )() = nullptr;
 +    fheroes2::Point lastCursor;
 +    fheroes2::Point target;
 +    double cameraX = 0, cameraY = 0;
@@ -1013,6 +1097,49 @@ index 0000000..8f288d2
 +}
 +namespace Platform3DS
 +{
++    bool supportsHighResolutionModel( const uint8_t model )
++    {
++        return model <= CFG_MODEL_N2DSXL && model != CFG_MODEL_2DS;
++    }
++    bool highResolutionSupported()
++    {
++        static const bool supported = []() {
++            if ( R_FAILED( cfguInit() ) ) return false;
++            u8 model = 255;
++            const Result result = CFGU_GetSystemModel( &model );
++            cfguExit();
++            return R_SUCCEEDED( result ) && supportsHighResolutionModel( model );
++        }();
++        return supported;
++    }
++    bool highResolutionEnabled() { return highResolution; }
++    void setHighResolutionEnabled( const bool enabled )
++    {
++        if ( highResolution == enabled ) return;
++        highResolution = enabled;
++        displayRefresh = true;
++    }
++    void setDisplayPreferenceSaveCallback( void ( *callback )() ) { saveDisplayPreference = callback; }
++    bool consumeDisplayRefresh() { const bool refresh = displayRefresh; displayRefresh = false; return refresh; }
++    bool handleDisplayController( const int button, const bool pressed )
++    {
++        // R remains the pointer-speed modifier. Capture only Start in this chord, including its release.
++        if ( button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER ) displayModifierHeld = pressed;
++        if ( button != SDL_CONTROLLER_BUTTON_START ) return false;
++        if ( !pressed ) {
++            const bool captured = displayStartCaptured;
++            displayStartCaptured = false;
++            return captured;
++        }
++        if ( displayStartCaptured ) return true;
++        if ( !displayModifierHeld ) return false;
++        displayStartCaptured = true;
++        if ( highResolutionSupported() ) {
++            setHighResolutionEnabled( !highResolution );
++            if ( saveDisplayPreference ) saveDisplayPreference();
++        }
++        return true;
++    }
 +    void pushModalImages( const fheroes2::Image * top, const fheroes2::Image * bottom )
 +    {
 +        modalImages.push_back( { top, bottom } );
@@ -1202,6 +1329,7 @@ index 0000000..8f288d2
 +    }
 +    bool needsViewportRefresh( const uint32_t now )
 +    {
++        if ( displayRefresh ) return true;
 +        if ( hasModalImages() || viewportFrozen ) return false;
 +        return touchViewportChanged || ( !touchHeld && !anchorAfterTouch && target != crop && now - lastUpdate >= 16 );
 +    }
@@ -1321,10 +1449,10 @@ index 0000000..8f288d2
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..6361e12
+index 0000000..9d22a4d
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,61 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -1374,6 +1502,13 @@ index 0000000..6361e12
 +    bool isTouchPointerActive();
 +    void useControllerPointer();
 +    void setTouchRightHeld( bool held );
++    bool supportsHighResolutionModel( uint8_t model );
++    bool highResolutionSupported();
++    bool highResolutionEnabled();
++    void setHighResolutionEnabled( bool enabled );
++    void setDisplayPreferenceSaveCallback( void ( *callback )() );
++    bool handleDisplayController( int button, bool pressed );
++    bool consumeDisplayRefresh();
 +    bool smokeTest();
 +    void requestCapture();
 +    bool consumeCapture();
@@ -1381,10 +1516,10 @@ index 0000000..6361e12
 +#endif
 diff --git a/src/engine/screen_3ds.h b/src/engine/screen_3ds.h
 new file mode 100644
-index 0000000..9f1124d
+index 0000000..74a0c12
 --- /dev/null
 +++ b/src/engine/screen_3ds.h
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,134 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +// Included inside screen.cpp's anonymous namespace after currentRGBPalette.
 +class RenderEngine3DS final : public fheroes2::BaseRenderEngine
@@ -1419,6 +1554,7 @@ index 0000000..9f1124d
 +        _bottom = SDL_CreateWindow( "fheroes2 detail", SDL_WINDOWPOS_UNDEFINED_DISPLAY( 1 ), SDL_WINDOWPOS_UNDEFINED_DISPLAY( 1 ), 320, 240, SDL_WINDOW_FULLSCREEN );
 +        if ( !_top || !_bottom ) { ERROR_LOG( SDL_GetError() ) clear(); return false; }
 +        gfxSet3D( false );
++        gfxSetWide( false );
 +        gfxSetScreenFormat( GFX_TOP, GSP_RGBA8_OES );
 +        gfxSetScreenFormat( GFX_BOTTOM, GSP_RGBA8_OES );
 +        updatePalette( StandardPaletteIndexes() );
@@ -1435,7 +1571,7 @@ index 0000000..9f1124d
 +            _colors[i] = ( uint32_t( rgb.r ) << 24 ) | ( uint32_t( rgb.g ) << 16 ) | ( uint32_t( rgb.b ) << 8 ) | 255;
 +        }
 +    }
-+    static void snapshot( const uint32_t * framebuffer, const int width, const char * path )
++    static void snapshot( const uint32_t * framebuffer, const int width, const char * path, const bool wide )
 +    {
 +        SDL_Surface * surface = SDL_CreateRGBSurfaceWithFormat( 0, width, 240, 32, SDL_PIXELFORMAT_RGBA8888 );
 +        if ( !surface ) { ERROR_LOG( SDL_GetError() ) return; }
@@ -1443,12 +1579,22 @@ index 0000000..9f1124d
 +            auto * row = reinterpret_cast<uint32_t *>( static_cast<uint8_t *>( surface->pixels ) + y * surface->pitch );
 +            for ( int x = 0; x < width; ++x ) row[x] = framebuffer[x * 240 + 239 - y];
 +        }
-+        if ( SDL_SaveBMP( surface, path ) < 0 ) { ERROR_LOG( SDL_GetError() ) }
++        std::string capturePath = path;
++        if ( wide ) capturePath.insert( capturePath.find_last_of( '/' ) + 1, "wide-" );
++        if ( SDL_SaveBMP( surface, capturePath.c_str() ) < 0 ) { ERROR_LOG( SDL_GetError() ) }
 +        SDL_FreeSurface( surface );
 +    }
 +    void render( const fheroes2::Display & display, const fheroes2::Rect & ) override
 +    {
 +        if ( !_top || display.empty() ) return;
++        const bool wide = Platform3DS::highResolutionEnabled() && Platform3DS::highResolutionSupported();
++        if ( gfxIsWide() != wide ) {
++            gfxSetWide( wide );
++            COUT( "3DS top screen: " << ( wide ? "800x240 high resolution" : "400x240 standard" ) )
++        }
++        Platform3DS::consumeDisplayRefresh();
++        const int topWidth = wide ? 800 : 400;
++        const int sourceStep = wide ? 1 : 2;
 +        const Uint64 begin = SDL_GetPerformanceCounter();
 +        const auto & events = LocalEvent::Get();
 +        const auto * panel = Platform3DS::commandPanelImage();
@@ -1466,9 +1612,9 @@ index 0000000..9f1124d
 +        const uint8_t * image = display.image();
 +        const int frameWidth = display.width();
 +        // Framebuffer columns are contiguous, stored bottom-to-top. No intermediate RGBA texture.
-+        for ( int x = 0; x < 400; ++x ) {
++        for ( int x = 0; x < topWidth; ++x ) {
 +            uint32_t * out = top + x * 240;
-+            for ( int y = 239; y >= 0; --y ) *out++ = _colors[modalTop ? modalTop->image()[y * 400 + x] : image[y * 2 * frameWidth + x * 2]];
++            for ( int y = 239; y >= 0; --y ) *out++ = _colors[modalTop ? modalTop->image()[y * 400 + ( wide ? x / 2 : x )] : image[y * 2 * frameWidth + x * sourceStep]];
 +        }
 +        for ( int x = 0; x < 320; ++x ) {
 +            uint32_t * out = bottom + x * 240;
@@ -1480,18 +1626,19 @@ index 0000000..9f1124d
 +                *out++ = _colors[pixel];
 +            }
 +        }
-+        const int left = crop.x / 2, right = left + 159, upper = crop.y / 2, lower = upper + Platform3DS::detailHeight() / 2 - 1;
++        const int left = crop.x / sourceStep, right = left + 320 / sourceStep - 1, upper = crop.y / 2, lower = upper + Platform3DS::detailHeight() / 2 - 1;
 +        const uint32_t red = 0xff3030ff;
 +        if ( !modalTop ) {
 +            for ( int x = left; x <= right; ++x ) { top[x * 240 + 239 - upper] = red; top[x * 240 + 239 - lower] = red; }
-+            for ( int y = upper; y <= lower; ++y ) { top[left * 240 + 239 - y] = red; top[right * 240 + 239 - y] = red; }
++            for ( int y = upper; y <= lower; ++y ) { top[left * 240 + 239 - y] = red; top[right * 240 + 239 - y] = red;
++                if ( wide ) { top[( left + 1 ) * 240 + 239 - y] = red; top[( right - 1 ) * 240 + 239 - y] = red; } }
 +        }
 +        _drawTime += 1000.0 * ( SDL_GetPerformanceCounter() - begin ) / SDL_GetPerformanceFrequency();
 +        if ( Platform3DS::consumeCapture() ) {
-+            snapshot( top, 400, modalTop ? "sdmc:/3ds/fheroes2/info-top.bmp" : modalBottom ? "sdmc:/3ds/fheroes2/dialog-top.bmp"
-+                                      : panel || strip ? "sdmc:/3ds/fheroes2/panel-top.bmp" : "sdmc:/3ds/fheroes2/menu-top.bmp" );
++            snapshot( top, topWidth, modalTop ? "sdmc:/3ds/fheroes2/info-top.bmp" : modalBottom ? "sdmc:/3ds/fheroes2/dialog-top.bmp"
++                                      : panel || strip ? "sdmc:/3ds/fheroes2/panel-top.bmp" : "sdmc:/3ds/fheroes2/menu-top.bmp", wide );
 +            snapshot( bottom, 320, modalTop ? "sdmc:/3ds/fheroes2/info-bottom.bmp" : modalBottom ? "sdmc:/3ds/fheroes2/dialog-bottom.bmp"
-+                                         : panel || strip ? "sdmc:/3ds/fheroes2/panel-bottom.bmp" : "sdmc:/3ds/fheroes2/menu-bottom.bmp" );
++                                         : panel || strip ? "sdmc:/3ds/fheroes2/panel-bottom.bmp" : "sdmc:/3ds/fheroes2/menu-bottom.bmp", wide );
 +            COUT( "3DS menu snapshots saved" )
 +            COUT( "3DS capture: mean_draw_ms=" << _drawTime / ( _frames + 1 ) << " used_alloc=" << mallinfo().uordblks << " linear_free=" << linearSpaceFree() )
 +        }
@@ -1782,10 +1929,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..5346ca9
+index 0000000..27fa493
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,461 @@
+@@ -0,0 +1,471 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -2159,6 +2306,16 @@ index 0000000..5346ca9
 +             { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERMOTION, 160, 170 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
 +             { 200, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL )
 +        throw std::runtime_error( "Dragging out of a dialog button activated it" );
++    // Start in R+Start must switch rendering, never confirm the active dialog.
++    if ( run( title, text, Dialog::OK | Dialog::CANCEL, {}, {
++             { 200, controller( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true ) },
++             { 100, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false ) },
++             { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) },
++             { 100, controller( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true ) },
++             { 100, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) },
++             { 100, controller( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false ) },
++             { 200, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL
++         || !Platform3DS::highResolutionEnabled() ) throw std::runtime_error( "Display chord answered a dialog or failed to restore wide mode" );
 +    std::string longBody;
 +    for ( int i = 0; i < 24; ++i ) longBody += text.text() + "\n";
 +    if ( run( title, Text( longBody, FontType::normalWhite() ), Dialog::OK, {}, {
