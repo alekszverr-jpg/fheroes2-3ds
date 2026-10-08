@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.8
+# fheroes2 for Nintendo 3DS — preview 0.3.9
+
+## New in 0.3.9: battle footer
+
+At the bottom of the touchscreen: Auto (upper left), Settings (lower left), Skip (right), and two messages in the center. Tap the messages to toggle the original battle log; hold an icon or message for information. The enlarged battle viewport remains above the strip. Dragging cancels a button click. The original footer is removed from the upper game frame.
+
+On hardware, test Skip, automatic combat and interruption, the log, settings and return, spell selection, and return to the map after combat. Emulator checks do not cover a full hardware match.
 
 ## New in 0.3.8: touchscreen recruitment
 

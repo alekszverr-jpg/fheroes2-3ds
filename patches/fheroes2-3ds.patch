@@ -405,7 +405,7 @@ index d03305c..b158db4 100644
      {                                                                                                                                                                    \
          const std::scoped_lock<std::mutex> _logfile_lock( Logging::logMutex ); /* The name was chosen on purpose to avoid name collisions with outer code blocks. */     \
 diff --git a/src/engine/screen.cpp b/src/engine/screen.cpp
-index cada8e3..3f2de9e 100644
+index cada8e3..020f7ae 100644
 --- a/src/engine/screen.cpp
 +++ b/src/engine/screen.cpp
 @@ -65,9 +65,35 @@
@@ -523,6 +523,19 @@ index cada8e3..3f2de9e 100644
          , _cursor( RenderCursor::create() )
      {
          _disableTransformLayer();
+@@ -1528,7 +1565,11 @@ namespace fheroes2
+             return;
+         }
+ 
+-        if ( _cursor->isVisible() && _cursor->isSoftwareEmulation() && !_cursor->_image.empty() ) {
++        if ( _cursor->isVisible() && _cursor->isSoftwareEmulation() && !_cursor->_image.empty()
++#if defined( __3DS__ )
++             && ( Platform3DS::hasModalImages() || !Platform3DS::isBattleHUDPointer( LocalEvent::Get().getMouseCursorPos() ) )
++#endif
++        ) {
+             const Sprite & cursorImage = _cursor->_image;
+             Rect cursorROI( cursorImage.x(), cursorImage.y(), cursorImage.width(), cursorImage.height() );
+ 
 diff --git a/src/engine/serialize.h b/src/engine/serialize.h
 index 9d31404..316c3e6 100644
 --- a/src/engine/serialize.h
@@ -567,6 +580,359 @@ index e3d7171..8773662 100644
      // The following code is based on https://github.com/OneSadCookie/fcaseopen and assumes the use of POSIX IEEE Std 1003.1-2001 pathnames
      correctedPath.clear();
  
+diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
+index f3e8496..a5f4cf8 100644
+--- a/src/fheroes2/battle/battle_interface.cpp
++++ b/src/fheroes2/battle/battle_interface.cpp
+@@ -22,6 +22,15 @@
+  ***************************************************************************/
+ 
+ #include "battle_interface.h"
++#if defined( __3DS__ )
++#include <cstring>
++#include <stdexcept>
++
++#include <SDL.h>
++
++#include "army.h"
++#include "platform_3ds.h"
++#endif
+ 
+ #include <algorithm>
+ #include <array>
+@@ -1146,6 +1155,9 @@ Battle::Status::Status()
+ void Battle::Status::setMessage( std::string messageString, const bool top )
+ {
+     if ( top ) {
++#if defined( __3DS__ )
++        _upperMessage3DS = messageString;
++#endif
+         _upperText.set( messageString, fheroes2::FontType::normalWhite() );
+         // The text cannot go beyond the text area so it is important to truncate it when necessary.
+         _upperText.fitToOneRow( width - offsetForTextBar * 2 );
+@@ -1165,6 +1177,24 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
+ 
+ void Battle::Status::redraw( fheroes2::Image & output ) const
+ {
++#if defined( __3DS__ )
++    if ( auto * hud = Platform3DS::battleHUDImage() ) {
++        fheroes2::Resize( _upperBackground, 0, 0, width, _upperBackground.height(), *hud, 40, 0, 240, 20 );
++        fheroes2::Resize( _lowerBackground, 0, 0, width, _lowerBackground.height(), *hud, 40, 20, 240, 20 );
++        // Two clipped rows per message retain long text without covering the controls.
++        fheroes2::Image messages( 232, 40 );
++        fheroes2::Copy( *hud, 44, 0, messages, 0, 0, 232, 40 );
++        fheroes2::Image line( 232, 20 );
++        const std::array<std::string, 2> texts{ _upperMessage3DS, _lastMessage };
++        for ( int i = 0; i < 2; ++i ) {
++            fheroes2::Copy( messages, 0, i * 20, line, 0, 0, 232, 20 );
++            const fheroes2::Text text( texts[i], fheroes2::FontType::smallWhite() );
++            text.draw( 0, text.height( 232 ) <= 10 ? 5 : 0, 232, line );
++            fheroes2::Copy( line, 0, 0, *hud, 44, i * 20, 232, 20 );
++        }
++        return;
++    }
++#endif
+     fheroes2::Copy( _upperBackground, 0, 0, output, x, y, width, _upperBackground.height() );
+     fheroes2::Copy( _lowerBackground, 0, 0, output, x, y + _upperBackground.height(), width, _lowerBackground.height() );
+ 
+@@ -1179,6 +1209,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
+ 
+ void Battle::Status::clear()
+ {
++#if defined( __3DS__ )
++    _upperMessage3DS.clear();
++#endif
+     _upperText.set( "", fheroes2::FontType::normalWhite() );
+     _lowerText.set( "", fheroes2::FontType::normalWhite() );
+     _lastMessage = "";
+@@ -1507,12 +1540,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
+     // Battlefield area excludes the lower part where the status log is located.
+     _mainSurface.resize( area.width, battlefieldHeight );
+     _battleGround.resize( area.width, battlefieldHeight );
++#if defined( __3DS__ )
++    Platform3DS::setBattleHUD( &_battleHUD3DS, { _buttonAuto.area(), _buttonSettings.area(), _buttonSkip.area(), status } );
++    LocalEvent::Get().resetFor3DSPanel();
++#endif
+ 
+     AudioManager::ResetAudio();
+ }
+ 
+ Battle::Interface::~Interface()
+ {
++#if defined( __3DS__ )
++    Platform3DS::setBattleHUD( nullptr );
++    LocalEvent::Get().resetFor3DSPanel();
++#endif
+     AudioManager::ResetAudio();
+ 
+     // Turn order dialog can be outside the battlefield area.
+@@ -1673,11 +1714,35 @@ void Battle::Interface::redrawPreRender()
+ 
+ void Battle::Interface::RedrawInterface()
+ {
++#if defined( __3DS__ )
++    auto & display = fheroes2::Display::instance();
++    // Replace the removed footer with battlefield ground; the hex grid and unit positions are unchanged.
++    fheroes2::Copy( _battleGround, 0, _battleGround.height() - status.height, display, _interfacePosition.x, status.y, _battleGround.width(), status.height );
++#endif
+     status.redraw( fheroes2::Display::instance() );
+ 
++#if defined( __3DS__ )
++    const std::array<const fheroes2::Button *, 3> buttons{ &_buttonAuto, &_buttonSettings, &_buttonSkip };
++    const std::array<fheroes2::Rect, 3> nativeAreas{ fheroes2::Rect{ 0, 0, 40, 20 }, { 0, 20, 40, 20 }, { 280, 0, 40, 40 } };
++    const std::array<int, 3> frames{ 4, 6, 0 };
++    for ( int i = 0; i < 3; ++i ) {
++        const auto & button = *buttons[i];
++        const auto & area = nativeAreas[i];
++        const auto & icon = Assets::getImage( ICN::TEXTBAR, frames[i] + ( button.isPressed() && !Platform3DS::isTouchViewportGesture() ? 1 : 0 ) );
++        fheroes2::Resize( icon, 0, 0, icon.width(), icon.height(), _battleHUD3DS, area.x, area.y, area.width, area.height );
++        if ( button.area() & LocalEvent::Get().getMouseCursorPos() ) {
++            const uint8_t color = fheroes2::GetColorId( 255, 220, 80 );
++            fheroes2::Fill( _battleHUD3DS, area.x, area.y, area.width, 1, color );
++            fheroes2::Fill( _battleHUD3DS, area.x, area.y + area.height - 1, area.width, 1, color );
++            fheroes2::Fill( _battleHUD3DS, area.x, area.y, 1, area.height, color );
++            fheroes2::Fill( _battleHUD3DS, area.x + area.width - 1, area.y, 1, area.height, color );
++        }
++    }
++#else
+     _buttonAuto.draw();
+     _buttonSettings.draw();
+     _buttonSkip.draw();
++#endif
+ 
+     popup.redraw();
+ 
+@@ -1686,6 +1751,147 @@ void Battle::Interface::RedrawInterface()
+     }
+ }
+ 
++#if defined( __3DS__ )
++void Battle::Interface::testBattleHUD3DS()
++{
++    auto & display = fheroes2::Display::instance();
++    fheroes2::Image savedFrame;
++    fheroes2::Copy( display, savedFrame );
++    const auto * savedStrip = Platform3DS::commandStripImage();
++    const auto touch = []( const Uint32 type, const int x, const int y ) {
++        SDL_Event event{};
++        event.type = type;
++        event.tfinger.touchId = 1;
++        event.tfinger.fingerId = 0;
++        event.tfinger.x = x / 320.0f;
++        event.tfinger.y = y / 240.0f;
++        SDL_PumpEvents();
++        SDL_FlushEvents( SDL_FIRSTEVENT, SDL_LASTEVENT );
++        if ( SDL_PushEvent( &event ) != 1 )
++            throw std::runtime_error( "Battle HUD input injection failed" );
++        LocalEvent::Get().HandleEvents( false, true );
++    };
++    Army attacker, defender;
++    attacker.SetColor( PlayerColor::BLUE );
++    defender.SetColor( PlayerColor::RED );
++    attacker.JoinTroop( Monster( Monster::PEASANT ), 10, false );
++    defender.JoinTroop( Monster( Monster::PEASANT ), 10, false );
++    Rand::PCG32 random( 123 );
++    {
++        Arena battle( attacker, defender, 72 * 36 + 36, true, random );
++        auto & ui = *Arena::GetInterface();
++        const CursorRestorer hideCursor( false );
++        if ( Platform3DS::battleHUDImage() != &ui._battleHUD3DS || Platform3DS::detailHeight() != 200 )
++            throw std::runtime_error( "Battle HUD did not attach" );
++        ui.setStatus( _( "Skips the current creature. The current creature ends its turn and does not get to go again until the next round." ), true );
++        ui.setStatus( _( "Skip this unit" ), false );
++        ui.Redraw();
++        for ( int row = 0; row < ui.status.height; ++row ) {
++            if ( std::memcmp( display.image() + ( ui.status.y + row ) * display.width() + ui._interfacePosition.x,
++                              ui._battleGround.image() + ( ui._battleGround.height() - ui.status.height + row ) * ui._battleGround.width(), ui._battleGround.width() )
++                 != 0 )
++                throw std::runtime_error( "Battle footer is still drawn in the game frame" );
++        }
++        Platform3DS::requestCapture();
++        display.render();
++        auto & events = LocalEvent::Get();
++        Platform3DS::resetViewportFollow();
++        Platform3DS::followCursor( { 799, 479 }, SDL_GetTicks() );
++        if ( Platform3DS::viewport().y + Platform3DS::detailHeight() > ui.status.y )
++            throw std::runtime_error( "Battle viewport exposes the hidden footer hit regions" );
++        touch( SDL_FINGERDOWN, 20, 199 );
++        touch( SDL_FINGERUP, 0, 0 );
++        if ( events.getMouseCursorPos().y >= ui.status.y || Platform3DS::isBattleHUDPointer( events.getMouseCursorPos() ) )
++            throw std::runtime_error( "Battlefield touch reached an invisible footer button" );
++        events.resetFor3DSPanel();
++        const std::array<fheroes2::Rect, 4> targets{ ui._buttonAuto.area(), ui._buttonSettings.area(), ui._buttonSkip.area(), ui.status };
++        const std::array<fheroes2::Point, 4> native{ fheroes2::Point{ 20, 210 }, { 20, 230 }, { 300, 220 }, { 160, 210 } };
++        for ( size_t i = 0; i < targets.size(); ++i ) {
++            events.resetFor3DSPanel();
++            const auto crop = Platform3DS::viewport();
++            touch( SDL_FINGERDOWN, native[i].x, native[i].y );
++            touch( SDL_FINGERUP, 0, 0 );
++            if ( !events.MouseClickLeft( targets[i] ) || Platform3DS::viewport() != crop )
++                throw std::runtime_error( "Battle HUD native click mapping changed its target/viewport" );
++        }
++        events.resetFor3DSPanel();
++        touch( SDL_FINGERDOWN, 300, 220 );
++        touch( SDL_FINGERMOTION, 160, 170 );
++        touch( SDL_FINGERUP, 0, 0 );
++        if ( events.MouseClickLeft() )
++            throw std::runtime_error( "Battle HUD drag skipped a unit" );
++        events.resetFor3DSPanel();
++        touch( SDL_FINGERDOWN, 300, 220 );
++        SDL_Delay( 600 );
++        events.HandleEvents( false, true );
++        if ( !events.isMouseRightButtonPressedInArea( ui._buttonSkip.area() ) )
++            throw std::runtime_error( "Battle HUD hold did not map to information" );
++        touch( SDL_FINGERUP, 0, 0 );
++        if ( events.MouseClickLeft() )
++            throw std::runtime_error( "Battle HUD hold emitted a purchase/skip click" );
++        events.resetFor3DSPanel();
++        touch( SDL_FINGERDOWN, 300, 220 );
++        const auto & unit = *battle.getAttackingForce().getUnits().front();
++        ui._currentUnit = &unit;
++        Actions actions;
++        std::string message;
++        ui._needRedraw = false;
++        ui.HumanBattleTurn( unit, actions, message );
++        if ( !ui._buttonSkip.isPressed() || !ui._needRedraw || !actions.empty() )
++            throw std::runtime_error( "Battle HUD press did not redraw or skipped before release" );
++        touch( SDL_FINGERUP, 0, 0 );
++        ui._needRedraw = false;
++        ui.HumanBattleTurn( unit, actions, message );
++        if ( actions.size() != 1 || actions.front().GetType() != CommandType::SKIP || !ui.humanturn_exit || ui._buttonSkip.isPressed() || !ui._needRedraw )
++            throw std::runtime_error( "Battle HUD did not dispatch the original skip action" );
++        for ( int i = 0; i < 2; ++i ) {
++            events.resetFor3DSPanel();
++            touch( SDL_FINGERDOWN, 160, 210 );
++            touch( SDL_FINGERUP, 0, 0 );
++            ui.HumanBattleTurn( unit, actions, message );
++            if ( ui.listlog->isOpenLog() != ( i == 0 ) )
++                throw std::runtime_error( "Battle HUD did not toggle the original battle log" );
++        }
++        SDL_Thread * settingsCloser = SDL_CreateThread(
++            []( void * ) -> int {
++                SDL_Delay( 300 );
++                SDL_Event event{};
++                event.type = SDL_CONTROLLERBUTTONDOWN;
++                event.cbutton.button = SDL_CONTROLLER_BUTTON_LEFTSHOULDER;
++                event.cbutton.state = SDL_PRESSED;
++                if ( SDL_PushEvent( &event ) != 1 )
++                    return 1;
++                SDL_Delay( 100 );
++                event.type = SDL_CONTROLLERBUTTONUP;
++                event.cbutton.state = SDL_RELEASED;
++                return SDL_PushEvent( &event ) == 1 ? 0 : 1;
++            },
++            "battle-settings-smoke", nullptr );
++        if ( !settingsCloser )
++            throw std::runtime_error( "Cannot start battle settings input" );
++        int settingsStatus = 0;
++        try {
++            ui._openBattleSettingsDialog();
++        }
++        catch ( ... ) {
++            SDL_WaitThread( settingsCloser, &settingsStatus );
++            throw;
++        }
++        SDL_WaitThread( settingsCloser, &settingsStatus );
++        events.HandleEvents( false, true );
++        if ( settingsStatus || Platform3DS::battleHUDImage() != &ui._battleHUD3DS || events.MouseClickLeft() )
++            throw std::runtime_error( "Battle settings failed to restore the HUD or leaked input" );
++        ui._currentUnit = nullptr;
++    }
++    if ( Platform3DS::battleHUDImage() || Platform3DS::commandStripImage() != savedStrip )
++        throw std::runtime_error( "Battle HUD leaked after battle destruction" );
++    fheroes2::Copy( savedFrame, display );
++    display.render();
++    COUT(
++        "3DS BATTLE HUD SMOKE: PASS real_arena top_footer_removed native_buttons_log_mapping skip_dispatch log_toggle settings_restore drag_cancel hold_info viewport_lifetime" )
++}
++#endif
++
+ void Battle::Interface::RedrawArmies()
+ {
+     // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
+@@ -3176,9 +3382,21 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+     _highlightUnitMovementArea = nullptr;
+     const bool highlightUnitMovementArea = conf.isBattleMovementAreaHighlightEnabled();
+ 
++#if defined( __3DS__ )
++    for ( auto * button : { &_buttonAuto, &_buttonSettings, &_buttonSkip } ) {
++        const bool pressed = le.isMouseLeftButtonPressedAndHeldInArea( button->area() ) && !Platform3DS::isTouchViewportGesture();
++        if ( pressed != button->isPressed() )
++            _needRedraw = true;
++        if ( pressed )
++            button->press();
++        else
++            button->release();
++    }
++#else
+     _buttonAuto.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( _buttonAuto.area() ) );
+     _buttonSettings.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( _buttonSettings.area() ) );
+     _buttonSkip.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( _buttonSkip.area() ) );
++#endif
+ 
+     if ( le.isAnyKeyPressed() ) {
+         // Skip the turn
+@@ -3583,7 +3801,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+     const bool showGrid = conf.BattleShowGrid();
+     const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
+ 
++#if defined( __3DS__ )
++    {
++        // This window retains its original layout and event loop; its touches must not hit the battle footer.
++        struct RestoreHUD
++        {
++            fheroes2::Image * image;
++            std::array<fheroes2::Rect, 4> targets;
++            ~RestoreHUD()
++            {
++                Platform3DS::setBattleHUD( image, targets );
++                LocalEvent::Get().resetFor3DSPanel();
++            }
++        } restore{ &_battleHUD3DS, { _buttonAuto.area(), _buttonSettings.area(), _buttonSkip.area(), status } };
++        Platform3DS::setBattleHUD( nullptr );
++        LocalEvent::Get().resetFor3DSPanel();
++        DialogBattleSettings( isTurnOrderInsideWindow );
++    }
++#else
+     DialogBattleSettings( isTurnOrderInsideWindow );
++#endif
+ 
+     if ( showGrid != conf.BattleShowGrid() ) {
+         // The grid setting has changed. Update for the Battlefield ground.
+diff --git a/src/fheroes2/battle/battle_interface.h b/src/fheroes2/battle/battle_interface.h
+index 303cfda..190bfaa 100644
+--- a/src/fheroes2/battle/battle_interface.h
++++ b/src/fheroes2/battle/battle_interface.h
+@@ -228,6 +228,9 @@ namespace Battle
+         const fheroes2::Sprite & _upperBackground;
+         const fheroes2::Sprite & _lowerBackground;
+         std::string _lastMessage;
++#if defined( __3DS__ )
++        std::string _upperMessage3DS;
++#endif
+         StatusListBox * _battleStatusLog{ nullptr };
+     };
+ 
+@@ -341,6 +344,9 @@ namespace Battle
+ 
+         void getPendingActions( Actions & actions );
+         void HumanTurn( const Unit & unit, Actions & actions );
++#if defined( __3DS__ )
++        static void testBattleHUD3DS();
++#endif
+ 
+         const fheroes2::Rect & GetArea() const
+         {
+@@ -508,6 +514,9 @@ namespace Battle
+         fheroes2::Button _buttonSettings;
+         fheroes2::Button _buttonSkip;
+         Status status;
++#if defined( __3DS__ )
++        fheroes2::Image _battleHUD3DS{ 320, 40 };
++#endif
+ 
+         std::unique_ptr<OpponentSprite> _attackingOpponent;
+         std::unique_ptr<OpponentSprite> _defendingOpponent;
 diff --git a/src/fheroes2/dialog/dialog_chest.cpp b/src/fheroes2/dialog/dialog_chest.cpp
 index 6164235..3a9560d 100644
 --- a/src/fheroes2/dialog/dialog_chest.cpp
@@ -689,10 +1055,10 @@ index ce25e88..4c643bb 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..67369c7 100644
+index 69d39fb..cca5f13 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
-@@ -58,6 +58,14 @@
+@@ -58,6 +58,15 @@
  #include "math_base.h"
  #include "mus.h"
  #include "screen.h"
@@ -703,11 +1069,12 @@ index 69d39fb..67369c7 100644
 +#if defined( __3DS__ )
 +#include "ui_3ds_commands.h"
 +#include "ui_3ds_dialog.h"
++#include "battle_interface.h"
 +#endif
  #include "settings.h"
  #include "system.h"
  #include "translations.h"
-@@ -122,10 +130,12 @@ namespace
+@@ -122,10 +131,12 @@ namespace
  
  void Game::runMainGameLoop()
  {
@@ -720,7 +1087,7 @@ index 69d39fb..67369c7 100644
  
      const CursorRestorer cursorRestorer( true, Cursor::POINTER );
  
-@@ -271,10 +281,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -271,10 +282,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
          {
              std::string body( _( "Welcome to Heroes of Might and Magic II powered by fheroes2 engine!" ) );
  
@@ -735,7 +1102,7 @@ index 69d39fb..67369c7 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +330,50 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +331,51 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -775,6 +1142,7 @@ index 69d39fb..67369c7 100644
 +        Interface3DS::testChestChoice();
 +        Interface3DS::testLevelUp();
 +        Interface3DS::testRecruit();
++        Battle::Interface::testBattleHUD3DS();
 +        Platform3DS::setHighResolutionEnabled( false );
 +        display.render();
 +        Platform3DS::setHighResolutionEnabled( savedHighResolution );
@@ -1098,10 +1466,10 @@ index 353da3b..20c346e 100644
      os << std::endl << "# Resolution: in-game width x height : on-screen width x height" << std::endl;
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..298719b
+index 0000000..f4c870a
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,402 @@
+@@ -0,0 +1,435 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#if defined( __3DS__ )
@@ -1139,6 +1507,10 @@ index 0000000..298719b
 +    bool touchRightHeld = false;
 +    const fheroes2::Image * panelImage = nullptr;
 +    const fheroes2::Image * stripImage = nullptr;
++    fheroes2::Image * battleHUD = nullptr;
++    std::array<fheroes2::Rect, 4> battleTargets;
++    bool battleTouch = false;
++    fheroes2::Point battleTouchTarget;
 +    bool stripTouchCaptured = false;
 +    int previousDetailHeight = 240;
 +    std::deque<Platform3DS::PanelInput> panelInputs;
@@ -1234,7 +1606,7 @@ index 0000000..298719b
 +    {
 +        frameSize = { std::max<int32_t>( 320, size.width ), std::max<int32_t>( 240, size.height ) };
 +        crop.x = std::clamp<int32_t>( crop.x, 0, frameSize.width - 320 );
-+        crop.y = std::clamp<int32_t>( crop.y, 0, frameSize.height - detailHeight() );
++        crop.y = std::clamp<int32_t>( crop.y, 0, detailFrameHeight() - detailHeight() );
 +        resetViewportFollow();
 +    }
 +    fheroes2::Size virtualFrameSize() { return frameSize; }
@@ -1275,10 +1647,24 @@ index 0000000..298719b
 +    }
 +    const fheroes2::Image * commandStripImage() { return stripImage; }
 +    void setCommandStripImage( const fheroes2::Image * image ) { stripImage = image; }
-+    int detailHeight() { return stripImage ? 200 : 240; }
++    int detailHeight() { return battleHUD || stripImage ? 200 : 240; }
++    int detailFrameHeight() { return battleHUD ? std::min<int32_t>( frameSize.height, battleTargets[3].y ) : frameSize.height; }
++    fheroes2::Image * battleHUDImage() { return battleHUD; }
++    void setBattleHUD( fheroes2::Image * image, const std::array<fheroes2::Rect, 4> & targets )
++    {
++        battleHUD = image;
++        battleTargets = targets;
++        if ( !image ) battleTouch = false;
++    }
++    bool isBattleHUDPointer( const fheroes2::Point point )
++    {
++        if ( !battleHUD ) return false;
++        for ( const auto & target : battleTargets ) if ( target & point ) return true;
++        return false;
++    }
 +    bool handleStripTouch( const PanelInputType type, const float x, const float y )
 +    {
-+        if ( type == PanelInputType::TouchDown ) stripTouchCaptured = stripImage && y >= 200.0f / 240;
++        if ( type == PanelInputType::TouchDown ) stripTouchCaptured = !battleHUD && stripImage && y >= 200.0f / 240;
 +        if ( !stripTouchCaptured ) return false;
 +        // Capture the entire gesture, including release after hiding the strip or opening a dialog.
 +        if ( stripImage ) handlePanelTouch( type, x, y );
@@ -1397,7 +1783,7 @@ index 0000000..298719b
 +        const int height = detailHeight();
 +        if ( height != previousDetailHeight ) initialized = false;
 +        previousDetailHeight = height;
-+        const int maxX = frameSize.width - 320, maxY = frameSize.height - height;
++        const int maxX = frameSize.width - 320, maxY = detailFrameHeight() - height;
 +        crop.x = std::clamp<int32_t>( crop.x, 0, maxX );
 +        crop.y = std::clamp<int32_t>( crop.y, 0, maxY );
 +        cameraX = std::clamp( cameraX, 0.0, double( maxX ) );
@@ -1435,13 +1821,15 @@ index 0000000..298719b
 +        // Even a sudden pointer warp must remain visible. Screen edges clamp naturally.
 +        cameraX = std::clamp( cameraX, double( std::max<int32_t>( 0, cursor.x - 319 ) ), double( std::min<int32_t>( maxX, cursor.x ) ) );
 +        target.y = std::clamp<int32_t>( target.y, 0, maxY );
-+        cameraY = std::clamp( cameraY, double( std::max<int32_t>( 0, cursor.y - height + 1 ) ), double( std::min<int32_t>( maxY, cursor.y ) ) );
++        const int32_t visibleY = std::clamp<int32_t>( cursor.y, 0, detailFrameHeight() - 1 );
++        cameraY = std::clamp( cameraY, double( std::max<int32_t>( 0, visibleY - height + 1 ) ), double( std::min<int32_t>( maxY, visibleY ) ) );
 +        crop = { static_cast<int32_t>( std::round( cameraX ) ), static_cast<int32_t>( std::round( cameraY ) ) };
 +    }
 +    fheroes2::Point touchPosition( const float x, const float y )
 +    {
++        if ( battleTouch && battleHUD ) return battleTouchTarget;
 +        return { crop.x + std::clamp<int32_t>( static_cast<int32_t>( std::floor( x * 320 ) ), 0, 319 ),
-+                 std::clamp<int32_t>( crop.y, 0, frameSize.height - detailHeight() )
++                 std::clamp<int32_t>( crop.y, 0, detailFrameHeight() - detailHeight() )
 +                     + std::clamp<int32_t>( static_cast<int32_t>( std::floor( y * 240 ) ), 0, detailHeight() - 1 ) };
 +    }
 +    void setTouchHeld( const bool held )
@@ -1457,13 +1845,22 @@ index 0000000..298719b
 +    void beginTouch( const float x, const float y )
 +    {
 +        viewportFrozen = false;
-+        crop.y = std::clamp<int32_t>( crop.y, 0, frameSize.height - detailHeight() );
++        crop.y = std::clamp<int32_t>( crop.y, 0, detailFrameHeight() - detailHeight() );
 +        setTouchHeld( true );
++        battleTouch = battleHUD && y >= 200.0f / 240;
++        if ( battleTouch ) {
++            const int px = std::clamp<int>( int( x * 320 ), 0, 319 );
++            const int py = std::clamp<int>( int( y * 240 ), 200, 239 );
++            const int index = px < 40 ? ( py < 220 ? 0 : 1 ) : px >= 280 ? 2 : 3;
++            const auto & area = battleTargets[index];
++            battleTouchTarget = { area.x + area.width / 2, area.y + area.height / 2 };
++        }
 +        const auto point = touchPosition( x, y );
 +        touchStart = { point.x - crop.x, point.y - crop.y };
 +        touchViewportGesture = false;
 +        touchPointerActive = true;
 +        touchRightHeld = false;
++        if ( battleTouch ) touchStart = { int32_t( x * 320 ), int32_t( y * 240 ) };
 +    }
 +    bool isTouchViewportGesture() { return touchViewportGesture; }
 +    bool isTouchPointerActive() { return touchPointerActive; }
@@ -1472,6 +1869,10 @@ index 0000000..298719b
 +    void followTouchMotion( const float x, const float y, const uint32_t now )
 +    {
 +        if ( !touchHeld || touchRightHeld ) return;
++        if ( battleTouch && battleHUD ) {
++            if ( std::abs( int32_t( x * 320 ) - touchStart.x ) >= 6 || std::abs( int32_t( y * 240 ) - touchStart.y ) >= 6 ) touchViewportGesture = true;
++            return;
++        }
 +        const auto point = touchPosition( x, y );
 +        const int32_t localX = point.x - crop.x, localY = point.y - crop.y;
 +        // Use physical stylus displacement, independent of the moving virtual crop.
@@ -1487,7 +1888,7 @@ index 0000000..298719b
 +        touchMotionInitialized = true;
 +        const double blend = 1.0 - std::exp( -static_cast<double>( std::min<uint32_t>( elapsed, 50 ) ) / 90.0 );
 +        cameraX = std::clamp( cameraX + shiftX * blend, 0.0, double( frameSize.width - 320 ) );
-+        cameraY = std::clamp( cameraY + shiftY * blend, 0.0, double( frameSize.height - height ) );
++        cameraY = std::clamp( cameraY + shiftY * blend, 0.0, double( detailFrameHeight() - height ) );
 +        const fheroes2::Point nextCrop{ static_cast<int32_t>( std::round( cameraX ) ), static_cast<int32_t>( std::round( cameraY ) ) };
 +        touchViewportChanged = touchViewportChanged || nextCrop != crop;
 +        if ( nextCrop != crop ) touchViewportGesture = true;
@@ -1506,14 +1907,15 @@ index 0000000..298719b
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..9d22a4d
+index 0000000..8228795
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,66 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
 +#include "math_base.h"
++#include <array>
 +namespace fheroes2 { class Image; }
 +namespace Platform3DS
 +{
@@ -1539,6 +1941,10 @@ index 0000000..9d22a4d
 +    void setCommandStripImage( const fheroes2::Image * image );
 +    bool handleStripTouch( PanelInputType type, float x, float y );
 +    int detailHeight();
++    int detailFrameHeight();
++    void setBattleHUD( fheroes2::Image * image, const std::array<fheroes2::Rect, 4> & targets = {} );
++    fheroes2::Image * battleHUDImage();
++    bool isBattleHUDPointer( fheroes2::Point point );
 +    void setVirtualFrameSize( fheroes2::Size size );
 +    fheroes2::Size virtualFrameSize();
 +    void setAdventureInputActive( bool active );
@@ -1573,10 +1979,10 @@ index 0000000..9d22a4d
 +#endif
 diff --git a/src/engine/screen_3ds.h b/src/engine/screen_3ds.h
 new file mode 100644
-index 0000000..74a0c12
+index 0000000..46aa46b
 --- /dev/null
 +++ b/src/engine/screen_3ds.h
-@@ -0,0 +1,134 @@
+@@ -0,0 +1,136 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +// Included inside screen.cpp's anonymous namespace after currentRGBPalette.
 +class RenderEngine3DS final : public fheroes2::BaseRenderEngine
@@ -1656,14 +2062,15 @@ index 0000000..74a0c12
 +        const auto & events = LocalEvent::Get();
 +        const auto * panel = Platform3DS::commandPanelImage();
 +        const auto * strip = Platform3DS::commandStripImage();
++        const auto * battleHUD = Platform3DS::battleHUDImage();
 +        const auto * modalTop = Platform3DS::modalTopImage();
 +        const auto * modalBottom = Platform3DS::modalBottomImage();
 +        if ( !Platform3DS::hasModalImages() ) Platform3DS::followCursor( events.getMouseCursorPos(), SDL_GetTicks(),
-+                                   panel || events.isMouseLeftButtonPressed() || events.isMouseRightButtonPressed() );
++                                   panel || Platform3DS::isBattleHUDPointer( events.getMouseCursorPos() ) || events.isMouseLeftButtonPressed() || events.isMouseRightButtonPressed() );
 +        auto crop = Platform3DS::viewport();
 +        // A strip can be suspended just before opening a popup at the bottom edge.
 +        // Clamp sampling without changing the saved viewport that will resume with the strip.
-+        crop.y = std::clamp<int32_t>( crop.y, 0, display.height() - Platform3DS::detailHeight() );
++        crop.y = std::clamp<int32_t>( crop.y, 0, Platform3DS::detailFrameHeight() - Platform3DS::detailHeight() );
 +        auto * top = reinterpret_cast<uint32_t *>( gfxGetFramebuffer( GFX_TOP, GFX_LEFT, nullptr, nullptr ) );
 +        auto * bottom = reinterpret_cast<uint32_t *>( gfxGetFramebuffer( GFX_BOTTOM, GFX_LEFT, nullptr, nullptr ) );
 +        const uint8_t * image = display.image();
@@ -1678,6 +2085,7 @@ index 0000000..74a0c12
 +            for ( int y = 239; y >= 0; --y ) {
 +                const uint8_t pixel = modalBottom ? modalBottom->image()[y * 320 + x]
 +                                     : panel ? panel->image()[y * 320 + x]
++                                     : battleHUD && y >= 200 ? battleHUD->image()[( y - 200 ) * 320 + x]
 +                                     : strip && y >= 200 ? strip->image()[( y - 200 ) * 320 + x]
 +                                                         : image[( crop.y + y ) * frameWidth + crop.x + x];
 +                *out++ = _colors[pixel];
@@ -1693,9 +2101,9 @@ index 0000000..74a0c12
 +        _drawTime += 1000.0 * ( SDL_GetPerformanceCounter() - begin ) / SDL_GetPerformanceFrequency();
 +        if ( Platform3DS::consumeCapture() ) {
 +            snapshot( top, topWidth, modalTop ? "sdmc:/3ds/fheroes2/info-top.bmp" : modalBottom ? "sdmc:/3ds/fheroes2/dialog-top.bmp"
-+                                      : panel || strip ? "sdmc:/3ds/fheroes2/panel-top.bmp" : "sdmc:/3ds/fheroes2/menu-top.bmp", wide );
++                                      : panel || strip || battleHUD ? "sdmc:/3ds/fheroes2/panel-top.bmp" : "sdmc:/3ds/fheroes2/menu-top.bmp", wide );
 +            snapshot( bottom, 320, modalTop ? "sdmc:/3ds/fheroes2/info-bottom.bmp" : modalBottom ? "sdmc:/3ds/fheroes2/dialog-bottom.bmp"
-+                                         : panel || strip ? "sdmc:/3ds/fheroes2/panel-bottom.bmp" : "sdmc:/3ds/fheroes2/menu-bottom.bmp", wide );
++                                         : panel || strip || battleHUD ? "sdmc:/3ds/fheroes2/panel-bottom.bmp" : "sdmc:/3ds/fheroes2/menu-bottom.bmp", wide );
 +            COUT( "3DS menu snapshots saved" )
 +            COUT( "3DS capture: mean_draw_ms=" << _drawTime / ( _frames + 1 ) << " used_alloc=" << mallinfo().uordblks << " linear_free=" << linearSpaceFree() )
 +        }

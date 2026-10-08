@@ -22,7 +22,7 @@ Current preview: **0.3.7**. The game has been run on a New Nintendo 3DS XL; AI t
 
 Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
 
-Development preview **0.3.8** adds native touchscreen recruitment, quantity buttons/slider, optional downgrade variants and top-screen creature information. It has emulator validation and is awaiting an actual recruitment test on New 3DS XL. The latest published release above remains 0.3.7; see [development controls](3ds-game/INSTALL.md).
+Development preview **0.3.9** adds native touchscreen recruitment and a bottom battle footer with messages and Auto/Settings/Skip icons. It has emulator validation and is awaiting an actual recruitment test on New 3DS XL. The latest published release above remains 0.3.7; see [development controls](3ds-game/INSTALL.md).
 
 ## Installation
 

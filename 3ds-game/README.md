@@ -1,5 +1,9 @@
 # fheroes2 Nintendo 3DS game build
 
+## Native battle footer — development preview 0.3.9
+
+Battle messages and the original Auto/Settings/Skip icons now occupy the bottom 320×40 strip, with an enlarged 320×200 viewport above. The old footer is removed from the upper game frame. Original hit regions and handlers are retained through native touch mapping, including log access and hold information. Synthetic real-Arena checks pass in Russian New/Old and English New; full combat on New 3DS XL remains pending.
+
 ## Native recruitment — development preview 0.3.8
 
 RecruitMonster now uses a 320×240 touchscreen layout with quantity buttons and a slider, D-pad adjustment, availability/funds limits, permitted downgrade variants and top-screen creature information. The original caller still handles payment, dwelling stock and army placement. Emulator checks cover Russian New/Old and English New; actual recruitment on New 3DS XL remains pending. See [controls and hardware checks](INSTALL.md).
