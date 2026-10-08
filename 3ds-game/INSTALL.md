@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.6
+# fheroes2 for Nintendo 3DS — preview 0.3.7
+
+## Native hero level-up — preview 0.3.7
+
+Level-up now uses the touchscreen for all three cases: two offered secondary skills, one offered skill, or only a primary-stat increase. Choose left/right with the D-pad and confirm with A/Start, or tap Learn. Tapping a skill card selects it; holding the card or B opens its description above. A single available skill uses a confirmation window; the same B/hold information applies. Long text scrolls while two-skill cards and Learn buttons remain fixed. L does not select or cancel a two-skill choice. Skill identifiers are returned to the unchanged upstream caller, which grants the upgrade.
+
+Tested through the actual LevelUpSelectSkill dialog in Russian New/Old and English New emulator runs: both skill slots and choices, controller/touch, upgraded skill level, drag cancellation, nested information, long name, Evil UI, unchanged hero and viewport. A full level-up in a real match still needs hardware validation. The original View Hero button inside the two-skill window is not included in this layout; the full hero screen remains available through the usual game interface.
 
 ## High-resolution top screen — preview 0.3.6
 
@@ -10,7 +16,7 @@ Test on real hardware: compare fine map details, viewport borders, information a
 
 ## Installation
 
-1. Download `fheroes2-menu-preview-0.3.6.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.6).
+1. Download `fheroes2-menu-preview-0.3.7.zip` from the [release page](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.7).
 2. Extract its `3ds` directory to the root of the console's SD card.
 3. Add the original Heroes of Might and Magic II files from your own game installation to the directories below. The release does not include original game data, maps or music.
 4. Launch **fheroes2 3DS preview** from Homebrew Launcher.

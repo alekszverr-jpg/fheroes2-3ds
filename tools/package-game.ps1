@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.6'
+$version = '0.3.7'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -26,6 +26,9 @@ $manifest = [ordered]@{
     emulated_native_messages='Russian New/Old and English New: top information, bottom OK, stylus NO, drag cancellation, long bottom/top scroll, nested resource information, viewport edge restoration and release isolation'
     native_chest_choice='Fixed Gold/Experience buttons, rewards and context; scrolling description; original true=gold/false=experience caller contract; L chooses experience'
     hardware_chest_choice='User reports Gold choice works on New 3DS XL; Experience and level-up not separately confirmed'
+    native_level_up='Touchscreen: two secondary choices, one skill confirmation, primary-only; top skill descriptions; original caller grants upgrades'
+    hardware_level_up='Pending real-match validation on New 3DS XL'
+    emulated_level_up='Russian New/Old and English New: actual dialog, both slots and choices, upgraded skill, tap/controller, drag cancellation, nested descriptions, long name, Evil UI, unchanged hero/frame/viewport'
     high_resolution='R + Start; saved immediately; high-resolution default; Old 2DS or failed model query uses standard output'
     hardware_high_resolution='User reports substantial image-quality improvement on New 3DS XL; long-session performance unmeasured'
     emulated_high_resolution='New/Old: wide framebuffer pixels, extra horizontal detail, unchanged framing and lower viewport, information proportions, repeated switch inside dialog without answering'

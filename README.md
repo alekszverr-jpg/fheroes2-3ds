@@ -4,9 +4,9 @@ A work-in-progress Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fher
 
 **English** | [Русский](README_RU.md)
 
-**[Download preview 0.3.6](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.6)** — download `fheroes2-menu-preview-0.3.6.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
+**[Download preview 0.3.7](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.7)** — download `fheroes2-menu-preview-0.3.7.zip` for your SD card. The source archive is for developers. See [installation and controls](3ds-game/INSTALL.md).
 
-Current preview: **0.3.6**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. The chest Gold choice was reported working on New 3DS XL. The user reports a substantial image-quality improvement on New 3DS XL; high-resolution output is now the default. Long-session performance remains unmeasured. Physical Old 3DS compatibility is unverified.
+Current preview: **0.3.7**. The game has been run on a New Nintendo 3DS XL; AI turns, battles and saving/loading were reported working with earlier previews. The chest Gold choice was reported working on New 3DS XL. The user reports a substantial image-quality improvement on New 3DS XL; high-resolution output is now the default. Long-session performance remains unmeasured. Physical Old 3DS compatibility is unverified.
 
 ## Features
 
@@ -16,10 +16,11 @@ Current preview: **0.3.6**. The game has been run on a New Nintendo 3DS XL; AI t
 - Short stylus taps for left clicks and stationary holds for right-button information.
 - A toggleable bottom strip with the original adventure-map command icons.
 - Common informational messages at native resolution on the top screen; common OK/yes/no dialogs on the touchscreen, with fixed buttons and scrolling for long content.
+- Native touchscreen hero level-up: two-skill choice, one-skill confirmation and primary-stat-only increase, with skill descriptions on top.
 - Native touchscreen treasure-chest choice with labeled Gold/Experience buttons, fixed reward amounts and top-screen information.
 - SD logging and a separate platform/engine test application.
 
-Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Hero level-up, army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
+Native messages cover the supported common `showMessage` path and the chest gold/experience choice. Army/monster information, recruitment and custom interactive windows retain their existing layouts and are the next UI work. Stereo 3D is not implemented yet.
 
 ## Installation
 

@@ -48,6 +48,7 @@ try {
     $expectedPreference = if ($DisplayMode -eq 'Off') { 'off' } else { 'on' }
     if (!$report.Contains("3DS DISPLAY STARTUP preference=$expectedPreference")) { throw 'Startup display preference differs' }
     if (!$report.Contains('3DS HIGH RESOLUTION SMOKE: PASS')) { throw 'High-resolution smoke test incomplete' }
+    if (!$report.Contains('3DS LEVEL UP SMOKE: PASS')) { throw 'Level-up smoke test incomplete' }
     if (!$report.Contains('3DS CHEST SMOKE: PASS')) { throw 'Chest reward choice smoke test incomplete' }
     foreach ($name in @('fheroes2.log','menu-top.bmp','menu-bottom.bmp','wide-menu-top.bmp','wide-menu-bottom.bmp','wide-panel-top.bmp','wide-panel-bottom.bmp','wide-info-top.bmp','wide-info-bottom.bmp','wide-dialog-top.bmp','wide-dialog-bottom.bmp')) { Copy-Item -LiteralPath (Join-Path $sd $name) -Destination $output -Force }
     Add-Type -AssemblyName System.Drawing
