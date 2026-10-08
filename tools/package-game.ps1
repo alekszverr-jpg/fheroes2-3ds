@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.13'
+$version = '0.3.14'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -30,9 +30,9 @@ $manifest = [ordered]@{
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
-    native_army_info='Native 400x240 top statistics/properties/active spells; lower animated portrait, stack upgrade cost and permitted actions; original confirmations and caller upgrade/dismiss contract'
-    hardware_army_info='0.3.13 pending physical New 3DS XL validation; physical Old 3DS unavailable'
-    emulated_army_info='Russian New/Old and English New: actual ArmyInfo upgrade/dismiss YES/NO, unaffordable, forbidden controls, drag cancellation, held-stylus/D-pad scroll, synthetic battle bonuses/shots/health/effects, nested info and Evil UI; real Arena unit closes and restores HUD/frame/viewport/actions; caller payments/army mutations not exercised'
+    native_army_info='Native 400x240 top animated portrait/count, normal-font statistics, stack upgrade cost, properties and active spells; lower compact action dock over frozen detail, size follows available actions; original confirmations and caller contract'
+    hardware_army_info='0.3.13 user reports remaining cases generally working on New 3DS XL; requests less empty lower layout/larger top statistics; 0.3.14 layout pending physical validation, Old hardware unavailable'
+    emulated_army_info='Russian New/Old and English New: actual ArmyInfo upgrade/dismiss YES/NO, unaffordable, forbidden controls, no-upgrade layout, drag cancellation, held-stylus/D-pad scroll, synthetic battle bonuses/shots/health/effects, nested info and Evil UI; real Arena unit closes and restores HUD/frame/viewport/actions; caller payments/army mutations not exercised'
     native_army_split='Native 320x240 ArmySplitTroop: exact amount buttons/slider/D-pad and even 2-6 stack choices; original caller count/fast/slots contract and cancellation retained'
     hardware_army_split='0.3.12 user reports everything working on New 3DS XL; individual redistribution/last-creature scenarios not separately confirmed'
     emulated_army_split='Russian New/Old and English New: actual dialog, default/chosen fast slots, manual count, bounds, slider, cancellation/drag, large counts, Evil UI and unchanged frame/viewport/strip; caller army mutations not exercised'

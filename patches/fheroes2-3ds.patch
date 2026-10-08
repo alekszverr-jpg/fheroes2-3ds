@@ -2266,10 +2266,10 @@ index 0000000..46aa46b
 +};
 diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
 new file mode 100644
-index 0000000..f304377
+index 0000000..7c35e25
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_army.cpp
-@@ -0,0 +1,341 @@
+@@ -0,0 +1,371 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -2414,8 +2414,8 @@ index 0000000..f304377
 +    if ( troop.isBattle() && troop.GetCount() ) stats += "\n" + std::string( _( "Hit Points Left" ) ) + ": " + std::to_string( troop.GetHitPointsLeft() );
 +    stats += "\n" + std::string( _( "Speed" ) ) + ": " + troop.GetSpeedString() + "\n" + _( "Morale" ) + ": " + Morale::String( troop.GetMorale() )
 +             + "\n" + _( "Luck" ) + ": " + Luck::String( troop.GetLuck() );
-+    const Text statText( stats, FontType::smallWhite() );
-+    const int statHeight = std::max<int32_t>( 120, statText.height( 252 ) );
++    const Text statText( stats, FontType::normalWhite() );
++    const int statHeight = std::max<int32_t>( 154, statText.height( 232 ) + 8 );
 +    std::string properties;
 +    for ( const auto & description : getMonsterPropertiesDescription( troop.GetID() ) ) properties += description + "\n\n";
 +    size_t effectCount = 0;
@@ -2430,11 +2430,35 @@ index 0000000..f304377
 +        properties += std::string( spell.GetName() ) + ( duration ? " (" + std::to_string( duration ) + ")" : "" ) + "\n" + getSpellDescription( spell, nullptr ) + "\n\n";
 +        ++effectCount;
 +    }
++    while ( !properties.empty() && properties.back() == '\n' ) properties.pop_back();
 +    const Text description( properties, FontType::normalWhite() );
-+    const int height = statHeight + ( properties.empty() ? 0 : description.height( 376 ) + 8 );
-+    Image content( 376, std::max( height, 188 ) ); content.fill( background );
-+    statText.draw( 124, 0, 252, content ); description.draw( 0, statHeight, 376, content );
-+    const Portrait portrait( troop, interactive ); portrait.draw( content, { 0, 0, 112, 116 }, 0, reflected );
++    std::vector<std::unique_ptr<ResourceDialogElement>> resources;
++    int resourceRowHeight = 0;
++    if ( interactive && ( flags & Dialog::UPGRADE ) ) {
++        const Funds cost = troop.GetTotalUpgradeCost();
++        for ( int resource : { Resource::GOLD, Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS } ) {
++            if ( !cost.Get( resource ) ) continue;
++            resources.emplace_back( std::make_unique<ResourceDialogElement>( resource, std::to_string( cost.Get( resource ) ) ) );
++            resourceRowHeight = std::max<int32_t>( resourceRowHeight, resources.back()->area().height + 4 );
++        }
++    }
++    const int costBottom = resources.empty() ? 0 : 128 + int( ( resources.size() + 1 ) / 2 ) * resourceRowHeight;
++    int descriptionY = std::max( statHeight, costBottom ) + 8;
++    if ( descriptionY < 188 && descriptionY + Text( "A", FontType::normalWhite() ).height() > 188 ) descriptionY = 188;
++    const int height = properties.empty() ? std::max( statHeight, costBottom ) : descriptionY + description.height( 376 );
++    Image contentBase( 376, std::max( height, 188 ) ); contentBase.fill( background );
++    statText.draw( 144, 4, 232, contentBase ); description.draw( 0, descriptionY, 376, contentBase );
++    if ( !resources.empty() ) {
++        Text( _( "Upgrade" ), FontType::normalYellow() ).draw( 0, 108, 132, contentBase );
++        for ( size_t i = 0; i < resources.size(); ++i ) {
++            const int columns = resources.size() == 1 ? 1 : 2, width = 132 / columns;
++            resources[i]->draw( contentBase, { int( i % columns ) * width + ( width - resources[i]->area().width ) / 2,
++                                               128 + int( i / columns ) * resourceRowHeight } );
++        }
++    }
++    Image content;
++    const Portrait portrait( troop, interactive );
++    const Rect portraitArea{ 0, 4, 132, resources.empty() ? 146 : 100 };
 +    std::vector<int> actions;
 +    if ( interactive && ( flags & Dialog::UPGRADE ) ) actions.push_back( Dialog::UPGRADE );
 +    if ( interactive && ( flags & Dialog::DISMISS ) ) actions.push_back( Dialog::DISMISS );
@@ -2449,6 +2473,16 @@ index 0000000..f304377
 +        const int x = ( 320 - released.width() ) / 2;
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( x, 206 - int( actions.size() - 1 - i ) * 32, std::move( released ), std::move( pressed ) ) );
 +    }
++    // Retain the frozen game detail behind an action dock instead of a second full-screen card.
++    const int dockTop = interactive ? 196 - int( actions.size() - 1 ) * 32 : 240;
++    Image dock( 320, 240 - dockTop );
++    if ( interactive ) {
++        dock.fill( background ); StandardWindow::renderBackgroundImage( dock, { 0, 0, dock.width(), dock.height() }, 0, evil ); DrawBorder( dock, border );
++    }
++    const auto crop = Platform3DS::viewport();
++    const auto & display = Display::instance();
++    Image backdrop( 320, 240 ); backdrop.fill( background );
++    Copy( display, crop.x, crop.y, backdrop, 0, 0, 320, std::min( dockTop, Platform3DS::detailHeight() ) );
 +    int scroll = 0, selected = int( actions.size() ) - 1, pressed = -1, result = Dialog::ZERO;
 +    bool closed = false, down = !interactive && Platform3DS::isPhysicalTouchHeld(), moved = false;
 +    Point start = Platform3DS::physicalTouchPosition(), last = start;
@@ -2459,23 +2493,12 @@ index 0000000..f304377
 +        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawBorder( top, border );
 +        const std::string title = std::string( troop.GetName() ) + " (" + std::to_string( troop.GetCount() ) + ")";
 +        Text( title, Text( title, FontType::normalYellow() ).height( 376 ) <= 22 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 12, 8, 376, top );
++        Copy( contentBase, content );
++        portrait.draw( content, portraitArea, frame, reflected );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
 +        if ( height > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
 +        if ( interactive ) {
-+            bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawBorder( bottom, border );
-+            Text( troop.GetName(), FontType::normalYellow() ).draw( 12, 8, 296, bottom );
-+            portrait.draw( bottom, { 12, 36, 104, 90 }, frame, reflected );
-+            Text( std::to_string( troop.GetCount() ), FontType::normalWhite() ).draw( 124, 40, 184, bottom );
-+            if ( flags & Dialog::UPGRADE ) {
-+                Text( _( "Upgrade" ), FontType::smallWhite() ).draw( 124, 64, 184, bottom );
-+                const Funds cost = troop.GetTotalUpgradeCost(); std::vector<int> used;
-+                for ( int resource : { Resource::GOLD, Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS } )
-+                    if ( cost.Get( resource ) ) used.push_back( resource );
-+                for ( size_t i = 0; i < used.size(); ++i ) {
-+                    const ResourceDialogElement element( used[i], std::to_string( cost.Get( used[i] ) ) ); const int width = 184 / int( used.size() );
-+                    element.draw( bottom, { 124 + int( i ) * width + ( width - element.area().width ) / 2, 80 } );
-+                }
-+            }
++            Copy( backdrop, bottom ); Copy( dock, 0, 0, bottom, 0, dockTop, dock.width(), dock.height() );
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
 +                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y + area.height + 1, area.width, 2, border ); }
@@ -2501,6 +2524,10 @@ index 0000000..f304377
 +    };
 +    draw();
 +    if ( Platform3DS::smokeTest() && ( !Save( top, troop.isBattle() ? "sdmc:/3ds/fheroes2/army-info-battle-top.bmp" : "sdmc:/3ds/fheroes2/army-info-top.bmp" ) || ( interactive && !Save( bottom, troop.isBattle() ? "sdmc:/3ds/fheroes2/army-info-battle-bottom.bmp" : "sdmc:/3ds/fheroes2/army-info-bottom.bmp" ) ) ) ) throw std::runtime_error( "Cannot save army card" );
++    if ( Platform3DS::smokeTest() && interactive && !troop.isBattle() && !( flags & Dialog::UPGRADE ) && ( flags & Dialog::DISMISS ) ) {
++        if ( !Save( top, "sdmc:/3ds/fheroes2/army-info-no-upgrade-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/army-info-no-upgrade-bottom.bmp" ) )
++            throw std::runtime_error( "Cannot save army card without upgrade" );
++    }
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        bool redraw = false; Platform3DS::PanelInput input;
@@ -2586,6 +2613,9 @@ index 0000000..f304377
 +        { 80, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) },
 +        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL )
 +        throw std::runtime_error( "Army card nested information differs" );
++    const Troop ranger( Monster::RANGER, 8 );
++    if ( run( ranger, Dialog::BUTTONS | Dialog::DISMISS, close ) != Dialog::CANCEL )
++        throw std::runtime_error( "Army card without upgrade differs" );
 +    const Troop dragon( Monster::BLACK_DRAGON, 5 );
 +    if ( run( dragon, 0, { { 250, touch( SDL_FINGERMOTION, 50, 20 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } }, true ) != Dialog::ZERO || lastScroll <= 0 )
 +        throw std::runtime_error( "Army card held-stylus scroll differs" );
