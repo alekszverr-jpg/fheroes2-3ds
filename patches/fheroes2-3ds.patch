@@ -580,8 +580,42 @@ index e3d7171..8773662 100644
      // The following code is based on https://github.com/OneSadCookie/fcaseopen and assumes the use of POSIX IEEE Std 1003.1-2001 pathnames
      correctedPath.clear();
  
+diff --git a/src/fheroes2/battle/battle_dialogs.cpp b/src/fheroes2/battle/battle_dialogs.cpp
+index c336081..1c4af59 100644
+--- a/src/fheroes2/battle/battle_dialogs.cpp
++++ b/src/fheroes2/battle/battle_dialogs.cpp
+@@ -29,6 +29,10 @@
+ #include <utility>
+ #include <vector>
+ 
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
++
+ #include "army.h"
+ #include "artifact.h"
+ #include "audio.h"
+@@ -861,6 +865,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
+ 
+     const PlayerColor currentColor = GetCurrentColor();
+     const bool readonly = ( currentColor != hero.GetColor() || !buttons );
++#if defined( __3DS__ )
++    if ( buttons ) {
++        Heroes * heroScreen = readonly ? nullptr : dynamic_cast<Heroes *>( &hero );
++        while ( true ) {
++            const int result = Interface3DS::showBattleHeroActions( hero, !readonly && hero.HaveSpellBook() && !hero.Modes( Heroes::SPELLCASTED ),
++                !readonly && CanRetreatOpponent( hero.GetColor() ), !readonly && CanSurrenderOpponent( hero.GetColor() ), heroScreen != nullptr );
++            if ( result != 4 || !heroScreen ) return result;
++            heroScreen->OpenDialog( true, true, true, true, false, false, fheroes2::getLanguageFromAbbreviation( conf.getGameLanguage() ) );
++            fheroes2::fadeInDisplay( _interface->GetInterfaceRoi(), !fheroes2::Display::instance().isDefaultSize() );
++        }
++    }
++#endif
+     const fheroes2::Sprite & dialog = Assets::getImage( ( conf.isEvilInterfaceEnabled() ? ICN::VGENBKGE : ICN::VGENBKG ), 0 );
+ 
+     const fheroes2::Point dialogShadow( 15, 15 );
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..83ff438 100644
+index f3e8496..198d622 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
 @@ -22,6 +22,16 @@
@@ -696,7 +730,7 @@ index f3e8496..83ff438 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,18 +1723,240 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,18 +1723,263 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -759,7 +793,11 @@ index f3e8496..83ff438 100644
 +            throw std::runtime_error( "Battle HUD input injection failed" );
 +        LocalEvent::Get().HandleEvents( false, true );
 +    };
++    Heroes panelHero( Heroes::LORDKILBURN, Race::KNGT );
++    panelHero.SetColor( PlayerColor::BLUE );
++    panelHero.SpellBookActivate();
 +    Army attacker, defender;
++    attacker.SetCommander( &panelHero );
 +    attacker.SetColor( PlayerColor::BLUE );
 +    defender.SetColor( PlayerColor::RED );
 +    attacker.JoinTroop( Monster( Monster::PEASANT ), 10, false );
@@ -924,6 +962,25 @@ index f3e8496..83ff438 100644
 +             || std::memcmp( beforeCard.image(), display.image(), display.width() * display.height() ) != 0 )
 +            throw std::runtime_error( "Battle spellbook changed battle/mana/frame/context or leaked input" );
 +        COUT( "3DS BATTLE SPELLBOOK SMOKE: PASS real_arena hero_book status_callback hud_restore unchanged_mana_frame_viewport_actions release_isolation" )
++        SDL_Thread * panelCloser = SDL_CreateThread( []( void * ) -> int {
++            SDL_Delay( 300 ); SDL_Event e{}; e.type = SDL_CONTROLLERBUTTONDOWN; e.cbutton.button = SDL_CONTROLLER_BUTTON_Y; e.cbutton.state = SDL_PRESSED;
++            if ( SDL_PushEvent( &e ) != 1 ) return 1;
++            SDL_Delay( 80 ); e.type = SDL_CONTROLLERBUTTONUP; e.cbutton.state = SDL_RELEASED;
++            return SDL_PushEvent( &e ) == 1 ? 0 : 1;
++        }, "battle-hero-panel-smoke", nullptr );
++        if ( !panelCloser ) throw std::runtime_error( "Cannot start hero panel input" );
++        SDL_Event panelKey{}; panelKey.type = SDL_CONTROLLERBUTTONDOWN; panelKey.cbutton.button = SDL_CONTROLLER_BUTTON_Y; panelKey.cbutton.state = SDL_PRESSED;
++        if ( SDL_PushEvent( &panelKey ) != 1 ) throw std::runtime_error( "Cannot inject panel Y" );
++        events.HandleEvents( false, true );
++        int panelStatus = 0;
++        try { ui.HumanBattleTurn( unit, actions, message ); }
++        catch ( ... ) { SDL_WaitThread( panelCloser, &panelStatus ); throw; }
++        SDL_WaitThread( panelCloser, &panelStatus ); events.HandleEvents( false, true );
++        if ( panelStatus || Platform3DS::hasModalImages() || events.MouseClickLeft() || actions.size() != actionCount
++             || Platform3DS::battleHUDImage() != &ui._battleHUD3DS || Platform3DS::viewport() != cardCrop
++             || std::memcmp( beforeCard.image(), display.image(), display.width() * display.height() ) )
++            throw std::runtime_error( "Hero panel Y dispatch changed battle/context or leaked input" );
++        COUT( "3DS BATTLE HERO ACTIONS SMOKE: PASS real_arena Y_dispatch toggle_close hud_restoration unchanged_frame_viewport_actions release_isolation" )
 +        ui._currentUnit = nullptr;
 +    }
 +    if ( Platform3DS::battleHUDImage() || Platform3DS::commandStripImage() != savedStrip )
@@ -937,7 +994,7 @@ index f3e8496..83ff438 100644
  
  void Battle::Interface::RedrawArmies()
  {
-@@ -3152,10 +3424,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+@@ -3152,10 +3447,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
              Redraw();
              _needRedraw = false;
          }
@@ -950,7 +1007,24 @@ index f3e8496..83ff438 100644
      }
  
      popup.reset();
-@@ -3176,9 +3450,21 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3170,15 +3467,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+     LocalEvent & le = LocalEvent::Get();
+     Settings & conf = Settings::Get();
+ 
++#if defined( __3DS__ )
++    if ( le.isKeyPressed( fheroes2::Key::KEY_F12 ) ) {
++        HeroBase * hero = arena.getForce( unit.GetCurrentOrArmyColor() ).GetCommander();
++        if ( hero ) {
++            ProcessingHeroDialogResult( arena.DialogBattleHero( *hero, true, status ), actions );
++            _currentCellIndex = -1;
++            _needRedraw = true;
++        }
++        return;
++    }
++#endif
+     BoardActionIntentUpdater boardActionIntentUpdater( _boardActionIntent, le.isMouseEventFromTouchpad() );
+ 
+     // Make sure to reset currently selected unit every time we do rendering.
      _highlightUnitMovementArea = nullptr;
      const bool highlightUnitMovementArea = conf.isBattleMovementAreaHighlightEnabled();
  
@@ -972,7 +1046,7 @@ index f3e8496..83ff438 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3468,7 +3754,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3468,7 +3788,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
              msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
  
              if ( le.MouseClickLeft( status ) ) {
@@ -985,7 +1059,7 @@ index f3e8496..83ff438 100644
              }
              else if ( le.isMouseRightButtonPressedInArea( status ) ) {
                  fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
-@@ -3583,7 +3874,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3583,7 +3908,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -1656,10 +1730,10 @@ index 353da3b..20c346e 100644
      os << std::endl << "# Resolution: in-game width x height : on-screen width x height" << std::endl;
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..2311208
+index 0000000..7d52f5c
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,444 @@
+@@ -0,0 +1,443 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#if defined( __3DS__ )
@@ -1909,8 +1983,7 @@ index 0000000..2311208
 +        case SDL_CONTROLLER_BUTTON_B:
 +            key = hasModalImages() ? PanelKey::Information : PanelKey::Cancel; break;
 +        case SDL_CONTROLLER_BUTTON_Y:
-+            if ( hasModalImages() ) return true;
-+            key = PanelKey::Cancel; break;
++            key = hasModalImages() ? PanelKey::Toggle : PanelKey::Cancel; break;
 +        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: key = PanelKey::Cancel; break;
 +        default: return true;
 +        }
@@ -2106,7 +2179,7 @@ index 0000000..2311208
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..28db4ee
+index 0000000..c6c04f8
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
 @@ -0,0 +1,68 @@
@@ -2118,7 +2191,7 @@ index 0000000..28db4ee
 +namespace fheroes2 { class Image; }
 +namespace Platform3DS
 +{
-+    enum class PanelKey { Up, Down, Left, Right, Confirm, Cancel, Information };
++    enum class PanelKey { Up, Down, Left, Right, Confirm, Cancel, Information, Toggle };
 +    enum class PanelInputType { Key, TouchDown, TouchMove, TouchUp, KeyUp };
 +    struct PanelInput { PanelInputType type; PanelKey key = PanelKey::Cancel; fheroes2::Point position; };
 +    // Images are owned by the synchronous dialog scopes. A top-only layer retains a lower dialog underneath.
@@ -2972,10 +3045,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..7a1110d
+index 0000000..c9b7ec8
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1416 @@
+@@ -0,0 +1,1417 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4246,6 +4319,7 @@ index 0000000..7a1110d
 +    testArmySplit();
 +    testArmyInfo();
 +    testCombatSpellBook();
++    testBattleHeroActions();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +
@@ -4394,10 +4468,10 @@ index 0000000..7a1110d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..a015d06
+index 0000000..4f18fa2
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,41 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -4422,6 +4496,8 @@ index 0000000..a015d06
 +    void testNativeMessages();
 +    Spell showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page, const std::function<void( const std::string & )> & status );
 +    void testCombatSpellBook();
++    int showBattleHeroActions( const HeroBase & hero, bool cast, bool retreat, bool surrender, bool heroScreen = false );
++    void testBattleHeroActions();
 +    void showBattleLog( const std::vector<std::string> & messages );
 +    void testBattleLog();
 +    bool showChestChoice( const std::string & header, const std::string & body, uint32_t gold, uint32_t experience,
@@ -4439,10 +4515,10 @@ index 0000000..a015d06
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 new file mode 100644
-index 0000000..83d1052
+index 0000000..9f5d4f9
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_spellbook.cpp
-@@ -0,0 +1,286 @@
+@@ -0,0 +1,399 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4506,9 +4582,9 @@ index 0000000..83d1052
 +    class BookScope
 +    {
 +    public:
-+        BookScope( const Image & top, const Image * bottom )
++        BookScope( const Image & top, const Image * bottom, bool retainTop = false )
 +        {
-+            Platform3DS::pushModalImages( &top, bottom );
++            Platform3DS::pushModalImages( retainTop ? nullptr : &top, bottom );
 +            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
 +            LocalEvent::Get().resetFor3DSPanel();
 +        }
@@ -4523,6 +4599,106 @@ index 0000000..83d1052
 +    };
 +    int lastScroll = 0;
 +}
++int Interface3DS::showBattleHeroActions( const HeroBase & hero, const bool cast, const bool retreat, const bool surrender, const bool heroScreen )
++{
++    using namespace fheroes2;
++    const CursorRestorer hideCursor( false );
++    Image top, bottom( 320, 240 );
++    const auto crop = Platform3DS::viewport();
++    Copy( Display::instance(), crop.x, crop.y, bottom, 0, 0, 320, Platform3DS::detailHeight() );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    StandardWindow::renderBackgroundImage( bottom, { 0, 116, 320, 124 }, 0, evil );
++    Text title( hero.GetName(), FontType::normalYellow() ); title.fitToOneRow( 304 ); title.draw( 8, 120, 304, bottom );
++    const std::array<bool, 4> enabled{ cast, retreat, surrender, true };
++    const std::array<std::string, 4> labels{ _( "Cast Spell" ), _( "Retreat" ), _( "Surrender" ), _( "Exit" ) };
++    const std::array<Rect, 4> areas{ Rect{ 6, 140, 150, 44 }, { 164, 140, 150, 44 }, { 6, 188, 150, 44 }, { 164, 188, 150, 44 } };
++    std::vector<std::unique_ptr<ButtonBase>> buttons;
++    for ( size_t i = 0; i < areas.size(); ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { 144, 38 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        const auto & icon = Assets::getImage( ICN::VIEWGEN, 9 + int( i ) * 2 );
++        Image thumbnail( 28, 28 ); thumbnail.reset(); Resize( icon, thumbnail );
++        Blit( thumbnail, released, 5, 5 ); Blit( thumbnail, pressed, 4, 6 );
++        Text label( labels[i], FontType::smallWhite() );
++        label.draw( 36, ( released.height() - label.height( 106 ) ) / 2, 106, released );
++        label.draw( 35, ( pressed.height() - label.height( 106 ) ) / 2 + 1, 106, pressed );
++        buttons.emplace_back( std::make_unique<ButtonSprite>( areas[i].x, areas[i].y, std::move( released ), std::move( pressed ) ) );
++        if ( !enabled[i] ) buttons.back()->disable();
++    }
++    const BookScope scope( top, &bottom, true );
++    int selected = 3, pressed = -1; bool down = false, moved = false;
++    Point start; int result = 0; bool closed = false;
++    const auto draw = [&]() {
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release();
++            buttons[i]->draw( bottom );
++            const auto & area = areas[i]; const uint8_t color = selected == int( i ) ? GetColorId( 255, 225, 96 ) : GetColorId( 90, 65, 40 );
++            Fill( bottom, area.x, area.y, area.width, 1, color ); Fill( bottom, area.x, area.y + area.height - 1, area.width, 1, color );
++            Fill( bottom, area.x, area.y, 1, area.height, color ); Fill( bottom, area.x + area.width - 1, area.y, 1, area.height, color );
++        }
++        Display::instance().render();
++    };
++    const auto activate = [&]( int index ) {
++        if ( enabled[index] ) { result = index == 3 ? 0 : index + 1; closed = true; }
++    };
++    draw();
++    if ( Platform3DS::smokeTest() && !Save( bottom, "sdmc:/3ds/fheroes2/hero-actions-bottom.bmp" ) ) throw std::runtime_error( "Cannot save hero actions" );
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input; bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                switch ( input.key ) {
++                case PanelKey::Toggle: case PanelKey::Cancel: closed = true; break;
++                case PanelKey::Confirm: activate( selected ); break;
++                case PanelKey::Up: case PanelKey::Down: selected ^= 2; break;
++                case PanelKey::Left: case PanelKey::Right: selected ^= 1; break;
++                default: break;
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                down = true; moved = false; start = input.position; pressed = -1;
++                for ( size_t i = 0; i < areas.size(); ++i ) if ( areas[i] & start ) { pressed = int( i ); selected = pressed; }
++            }
++            else if ( input.type == PanelInputType::TouchMove && down )
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 ) activate( pressed );
++                else if ( down && !moved && heroScreen && ( Rect{ 0, 116, 320, 24 } & start ) ) { result = 4; closed = true; }
++                down = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    return result;
++}
++
++void Interface3DS::testBattleHeroActions()
++{
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT );
++    const auto crop = Platform3DS::viewport(); fheroes2::Image frame; fheroes2::Copy( fheroes2::Display::instance(), frame );
++    const auto run = [&]( bool enabled, std::vector<TimedEvent> sequence ) {
++        const int result = runInjectedInput( [&]() { return showBattleHeroActions( hero, enabled, enabled, enabled ); }, std::move( sequence ) );
++        if ( Platform3DS::viewport() != crop || std::memcmp( frame.image(), fheroes2::Display::instance().image(), frame.width() * frame.height() ) ) throw std::runtime_error( "Hero actions changed frame/viewport" );
++        return result;
++    };
++    for ( int i = 0; i < 4; ++i ) {
++        const int x = i % 2 ? 220 : 70, y = i / 2 ? 210 : 162;
++        if ( run( true, { { 250, touch( SDL_FINGERDOWN, x, y ) }, { 80, touch( SDL_FINGERUP, x, y ) } } ) != ( i == 3 ? 0 : i + 1 ) ) throw std::runtime_error( "Hero action touch result differs" );
++    }
++    if ( run( true, { { 250, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } } ) ) throw std::runtime_error( "Hero actions Y close failed" );
++    if ( run( true, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_UP, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_UP, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 ) throw std::runtime_error( "Hero action controller differs" );
++    for ( int i = 0; i < 3; ++i ) {
++        const int x = i % 2 ? 220 : 70, y = i / 2 ? 210 : 162;
++        if ( run( false, { { 250, touch( SDL_FINGERDOWN, x, y ) }, { 80, touch( SDL_FINGERUP, x, y ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } } ) ) throw std::runtime_error( "Disabled hero action activated" );
++    }
++    if ( run( true, { { 250, touch( SDL_FINGERDOWN, 70, 162 ) }, { 80, touch( SDL_FINGERMOTION, 70, 180 ) }, { 80, touch( SDL_FINGERUP, 70, 180 ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } } ) ) throw std::runtime_error( "Hero action drag activated" );
++    COUT( "3DS HERO ACTIONS SMOKE: PASS touch_controller toggle_close disabled_actions drag_cancel unchanged_frame_viewport release_isolation" )
++}
++
 +Spell Interface3DS::showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, const bool canCast,
 +                                      size_t & page, const std::function<void( const std::string & )> & status )
 +{
@@ -4556,6 +4732,7 @@ index 0000000..83d1052
 +        }
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) ) );
 +    }
++    const auto spellArea = []( size_t slot ) { return Rect{ slot / 3 ? 168 : 16, 32 + int( slot % 3 ) * 54, 136, 52 }; };
 +    const auto update = [&]() {
 +        scroll = 0;
 +        std::string body = spells.empty() ? _( "No spell to cast." ) : getSpellDescription( spells[selected], &hero );
@@ -4584,17 +4761,30 @@ index 0000000..83d1052
 +        Text title( spells.empty() ? _( "View Combat Spells" ) : spells[selected].GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
 +        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
-+        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawBorder( bottom, border );
-+        Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::normalYellow() ).draw( 8, 8, 304, bottom );
-+        for ( size_t row = 0; row < 6 && page + row < spells.size(); ++row ) {
-+            const auto & spell = spells[page + row]; const int y = 34 + int( row ) * 27;
-+            if ( page + row == selected ) Fill( bottom, 6, y, 308, 26, border );
++        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        const auto & leaf = Assets::getImage( ICN::BOOK, 0 );
++        Image spread( leaf.width() * 2, leaf.height() ); spread.reset();
++        Blit( leaf, 0, 0, spread, 0, 0, leaf.width(), leaf.height(), true );
++        Blit( leaf, spread, leaf.width(), 0 );
++        const auto & corner = Assets::getImage( ICN::BOOK, 7 );
++        if ( !page ) Blit( corner, 0, 0, spread, leaf.width() - corner.x() - corner.width(), corner.y(), corner.width(), corner.height(), true );
++        if ( page + 6 >= spells.size() ) Blit( corner, spread, leaf.width() + corner.x(), corner.y() );
++        Image book( 320, 196 ); book.reset(); Resize( spread, book ); Blit( book, bottom, 0, 0 );
++        Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 8, 10, 304, bottom );
++        for ( size_t slot = 0; slot < 6 && page + slot < spells.size(); ++slot ) {
++            const auto & spell = spells[page + slot]; const Rect area = spellArea( slot );
++            if ( page + slot == selected ) {
++                Fill( bottom, area.x, area.y, area.width, 1, border ); Fill( bottom, area.x, area.y + area.height - 1, area.width, 1, border );
++                Fill( bottom, area.x, area.y, 1, area.height, border ); Fill( bottom, area.x + area.width - 1, area.y, 1, area.height, border );
++            }
 +            const auto & icon = Assets::getImage( ICN::SPELLS, spell.IndexSprite() );
-+            const double scale = std::min( 24.0 / icon.width(), 24.0 / icon.height() );
++            const double scale = std::min( 40.0 / icon.width(), 27.0 / icon.height() );
 +            Image thumbnail( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
-+            thumbnail.reset(); Resize( icon, thumbnail ); Blit( thumbnail, bottom, 10 + ( 24 - thumbnail.width() ) / 2, y + 1 + ( 24 - thumbnail.height() ) / 2 );
-+            Text name( spell.GetName(), !canCast || hero.CanCastSpell( spell ) ? FontType::normalWhite() : FontType{ FontSize::NORMAL, FontColor::GRAY } ); name.fitToOneRow( 228 ); name.draw( 40, y + 4, bottom );
-+            Text( std::to_string( spell.spellPoints( &hero ) ), FontType::smallWhite() ).draw( 272, y + 7, 36, bottom );
++            thumbnail.reset(); Resize( icon, thumbnail ); Blit( thumbnail, bottom, area.x + ( area.width - thumbnail.width() ) / 2, area.y + 2 );
++            Text name( spell.GetName(), !canCast || hero.CanCastSpell( spell ) ? FontType::smallWhite() : FontType{ FontSize::SMALL, FontColor::GRAY } );
++            if ( name.height( 128 ) > 20 ) name.fitToOneRow( 128 );
++            name.draw( area.x + 4, area.y + 30, 128, bottom );
++            Text( "[" + std::to_string( spell.spellPoints( &hero ) ) + "]", FontType::smallWhite() ).draw( area.x + 104, area.y + 8, 28, bottom );
 +        }
 +        Text( std::to_string( page / 6 + 1 ) + "/" + std::to_string( std::max<size_t>( 1, ( spells.size() + 5 ) / 6 ) ), FontType::smallWhite() ).draw( 0, 196, 320, bottom );
 +        buttons[0]->enable(); buttons[1]->enable(); buttons[2]->enable();
@@ -4625,6 +4815,7 @@ index 0000000..83d1052
 +            redraw = true;
 +            if ( input.type == PanelInputType::Key ) {
 +                switch ( input.key ) {
++                case PanelKey::Toggle: break;
 +                case PanelKey::Cancel: closed = true; break;
 +                case PanelKey::Confirm: activate( 2 ); break;
 +                case PanelKey::Left: changePage( -1 ); break;
@@ -4638,10 +4829,8 @@ index 0000000..83d1052
 +            else if ( input.type == PanelInputType::TouchDown ) {
 +                start = last = input.position; began = SDL_GetTicks(); down = true; moved = false; pressed = -1; touched = -1;
 +                for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) pressed = int( i );
-+                if ( input.position.y >= 34 && input.position.y < 196 ) {
-+                    const size_t index = page + ( input.position.y - 34 ) / 27;
-+                    if ( index < spells.size() ) touched = int( index );
-+                }
++                for ( size_t slot = 0; slot < 6 && page + slot < spells.size(); ++slot )
++                    if ( spellArea( slot ) & input.position ) touched = int( page + slot );
 +            }
 +            else if ( input.type == PanelInputType::TouchMove && down ) {
 +                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
@@ -4686,15 +4875,15 @@ index 0000000..83d1052
 +    const std::vector<TimedEvent> confirm{ { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } };
 +    const std::vector<TimedEvent> cancel{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
 +    if ( run( confirm ) != expected[0].GetID() ) throw std::runtime_error( "Spellbook controller first choice differs" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 75 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, touch( SDL_FINGERDOWN, 174, 219 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } } ) != expected[1].GetID() ) throw std::runtime_error( "Spellbook touch choice differs" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 75 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook row cast without confirmation" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 75 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, touch( SDL_FINGERDOWN, 120, 47 ) }, { 80, touch( SDL_FINGERMOTION, 120, 155 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != expected[1].GetID() ) throw std::runtime_error( "Spellbook description drag changed selection" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 80, 110 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, touch( SDL_FINGERDOWN, 174, 219 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } } ) != expected[1].GetID() ) throw std::runtime_error( "Spellbook touch choice differs" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 80, 110 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook row cast without confirmation" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 80, 110 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, touch( SDL_FINGERDOWN, 80, 48 ) }, { 80, touch( SDL_FINGERMOTION, 120, 155 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != expected[1].GetID() ) throw std::runtime_error( "Spellbook description drag changed selection" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != expected[1].GetID() ) throw std::runtime_error( "Spellbook list navigation differs" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != expected[6].GetID()
 +         || run( confirm, true ) != expected[6].GetID() || run( confirm ) != expected[0].GetID() ) throw std::runtime_error( "Spellbook page restoration differs" );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 174, 219 ) }, { 80, touch( SDL_FINGERMOTION, 120, 180 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook button drag cast a spell" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook nested information differs" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 47 ) }, { 700, touch( SDL_FINGERUP, 0, 0 ) }, { 100, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook held information cast a spell" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 80, 48 ) }, { 700, touch( SDL_FINGERUP, 0, 0 ) }, { 100, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook held information cast a spell" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 120, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } }, false, false ) != Spell::NONE ) throw std::runtime_error( "Spellbook read-only view returned spell" );
 +    hero.SetSpellPoints( 0 );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 120, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE ) throw std::runtime_error( "Spellbook allowed zero-mana spell" );
