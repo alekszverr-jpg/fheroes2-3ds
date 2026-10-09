@@ -2902,10 +2902,10 @@ index 0000000..7c35e25
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..bc6150b
+index 0000000..58787c9
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,249 @@
+@@ -0,0 +1,267 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -2960,14 +2960,12 @@ index 0000000..bc6150b
 +        }
 +    };
 +    // The report only returns a choice. Battle mutations remain with the original caller.
-+    int report( Image & content, const std::vector<std::string> & labels, const std::vector<bool> & enabled, const char * capture,
++    int report( Image & content, const std::vector<std::string> & labels, const std::vector<bool> & enabled, const std::string & heading, const char * capture,
 +                const std::function<bool( Image & )> & animation = {}, const std::function<void()> & information = {} )
 +    {
 +        const CursorRestorer hideCursor( false );
-+        Image top( 400, 240 ), bottom( 320, 240 ), frozen, frame;
-+        const auto crop = Platform3DS::viewport();
-+        frozen.resize( 320, 240 ); frozen.fill( backgroundColor() );
-+        Copy( Display::instance(), crop.x, crop.y, frozen, 0, 0, 320, Platform3DS::detailHeight() );
++        Image top( 400, 240 ), bottom( 320, 240 ), frame;
++        constexpr int viewHeight = 204;
 +        const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +        std::vector<std::unique_ptr<ButtonBase>> buttons;
 +        const int firstY = 240 - int( labels.size() ) * 36 - 8;
@@ -2986,13 +2984,24 @@ index 0000000..bc6150b
 +        bool down = false, moved = false, closed = false; Point start, last;
 +        const auto draw = [&]() {
 +            top.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
-+            Copy( content, 0, scroll, top, 12, 8, 376, std::min<int32_t>( 216, content.height() - scroll ) );
-+            if ( content.height() > 216 ) {
-+                const int knob = std::max<int32_t>( 24, 216 * 216 / content.height() );
-+                Fill( top, 393, 8, 3, 216, GetColorId( 90, 65, 40 ) );
-+                Fill( top, 393, 8 + scroll * ( 216 - knob ) / ( content.height() - 216 ), 3, knob, GetColorId( 255, 225, 96 ) );
++            Copy( content, 0, scroll, top, 12, 8, 376, std::min<int32_t>( viewHeight, content.height() - scroll ) );
++            if ( content.height() > viewHeight ) {
++                const int knob = std::max<int32_t>( 24, viewHeight * viewHeight / content.height() );
++                Fill( top, 391, 8, 5, viewHeight, GetColorId( 90, 65, 40 ) );
++                Fill( top, 391, 8 + scroll * ( viewHeight - knob ) / ( content.height() - viewHeight ), 5, knob, GetColorId( 255, 225, 96 ) );
 +            }
-+            Copy( frozen, bottom ); StandardWindow::renderBackgroundImage( bottom, { 0, firstY - 8, 320, 248 - firstY }, 0, evil );
++            bottom.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++            Text( heading, FontType::normalYellow() ).draw( 12, 20, 296, bottom );
++            if ( content.height() > viewHeight ) {
++                const std::string hint = "D-pad: " + std::string( _( "hotkey|scroll up" ) ) + " / " + _( "hotkey|scroll down" );
++                Text( hint, FontType::smallYellow() ).draw( 12, firstY - 42, 296, bottom );
++                Text( "^  D-pad  v", FontType::smallYellow() ).draw( 12, 224, 376, top );
++                // Large direction markers remain visible even when a casualty row is clipped.
++                for ( int row = 0; row < 5; ++row ) {
++                    if ( scroll > 0 ) Fill( top, 380 - row, 9 + row, row * 2 + 1, 1, GetColorId( 255, 225, 96 ) );
++                    if ( scroll < content.height() - viewHeight ) Fill( top, 376 + row, 204 + row, 9 - row * 2, 1, GetColorId( 255, 225, 96 ) );
++                }
++            }
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
 +                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y - 2, area.width, 1, GetColorId( 255, 225, 96 ) ); }
@@ -3011,6 +3020,9 @@ index 0000000..bc6150b
 +        if ( Platform3DS::smokeTest() ) {
 +            const std::string name = std::string( "sdmc:/3ds/fheroes2/" ) + capture;
 +            if ( !Save( top, name + "-top.bmp" ) || !Save( bottom, name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save battle report" );
++            if ( heading == _( "Battlefield Casualties" ) && !animation && content.height() > 300
++                 && ( !Save( top, "sdmc:/3ds/fheroes2/battle-losses-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/battle-losses-bottom.bmp" ) ) )
++                throw std::runtime_error( "Cannot save casualty layout" );
 +        }
 +        auto & events = LocalEvent::Get();
 +        while ( !closed && events.HandleEvents() ) {
@@ -3025,7 +3037,7 @@ index 0000000..bc6150b
 +                    case PanelKey::Left: selected = std::max( 0, selected - 1 ); break;
 +                    case PanelKey::Right: selected = std::min( int( labels.size() ) - 1, selected + 1 ); break;
 +                    case PanelKey::Up: scroll = std::max( 0, scroll - 32 ); break;
-+                    case PanelKey::Down: scroll = std::min<int32_t>( std::max<int32_t>( 0, content.height() - 216 ), scroll + 32 ); break;
++                    case PanelKey::Down: scroll = std::min<int32_t>( std::max<int32_t>( 0, content.height() - viewHeight ), scroll + 32 ); break;
 +                    default: break;
 +                    }
 +                }
@@ -3035,7 +3047,7 @@ index 0000000..bc6150b
 +                }
 +                else if ( input.type == PanelInputType::TouchMove && down ) {
 +                    moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
-+                    if ( moved && pressed < 0 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, std::max<int32_t>( 0, content.height() - 216 ) );
++                    if ( moved && pressed < 0 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, std::max<int32_t>( 0, content.height() - viewHeight ) );
 +                    last = input.position;
 +                }
 +                else if ( input.type == PanelInputType::TouchUp ) {
@@ -3057,9 +3069,15 @@ index 0000000..bc6150b
 +        for ( size_t i = 0; i < troops.Size(); ++i ) {
 +            const Troop * troop = troops.GetTroop( i ); if ( !troop || !troop->isValid() ) continue;
 +            const auto & icon = Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() );
-+            Blit( icon, image, 4, y );
++            const double scale = std::min( 36.0 / icon.width(), 32.0 / icon.height() );
++            Image resized( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
++            resized.reset(); Resize( icon, resized );
 +            Text text( std::string( troop->GetPluralName( troop->GetCount() ) ) + ": " + std::to_string( troop->GetCount() ), FontType::normalWhite() );
-+            text.draw( 56, y + 4, 320, image ); y += std::max( icon.height(), text.height( 320 ) + 4 ) + 8;
++            const int rowHeight = std::max<int32_t>( 40, text.height( 304 ) );
++            Blit( resized, image, 10 + ( 36 - resized.width() ) / 2, y + ( rowHeight - resized.height() ) / 2 );
++            if ( text.width() <= 304 ) text.draw( 60, y + ( rowHeight - text.height() ) / 2, image );
++            else text.draw( 60, y, 304, image );
++            y += rowHeight + 8;
 +        }
 +        return y;
 +    }
@@ -3072,9 +3090,9 @@ index 0000000..bc6150b
 +    int y = std::max( 120, paragraph( content, 0, title, FontType::normalYellow(), animation ? 188 : 376 ) );
 +    y = paragraph( content, y, body ); y = paragraph( content, y, _( "Battlefield Casualties" ), FontType::normalYellow() );
 +    y = casualties( content, y, attacker, _( "Attacker" ) ); y = casualties( content, y, defender, _( "Defender" ) );
-+    Image full( 376, std::max( 216, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 216, y ) );
++    Image full( 376, std::max( 204, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 204, y ) );
 +    return report( full, restart ? std::vector<std::string>{ _( "Restart" ), _( "Okay" ) } : std::vector<std::string>{ _( "Okay" ) },
-+                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, "battle-summary", animation ) == 0 && restart;
++                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, _( "Battlefield Casualties" ), "battle-summary", animation ) == 0 && restart;
 +}
 +void Interface3DS::showBattleArtifact( const Artifact & artifact, const std::string & message )
 +{
@@ -3083,8 +3101,8 @@ index 0000000..bc6150b
 +    int y = paragraph( content, 0, message, FontType::normalYellow() );
 +    const auto & icon = Assets::getImage( ICN::ARTIFACT, artifact.IndexSprite64() ); Blit( icon, content, ( 376 - icon.width() ) / 2, y );
 +    y = paragraph( content, y + icon.height() + 8, artifact.GetName() );
-+    Image full( 376, std::max( 216, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 216, y ) );
-+    report( full, { _( "Okay" ) }, { true }, "battle-artifact", {}, [&]() { ArtifactDialogElement( artifact ).showPopup( Dialog::ZERO ); } );
++    Image full( 376, std::max( 204, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 204, y ) );
++    report( full, { _( "Okay" ) }, { true }, artifact.GetName(), "battle-artifact", {}, [&]() { ArtifactDialogElement( artifact ).showPopup( Dialog::ZERO ); } );
 +}
 +bool Interface3DS::showBattleSurrender( const HeroBase & hero, const uint32_t cost, Kingdom & kingdom )
 +{
@@ -3095,13 +3113,13 @@ index 0000000..bc6150b
 +        Image content( 376, 512 ); content.fill( backgroundColor() );
 +        std::string title = hero.isCaptain() ? _( "Captain of %{name} states:" ) : _( "%{name} states:" ); StringReplace( title, "%{name}", hero.GetName() );
 +        int y = paragraph( content, 0, title, FontType::normalYellow() );
-+        Image portrait( 120, 112 ); portrait.fill( backgroundColor() ); hero.PortraitRedraw( 0, 0, PORT_BIG, portrait ); Blit( portrait, content, 0, y );
++        Image portrait( 120, 112 ); portrait.fill( backgroundColor() ); hero.PortraitRedraw( 0, 0, PORT_BIG, portrait ); Blit( portrait, content, 8, y );
 +        std::string text = _( "\"I will accept your surrender and grant you and your troops safe passage for the price of %{price} gold.\"" ); StringReplace( text, "%{price}", cost );
 +        y = std::max( y + 120, paragraph( content, y, text, FontType::normalWhite(), 244, 132 ) );
 +        y = paragraph( content, y, std::string( _( "Gold" ) ) + ": " + std::to_string( kingdom.GetFunds().gold ) );
 +        if ( !affordable ) { text = _( "Not enough gold (%{gold})" ); StringReplace( text, "%{gold}", cost - kingdom.GetFunds().gold ); y = paragraph( content, y, text ); }
-+        Image full( 376, std::max( 216, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 216, y ) );
-+        const int choice = report( full, { _( "Surrender" ), _( "Marketplace" ), _( "Cancel" ) }, { affordable, market, true }, "battle-surrender" );
++        Image full( 376, std::max( 204, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 204, y ) );
++        const int choice = report( full, { _( "Surrender" ), _( "Marketplace" ), _( "Cancel" ) }, { affordable, market, true }, _( "Surrender" ), "battle-surrender" );
 +        if ( choice == 0 ) return true;
 +        if ( choice != 1 ) return false;
 +        // Leave the native image layer before opening the original marketplace; then refresh funds and availability.

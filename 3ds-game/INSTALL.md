@@ -1,6 +1,8 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.17
+# fheroes2 for Nintendo 3DS — preview 0.3.18
 
-## Preview 0.3.17: battle results and surrender across both screens
+## Preview 0.3.18: battle results and surrender across both screens
+
+The dialog covers the entire lower screen. A D-pad hint and arrows indicate scrolling; casualty icons align with their names and the surrender portrait has more padding. Updating from 0.3.17 only requires replacing the `.3dsx`.
 
 Battle results use the top screen for the original animation, outcome, experience/ransom and all casualties. D-pad Up/Down or a stylus drag above the lower buttons scrolls the report. The lower dock contains Okay and Restart when the original game permits it; Left/Right selects a button, A/Start confirms, L closes without restarting. Captured/disappearing artifacts are also shown on top; hold B for their details.
 

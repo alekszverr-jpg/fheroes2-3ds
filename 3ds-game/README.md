@@ -1,5 +1,10 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.18: battle report and surrender layout
+
+These dialogs now cover the entire lower screen, hiding the adventure map or battlefield behind the controls. Scrollable reports show a persistent D-pad up/down hint, a wider scrollbar and direction arrows. Casualty icons fit consistent 36×32 cells while preserving their proportions, with padding and aligned names/counts. The surrender portrait has more left padding. Updating from 0.3.17 only requires replacing `3ds/fheroes2/fheroes2.3dsx`. Physical validation is pending.
+
+
 ## Preview 0.3.17: battle results and surrender across both screens
 
 Battle results use the top screen for the original animation, outcome, experience/ransom and all casualties. D-pad Up/Down or a stylus drag above the lower buttons scrolls the report. The lower dock contains Okay and Restart when the original game permits it; Left/Right selects a button, A/Start confirms, L closes without restarting. Captured/disappearing artifacts are also shown on top; hold B for their details.
