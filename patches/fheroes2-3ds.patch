@@ -581,7 +581,7 @@ index e3d7171..8773662 100644
      correctedPath.clear();
  
 diff --git a/src/fheroes2/battle/battle_dialogs.cpp b/src/fheroes2/battle/battle_dialogs.cpp
-index c336081..1c4af59 100644
+index c336081..76fb2ca 100644
 --- a/src/fheroes2/battle/battle_dialogs.cpp
 +++ b/src/fheroes2/battle/battle_dialogs.cpp
 @@ -29,6 +29,10 @@
@@ -595,7 +595,74 @@ index c336081..1c4af59 100644
  #include "army.h"
  #include "artifact.h"
  #include "audio.h"
-@@ -861,6 +865,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
+@@ -482,6 +486,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+         return false;
+     }
+ 
++#if !defined( __3DS__ )
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     // Set the cursor image. After this dialog the Game Area or the Battlefield will be shown, so it does not require a cursor restorer.
+@@ -498,6 +503,8 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+     const fheroes2::Rect animationRoi( roi.x + ( ( roi.width - animationBorderRoi.width ) / 2 ) + 4, roi.y + 21, animationBorderRoi.width, animationBorderRoi.height );
+     Copy( originalBorderImage, animationBorderRoi.x, animationBorderRoi.y, display, animationRoi.x - 4, animationRoi.y - 4, animationRoi.width, animationRoi.height );
+ 
++#endif
++
+     // Setup summary texts according to results and get the corresponding animation sequence.
+     std::string surrenderText;
+     std::string outcomeText;
+@@ -533,6 +540,41 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+         sequence.push( ICN::UNKNOWN, false );
+     }
+ 
++#if defined( __3DS__ )
++    // Native modal images present the report immediately; consume the same pending transition as the desktop report.
++    Game::validateDisplayFadeIn();
++    sequence.push( ICN::WINCMBT, true );
++    bool initial = true; int lastId = sequence.id();
++    const auto animation = [&]( fheroes2::Image & image ) {
++        if ( !initial && !Game::validateAnimationDelay( Game::DelayType::BATTLE_DIALOG_DELAY ) ) return false;
++        if ( !initial && sequence.nextFrame() ) return false;
++        const auto & base = Assets::getImage( sequence.id(), 0 );
++        if ( initial ) { image.resize( 231, 133 ); image.fill( 0 ); fheroes2::Copy( base, 0, 0, image, 0, 0, base.width(), base.height() ); }
++        else if ( lastId != sequence.id() ) fheroes2::Copy( base, 0, 0, image, base.x(), base.y(), base.width(), base.height() );
++        lastId = sequence.id();
++        const auto & frame = Assets::getImage( sequence.id(), initial ? 1 : sequence.frameId() );
++        fheroes2::Blit( frame, image, frame.x(), frame.y() ); initial = false; return true;
++    };
++    if ( Interface3DS::showBattleSummary( title, surrenderText + ( surrenderText.empty() || outcomeText.empty() ? "" : "\n\n" ) + outcomeText,
++             _attackingArmy->GetKilledTroops(), _defendingArmy->GetKilledTroops(), allowToRestart, animation ) ) return true;
++    if ( !artifacts.empty() ) {
++        const HeroBase * winner = res.attacker & RESULT_WINS ? _attackingArmy->GetCommander() : ( res.defender & RESULT_WINS ? _defendingArmy->GetCommander() : nullptr );
++        const HeroBase * loser = res.attacker & RESULT_LOSS ? _attackingArmy->GetCommander() : ( res.defender & RESULT_LOSS ? _defendingArmy->GetCommander() : nullptr );
++        if ( winner && loser && ( winner->isControlHuman() || loser->GetBagArtifacts().ContainUltimateArtifact() ) ) {
++            for ( const Artifact & artifact : artifacts ) {
++                if ( !winner->isControlHuman() && !artifact.isUltimate() ) continue;
++                std::string message;
++                if ( artifact.isUltimate() ) {
++                    message = winner->isControlHuman() ? _( "As you reach for the %{name}, it mysteriously disappears." ) : _( "As your enemy reaches for the %{name}, it mysteriously disappears." );
++                    StringReplace( message, "%{name}", artifact.GetName() );
++                }
++                else { message = _( "You have captured an enemy artifact!" ); Game::PlayPickupSound(); }
++                Interface3DS::showBattleArtifact( artifact, message );
++            }
++        }
++    }
++    return false;
++#else
+     setupAnimation( display, animationRoi, sequence );
+ 
+     const fheroes2::Rect summaryRoi( roi.x + 11, roi.y + bsTextYOffset, roi.width - 22, roi.height - bsTextYOffset );
+@@ -781,6 +823,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+         }
+     }
+     return false;
++#endif
+ }
+ 
+ void Battle::Arena::DialogBattleNecromancy( const uint32_t raiseCount )
+@@ -861,6 +904,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
  
      const PlayerColor currentColor = GetCurrentColor();
      const bool readonly = ( currentColor != hero.GetColor() || !buttons );
@@ -614,11 +681,22 @@ index c336081..1c4af59 100644
      const fheroes2::Sprite & dialog = Assets::getImage( ( conf.isEvilInterfaceEnabled() ? ICN::VGENBKGE : ICN::VGENBKG ), 0 );
  
      const fheroes2::Point dialogShadow( 15, 15 );
+@@ -1093,6 +1148,10 @@ bool Battle::DialogBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdo
+         return false;
+     }
+ 
++#if defined( __3DS__ )
++    return Interface3DS::showBattleSurrender( hero, cost, kingdom );
++#endif
++
+     fheroes2::Display & display = fheroes2::Display::instance();
+     LocalEvent & le = LocalEvent::Get();
+     const Settings & conf = Settings::Get();
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..198d622 100644
+index f3e8496..6e890fc 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
-@@ -22,6 +22,16 @@
+@@ -22,6 +22,20 @@
   ***************************************************************************/
  
  #include "battle_interface.h"
@@ -629,13 +707,17 @@ index f3e8496..198d622 100644
 +#include <SDL.h>
 +
 +#include "army.h"
++#include "kingdom.h"
++#include "serialize.h"
++#include "game_io.h"
++#include "save_format_version.h"
 +#include "platform_3ds.h"
 +#include "ui_3ds_dialog.h"
 +#endif
  
  #include <algorithm>
  #include <array>
-@@ -56,6 +66,10 @@
+@@ -56,6 +70,10 @@
  #include "game_hotkeys.h"
  #include "ground.h"
  #include "heroes_base.h"
@@ -646,7 +728,7 @@ index f3e8496..198d622 100644
  #include "interface_list.h"
  #include "localevent.h"
  #include "logging.h"
-@@ -846,6 +860,11 @@ namespace Battle
+@@ -846,6 +864,11 @@ namespace Battle
  
          void AddMessage( std::string str )
          {
@@ -658,7 +740,7 @@ index f3e8496..198d622 100644
              // Check if message string fits the log width.
              fheroes2::Text text( str, fheroes2::FontType::normalWhite() );
              size_t pos = std::string::npos;
-@@ -966,6 +985,9 @@ namespace Battle
+@@ -966,6 +989,9 @@ namespace Battle
              _isLogOpened = opened;
          }
  
@@ -668,7 +750,7 @@ index f3e8496..198d622 100644
          bool isOpenLog() const
          {
              return _isLogOpened;
-@@ -1146,6 +1168,9 @@ Battle::Status::Status()
+@@ -1146,6 +1172,9 @@ Battle::Status::Status()
  void Battle::Status::setMessage( std::string messageString, const bool top )
  {
      if ( top ) {
@@ -678,7 +760,7 @@ index f3e8496..198d622 100644
          _upperText.set( messageString, fheroes2::FontType::normalWhite() );
          // The text cannot go beyond the text area so it is important to truncate it when necessary.
          _upperText.fitToOneRow( width - offsetForTextBar * 2 );
-@@ -1165,6 +1190,20 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
+@@ -1165,6 +1194,20 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
  
  void Battle::Status::redraw( fheroes2::Image & output ) const
  {
@@ -699,7 +781,7 @@ index f3e8496..198d622 100644
      fheroes2::Copy( _upperBackground, 0, 0, output, x, y, width, _upperBackground.height() );
      fheroes2::Copy( _lowerBackground, 0, 0, output, x, y + _upperBackground.height(), width, _lowerBackground.height() );
  
-@@ -1179,6 +1218,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
+@@ -1179,6 +1222,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
  
  void Battle::Status::clear()
  {
@@ -709,7 +791,7 @@ index f3e8496..198d622 100644
      _upperText.set( "", fheroes2::FontType::normalWhite() );
      _lowerText.set( "", fheroes2::FontType::normalWhite() );
      _lastMessage = "";
-@@ -1507,12 +1549,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
+@@ -1507,12 +1553,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
      // Battlefield area excludes the lower part where the status log is located.
      _mainSurface.resize( area.width, battlefieldHeight );
      _battleGround.resize( area.width, battlefieldHeight );
@@ -730,7 +812,7 @@ index f3e8496..198d622 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,18 +1723,263 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,19 +1727,311 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -771,8 +853,8 @@ index f3e8496..198d622 100644
          listlog->Redraw();
      }
 +#endif
-+}
-+
+ }
+ 
 +#if defined( __3DS__ )
 +void Battle::Interface::testBattleHUD3DS()
 +{
@@ -793,6 +875,25 @@ index f3e8496..198d622 100644
 +            throw std::runtime_error( "Battle HUD input injection failed" );
 +        LocalEvent::Get().HandleEvents( false, true );
 +    };
++    // Menu smoke tests have no initialized players/kingdoms. Supply a human attacker and restore the previous fixture afterwards.
++    struct SummaryPlayersScope {
++        RWStreamBuf players;
++        Kingdom blue = std::move( world.GetKingdom( PlayerColor::BLUE ) );
++        uint16_t version = Game::GetVersionOfCurrentSaveFile();
++        SummaryPlayersScope() {
++            players << Settings::Get().GetPlayers();
++            Settings::Get().GetPlayers().Init( PlayerColor::BLUE | PlayerColor::RED );
++            Players::Get( PlayerColor::BLUE )->SetControl( CONTROL_HUMAN );
++            Players::Get( PlayerColor::RED )->SetControl( CONTROL_AI );
++            world.GetKingdom( PlayerColor::BLUE ).Init( PlayerColor::BLUE );
++        }
++        ~SummaryPlayersScope() {
++            world.GetKingdom( PlayerColor::BLUE ) = std::move( blue );
++            Game::SetVersionOfCurrentSaveFile( CURRENT_FORMAT_VERSION );
++            players >> Settings::Get().GetPlayers();
++            Game::SetVersionOfCurrentSaveFile( version );
++        }
++    } summaryPlayers;
 +    Heroes panelHero( Heroes::LORDKILBURN, Race::KNGT );
 +    panelHero.SetColor( PlayerColor::BLUE );
 +    panelHero.SpellBookActivate();
@@ -981,6 +1082,34 @@ index f3e8496..198d622 100644
 +             || std::memcmp( beforeCard.image(), display.image(), display.width() * display.height() ) )
 +            throw std::runtime_error( "Hero panel Y dispatch changed battle/context or leaked input" );
 +        COUT( "3DS BATTLE HERO ACTIONS SMOKE: PASS real_arena Y_dispatch toggle_close hud_restoration unchanged_frame_viewport_actions release_isolation" )
++        if ( !( battle.getAttackingForce().GetControl() & CONTROL_HUMAN ) ) throw std::runtime_error( "Summary fixture has no human attacker" );
++        const auto runSummary = [&]( const Result & outcome, const bool restart, bool chooseRestart ) {
++            SDL_Thread * closer = SDL_CreateThread( []( void * data ) -> int {
++                const bool choose = *static_cast<bool *>( data ); SDL_Delay( 850 );
++                SDL_Event e{}; e.type = SDL_CONTROLLERBUTTONDOWN; e.cbutton.button = choose ? SDL_CONTROLLER_BUTTON_DPAD_LEFT : SDL_CONTROLLER_BUTTON_A; e.cbutton.state = SDL_PRESSED;
++                if ( SDL_PushEvent( &e ) != 1 ) return 1;
++                SDL_Delay( 80 ); e.type = SDL_CONTROLLERBUTTONUP; e.cbutton.state = SDL_RELEASED; if ( SDL_PushEvent( &e ) != 1 ) return 1;
++                if ( choose ) { SDL_Delay( 80 ); e.type = SDL_CONTROLLERBUTTONDOWN; e.cbutton.button = SDL_CONTROLLER_BUTTON_A; e.cbutton.state = SDL_PRESSED;
++                    if ( SDL_PushEvent( &e ) != 1 ) return 1; SDL_Delay( 80 ); e.type = SDL_CONTROLLERBUTTONUP; e.cbutton.state = SDL_RELEASED; if ( SDL_PushEvent( &e ) != 1 ) return 1; }
++                return 0;
++            }, "battle-summary-smoke", &chooseRestart );
++            if ( !closer ) throw std::runtime_error( "Cannot start battle summary input" );
++            bool chosen = false; int status = 0;
++            Game::setDisplayFadeIn();
++            try { chosen = battle.DialogBattleSummary( outcome, {}, restart ); } catch ( ... ) { SDL_WaitThread( closer, &status ); throw; }
++            SDL_WaitThread( closer, &status ); events.HandleEvents( false, true );
++            if ( status || chosen != chooseRestart || Game::isFadeInNeeded() || Platform3DS::hasModalImages() || Platform3DS::battleHUDImage() != &ui._battleHUD3DS
++                 || Platform3DS::viewport() != cardCrop || events.MouseClickLeft() || actions.size() != actionCount
++                 || std::memcmp( beforeCard.image(), display.image(), display.width() * display.height() ) )
++                throw std::runtime_error( "Actual battle summary changed frame/context/actions or restart choice" );
++        };
++        Result outcome; outcome.attacker = RESULT_WINS; outcome.defender = RESULT_LOSS; outcome.attackerExperience = 1234;
++        runSummary( outcome, false, false ); runSummary( outcome, true, true );
++        outcome.attacker = RESULT_RETREAT | RESULT_LOSS; outcome.defender = RESULT_WINS; runSummary( outcome, false, false );
++        outcome.attacker = RESULT_SURRENDER | RESULT_LOSS; runSummary( outcome, false, false );
++        outcome.attacker = RESULT_LOSS; runSummary( outcome, false, false );
++        outcome.attacker = RESULT_WINS; outcome.defender = RESULT_SURRENDER | RESULT_LOSS; runSummary( outcome, false, false );
++        COUT( "3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS actual_arena victory_defeat_retreat_surrender_enemy_surrender restart_choice animation_path unchanged_frame_hud_viewport_actions release_isolation" )
 +        ui._currentUnit = nullptr;
 +    }
 +    if ( Platform3DS::battleHUDImage() || Platform3DS::commandStripImage() != savedStrip )
@@ -989,12 +1118,13 @@ index f3e8496..198d622 100644
 +    display.render();
 +    COUT(
 +        "3DS BATTLE HUD SMOKE: PASS real_arena top_footer_removed native_buttons_log_mapping skip_dispatch native_log_dispatch settings_restore drag_cancel hold_info viewport_lifetime" )
- }
++}
 +#endif
- 
++
  void Battle::Interface::RedrawArmies()
  {
-@@ -3152,10 +3447,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+     // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
+@@ -3152,10 +3498,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
              Redraw();
              _needRedraw = false;
          }
@@ -1007,7 +1137,7 @@ index f3e8496..198d622 100644
      }
  
      popup.reset();
-@@ -3170,15 +3467,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3170,15 +3518,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
      LocalEvent & le = LocalEvent::Get();
      Settings & conf = Settings::Get();
  
@@ -1046,7 +1176,7 @@ index f3e8496..198d622 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3468,7 +3788,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3468,7 +3839,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
              msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
  
              if ( le.MouseClickLeft( status ) ) {
@@ -1059,7 +1189,7 @@ index f3e8496..198d622 100644
              }
              else if ( le.isMouseRightButtonPressedInArea( status ) ) {
                  fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
-@@ -3583,7 +3908,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3583,7 +3959,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -2770,6 +2900,261 @@ index 0000000..7c35e25
 +
 +
 +#endif
+diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
+new file mode 100644
+index 0000000..bc6150b
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_battle.cpp
+@@ -0,0 +1,249 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <stdexcept>
++#include <utility>
++#include <SDL.h>
++#include "army.h"
++#include "artifact.h"
++#include "battle_interface.h"
++#include "cursor.h"
++#include "dialog.h"
++#include "game_assets.h"
++#include "heroes.h"
++#include "heroes_base.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "resource.h"
++#include "screen.h"
++#include "settings.h"
++#include "tools.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace {
++    using namespace fheroes2;
++    using Platform3DS::PanelInputType;
++    using Platform3DS::PanelKey;
++    uint8_t backgroundColor() { return GetColorId( 35, 29, 24 ); }
++    int lastScroll = 0;
++    unsigned animationChanges = 0;
++    class ReportScope {
++    public:
++        ReportScope( const Image & top, const Image & bottom ) {
++            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++            LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~ReportScope() {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance(); display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
++        }
++    };
++    // The report only returns a choice. Battle mutations remain with the original caller.
++    int report( Image & content, const std::vector<std::string> & labels, const std::vector<bool> & enabled, const char * capture,
++                const std::function<bool( Image & )> & animation = {}, const std::function<void()> & information = {} )
++    {
++        const CursorRestorer hideCursor( false );
++        Image top( 400, 240 ), bottom( 320, 240 ), frozen, frame;
++        const auto crop = Platform3DS::viewport();
++        frozen.resize( 320, 240 ); frozen.fill( backgroundColor() );
++        Copy( Display::instance(), crop.x, crop.y, frozen, 0, 0, 320, Platform3DS::detailHeight() );
++        const bool evil = Settings::Get().isEvilInterfaceEnabled();
++        std::vector<std::unique_ptr<ButtonBase>> buttons;
++        const int firstY = 240 - int( labels.size() ) * 36 - 8;
++        for ( size_t i = 0; i < labels.size(); ++i ) {
++            Sprite released, pressed;
++            makeButtonSprites( released, pressed, "", { 194, 28 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++            Text text( labels[i], FontType::normalWhite() );
++            if ( text.width() > 188 ) text.set( labels[i], FontType::smallWhite() );
++            text.draw( 4, ( released.height() - text.height( 188 ) ) / 2, 188, released );
++            text.draw( 3, ( pressed.height() - text.height( 188 ) ) / 2 + 1, 188, pressed );
++            buttons.emplace_back( std::make_unique<ButtonSprite>( 60, firstY + int( i ) * 36, std::move( released ), std::move( pressed ) ) );
++            if ( !enabled[i] ) buttons.back()->disable();
++        }
++        const ReportScope scope( top, bottom );
++        int scroll = 0, selected = int( labels.size() ) - 1, pressed = -1, result = int( labels.size() ) - 1;
++        bool down = false, moved = false, closed = false; Point start, last;
++        const auto draw = [&]() {
++            top.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
++            Copy( content, 0, scroll, top, 12, 8, 376, std::min<int32_t>( 216, content.height() - scroll ) );
++            if ( content.height() > 216 ) {
++                const int knob = std::max<int32_t>( 24, 216 * 216 / content.height() );
++                Fill( top, 393, 8, 3, 216, GetColorId( 90, 65, 40 ) );
++                Fill( top, 393, 8 + scroll * ( 216 - knob ) / ( content.height() - 216 ), 3, knob, GetColorId( 255, 225, 96 ) );
++            }
++            Copy( frozen, bottom ); StandardWindow::renderBackgroundImage( bottom, { 0, firstY - 8, 320, 248 - firstY }, 0, evil );
++            for ( size_t i = 0; i < buttons.size(); ++i ) {
++                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
++                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y - 2, area.width, 1, GetColorId( 255, 225, 96 ) ); }
++            }
++            Display::instance().render();
++        };
++        const auto tick = [&]() {
++            if ( !animation || !animation( frame ) ) return false;
++            Image resized( 180, 108 ); resized.reset();
++            const double scale = std::min( 180.0 / frame.width(), 108.0 / frame.height() );
++            resized.resize( std::max( 1, int( frame.width() * scale ) ), std::max( 1, int( frame.height() * scale ) ) ); resized.reset(); Resize( frame, resized );
++            Fill( content, 196, 0, 180, 112, backgroundColor() ); Blit( resized, content, 196 + ( 180 - resized.width() ) / 2, 0 );
++            ++animationChanges; return true;
++        };
++        tick(); draw();
++        if ( Platform3DS::smokeTest() ) {
++            const std::string name = std::string( "sdmc:/3ds/fheroes2/" ) + capture;
++            if ( !Save( top, name + "-top.bmp" ) || !Save( bottom, name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save battle report" );
++        }
++        auto & events = LocalEvent::Get();
++        while ( !closed && events.HandleEvents() ) {
++            Platform3DS::PanelInput input; bool redraw = tick();
++            while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++                redraw = true;
++                if ( input.type == PanelInputType::Key ) {
++                    switch ( input.key ) {
++                    case PanelKey::Cancel: closed = true; break;
++                    case PanelKey::Information: if ( information ) information(); else closed = true; break;
++                    case PanelKey::Confirm: if ( enabled[selected] ) { result = selected; closed = true; } break;
++                    case PanelKey::Left: selected = std::max( 0, selected - 1 ); break;
++                    case PanelKey::Right: selected = std::min( int( labels.size() ) - 1, selected + 1 ); break;
++                    case PanelKey::Up: scroll = std::max( 0, scroll - 32 ); break;
++                    case PanelKey::Down: scroll = std::min<int32_t>( std::max<int32_t>( 0, content.height() - 216 ), scroll + 32 ); break;
++                    default: break;
++                    }
++                }
++                else if ( input.type == PanelInputType::TouchDown ) {
++                    start = last = input.position; down = true; moved = false; pressed = -1;
++                    for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) { pressed = int( i ); selected = pressed; }
++                }
++                else if ( input.type == PanelInputType::TouchMove && down ) {
++                    moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                    if ( moved && pressed < 0 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, std::max<int32_t>( 0, content.height() - 216 ) );
++                    last = input.position;
++                }
++                else if ( input.type == PanelInputType::TouchUp ) {
++                    if ( down && !moved && pressed >= 0 && enabled[pressed] ) { result = pressed; closed = true; }
++                    down = false; pressed = -1;
++                }
++            }
++            if ( redraw && !closed ) draw();
++        }
++        lastScroll = scroll; return result;
++    }
++    int paragraph( Image & image, int y, const std::string & text, FontType font = FontType::normalWhite(), int width = 376, int x = 0 ) {
++        if ( text.empty() ) return y;
++        Text value( text, font ); value.draw( x, y, width, image ); return y + value.height( width ) + 8;
++    }
++    int casualties( Image & image, int y, const Troops & troops, const char * side ) {
++        y = paragraph( image, y, side, FontType::normalYellow() );
++        if ( !troops.isValid() ) return paragraph( image, y, _( "None" ) );
++        for ( size_t i = 0; i < troops.Size(); ++i ) {
++            const Troop * troop = troops.GetTroop( i ); if ( !troop || !troop->isValid() ) continue;
++            const auto & icon = Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() );
++            Blit( icon, image, 4, y );
++            Text text( std::string( troop->GetPluralName( troop->GetCount() ) ) + ": " + std::to_string( troop->GetCount() ), FontType::normalWhite() );
++            text.draw( 56, y + 4, 320, image ); y += std::max( icon.height(), text.height( 320 ) + 4 ) + 8;
++        }
++        return y;
++    }
++}
++bool Interface3DS::showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
++                                     const bool restart, const std::function<bool( fheroes2::Image & )> & animation )
++{
++    using namespace fheroes2;
++    Image content( 376, 2048 ); content.fill( backgroundColor() );
++    int y = std::max( 120, paragraph( content, 0, title, FontType::normalYellow(), animation ? 188 : 376 ) );
++    y = paragraph( content, y, body ); y = paragraph( content, y, _( "Battlefield Casualties" ), FontType::normalYellow() );
++    y = casualties( content, y, attacker, _( "Attacker" ) ); y = casualties( content, y, defender, _( "Defender" ) );
++    Image full( 376, std::max( 216, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 216, y ) );
++    return report( full, restart ? std::vector<std::string>{ _( "Restart" ), _( "Okay" ) } : std::vector<std::string>{ _( "Okay" ) },
++                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, "battle-summary", animation ) == 0 && restart;
++}
++void Interface3DS::showBattleArtifact( const Artifact & artifact, const std::string & message )
++{
++    using namespace fheroes2;
++    Image content( 376, 480 ); content.fill( backgroundColor() );
++    int y = paragraph( content, 0, message, FontType::normalYellow() );
++    const auto & icon = Assets::getImage( ICN::ARTIFACT, artifact.IndexSprite64() ); Blit( icon, content, ( 376 - icon.width() ) / 2, y );
++    y = paragraph( content, y + icon.height() + 8, artifact.GetName() );
++    Image full( 376, std::max( 216, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 216, y ) );
++    report( full, { _( "Okay" ) }, { true }, "battle-artifact", {}, [&]() { ArtifactDialogElement( artifact ).showPopup( Dialog::ZERO ); } );
++}
++bool Interface3DS::showBattleSurrender( const HeroBase & hero, const uint32_t cost, Kingdom & kingdom )
++{
++    using namespace fheroes2;
++    while ( true ) {
++        const bool affordable = kingdom.AllowPayment( Funds( Resource::GOLD, cost ) );
++        const bool market = !affordable && kingdom.GetCountMarketplace();
++        Image content( 376, 512 ); content.fill( backgroundColor() );
++        std::string title = hero.isCaptain() ? _( "Captain of %{name} states:" ) : _( "%{name} states:" ); StringReplace( title, "%{name}", hero.GetName() );
++        int y = paragraph( content, 0, title, FontType::normalYellow() );
++        Image portrait( 120, 112 ); portrait.fill( backgroundColor() ); hero.PortraitRedraw( 0, 0, PORT_BIG, portrait ); Blit( portrait, content, 0, y );
++        std::string text = _( "\"I will accept your surrender and grant you and your troops safe passage for the price of %{price} gold.\"" ); StringReplace( text, "%{price}", cost );
++        y = std::max( y + 120, paragraph( content, y, text, FontType::normalWhite(), 244, 132 ) );
++        y = paragraph( content, y, std::string( _( "Gold" ) ) + ": " + std::to_string( kingdom.GetFunds().gold ) );
++        if ( !affordable ) { text = _( "Not enough gold (%{gold})" ); StringReplace( text, "%{gold}", cost - kingdom.GetFunds().gold ); y = paragraph( content, y, text ); }
++        Image full( 376, std::max( 216, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 216, y ) );
++        const int choice = report( full, { _( "Surrender" ), _( "Marketplace" ), _( "Cancel" ) }, { affordable, market, true }, "battle-surrender" );
++        if ( choice == 0 ) return true;
++        if ( choice != 1 ) return false;
++        // Leave the native image layer before opening the original marketplace; then refresh funds and availability.
++        Dialog::Marketplace( kingdom, false );
++    }
++}
++
++void Interface3DS::testBattleOutcome()
++{
++    using namespace fheroes2;
++    using TimedEvent = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    const auto crop = Platform3DS::viewport(); const auto * hud = Platform3DS::battleHUDImage(); Image frame; Copy( Display::instance(), frame );
++    const auto run = [&]( const std::function<int()> & dialog, std::vector<TimedEvent> sequence ) {
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int {
++            for ( auto & step : *static_cast<std::vector<TimedEvent> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0;
++        }, "battle-outcome-smoke", &sequence );
++        if ( !worker ) throw std::runtime_error( "Cannot start battle report input" );
++        int result = 0, status = 0;
++        try { result = dialog(); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
++        if ( status || Platform3DS::hasModalImages() || Platform3DS::viewport() != crop || Platform3DS::battleHUDImage() != hud
++             || events.MouseClickLeft() || events.isMouseRightButtonPressed() || std::memcmp( frame.image(), Display::instance().image(), frame.width() * frame.height() ) )
++            throw std::runtime_error( "Battle report changed frame/context or leaked input" );
++        return result;
++    };
++    const std::vector<TimedEvent> okay{ { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } };
++    const std::vector<TimedEvent> cancel{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    Troops empty, losses;
++    for ( int id : { Monster::PEASANT, Monster::ARCHER, Monster::GOBLIN, Monster::OGRE, Monster::BLACK_DRAGON } ) losses.PushBack( Monster( id ), 123456 );
++    const auto summary = [&]( bool restart ) { return int( showBattleSummary( _( "A glorious victory!" ), _( "The enemy has surrendered!" ), losses, losses, restart, {} ) ); };
++    if ( run( [&]() { return summary( false ); }, okay ) || run( [&]() { return summary( true ); }, okay ) || run( [&]() { return summary( true ); }, cancel ) ) throw std::runtime_error( "Summary default/cancel restarted battle" );
++    if ( run( [&]() { return summary( true ); }, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 1 ) throw std::runtime_error( "Summary restart choice differs" );
++    if ( run( [&]() { return summary( true ); }, { { 250, touch( SDL_FINGERDOWN, 150, 174 ) }, { 80, touch( SDL_FINGERMOTION, 150, 120 ) }, { 80, touch( SDL_FINGERUP, 150, 120 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Summary drag restarted battle" );
++    run( [&]() { return summary( false ); }, { { 250, touch( SDL_FINGERDOWN, 150, 160 ) }, { 80, touch( SDL_FINGERMOTION, 150, 20 ) }, { 80, touch( SDL_FINGERUP, 150, 20 ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( lastScroll <= 0 ) throw std::runtime_error( "Summary losses did not scroll" );
++    if ( run( [&]() { return int( showBattleSummary( _( "Your forces suffer a bitter defeat." ), "", empty, empty, false, {} ) ); }, okay ) ) throw std::runtime_error( "Empty casualties restarted battle" );
++    Heroes enemy( Heroes::LORDKILBURN, Race::KNGT ); enemy.SetColor( PlayerColor::RED );
++    Kingdom kingdom; kingdom.AddFundsResource( Funds( Resource::GOLD, 1000 ) );
++    const Funds funds = kingdom.GetFunds();
++    const auto surrender = [&]( uint32_t cost ) { return int( Battle::DialogBattleSurrender( enemy, cost, kingdom ) ); };
++    if ( run( [&]() { return surrender( 500 ); }, cancel ) ) throw std::runtime_error( "Surrender cancel accepted" );
++    if ( run( [&]() { return surrender( 500 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 137 ) }, { 80, touch( SDL_FINGERUP, 150, 137 ) } } ) != 1 ) throw std::runtime_error( "Affordable surrender not accepted" );
++    if ( run( [&]() { return surrender( 2000 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 137 ) }, { 80, touch( SDL_FINGERUP, 150, 137 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Unaffordable surrender accepted" );
++    if ( run( [&]() { return surrender( 500 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 137 ) }, { 80, touch( SDL_FINGERMOTION, 150, 170 ) }, { 80, touch( SDL_FINGERUP, 150, 170 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Surrender drag accepted" );
++    if ( !( kingdom.GetFunds() == funds ) ) throw std::runtime_error( "Surrender dialog charged gold" );
++    run( [&]() { showBattleArtifact( Artifact( Artifact::SNAKE_RING ), _( "You have captured an enemy artifact!" ) ); return 0; }, { { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    run( [&]() { return surrender( 500 ); }, cancel ); Settings::Get().setInterfaceType( previous );
++    COUT( "3DS BATTLE OUTCOME SMOKE: PASS summary_restart_ok_cancel empty_long_casualties stylus_scroll button_drag surrender_actual_dialog affordable_unaffordable unchanged_funds artifact_info evil unchanged_frame_hud_viewport release_isolation" )
++}
++#endif
 diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp
 new file mode 100644
 index 0000000..f85b17b
@@ -3045,10 +3430,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..c9b7ec8
+index 0000000..c483efd
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1417 @@
+@@ -0,0 +1,1418 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4320,6 +4705,7 @@ index 0000000..c9b7ec8
 +    testArmyInfo();
 +    testCombatSpellBook();
 +    testBattleHeroActions();
++    testBattleOutcome();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +
@@ -4468,10 +4854,10 @@ index 0000000..c9b7ec8
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..4f18fa2
+index 0000000..d0c07e5
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,49 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -4480,13 +4866,16 @@ index 0000000..4f18fa2
 +#include <cstddef>
 +#include <cstdint>
 +#include <string>
-+namespace fheroes2 { class TextBase; class DialogElement; }
++namespace fheroes2 { class TextBase; class DialogElement; class Image; }
 +namespace Skill { class Secondary; }
 +class Heroes;
 +class HeroBase;
 +class Spell;
 +class Monster;
 +class Troop;
++class Troops;
++class Kingdom;
++class Artifact;
 +struct Funds;
 +namespace Interface3DS
 +{
@@ -4498,6 +4887,11 @@ index 0000000..4f18fa2
 +    void testCombatSpellBook();
 +    int showBattleHeroActions( const HeroBase & hero, bool cast, bool retreat, bool surrender, bool heroScreen = false );
 +    void testBattleHeroActions();
++    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
++                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );
++    void showBattleArtifact( const Artifact & artifact, const std::string & message );
++    bool showBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdom & kingdom );
++    void testBattleOutcome();
 +    void showBattleLog( const std::vector<std::string> & messages );
 +    void testBattleLog();
 +    bool showChestChoice( const std::string & header, const std::string & body, uint32_t gold, uint32_t experience,
