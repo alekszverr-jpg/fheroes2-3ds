@@ -1770,7 +1770,7 @@ index ebf6296..dbb7edb 100644
  
          const int cusorTheme = isProperDialog ? ::Cursor::POINTER : ::Cursor::Get().Themes();
 diff --git a/src/fheroes2/spell/spell_book.cpp b/src/fheroes2/spell/spell_book.cpp
-index 7b4b722..6890a8f 100644
+index 7b4b722..8b0dcf1 100644
 --- a/src/fheroes2/spell/spell_book.cpp
 +++ b/src/fheroes2/spell/spell_book.cpp
 @@ -22,6 +22,9 @@
@@ -1788,8 +1788,8 @@ index 7b4b722..6890a8f 100644
      }
  
 +#if defined( __3DS__ )
-+    if ( displayableSpells == Filter::CMBT )
-+        return Interface3DS::showCombatSpellBook( hero, displayedSpells, canCastSpell, _startSpellIndex, statusCallback );
++    return Interface3DS::showSpellBook( hero, displayableSpells == Filter::ALL ? SetFilter( Filter::ALL, &hero ) : displayedSpells,
++                                       canCastSpell, _startSpellIndex, statusCallback, _spellFilter, displayableSpells == Filter::ALL );
 +#endif
 +
      const CursorRestorer cursorRestorer( true, Cursor::POINTER );
@@ -3579,10 +3579,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..c483efd
+index 0000000..14a157f
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1418 @@
+@@ -0,0 +1,1419 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4853,6 +4853,7 @@ index 0000000..c483efd
 +    testArmySplit();
 +    testArmyInfo();
 +    testCombatSpellBook();
++    testAdventureSpellBook();
 +    testBattleHeroActions();
 +    testBattleOutcome();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
@@ -5003,10 +5004,10 @@ index 0000000..c483efd
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..d0c07e5
+index 0000000..d4557ab
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,53 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5015,6 +5016,7 @@ index 0000000..d0c07e5
 +#include <cstddef>
 +#include <cstdint>
 +#include <string>
++#include "spell_book.h"
 +namespace fheroes2 { class TextBase; class DialogElement; class Image; }
 +namespace Skill { class Secondary; }
 +class Heroes;
@@ -5033,7 +5035,10 @@ index 0000000..d0c07e5
 +                     const std::vector<const fheroes2::DialogElement *> & elements );
 +    void testNativeMessages();
 +    Spell showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page, const std::function<void( const std::string & )> & status );
++    Spell showSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page,
++                        const std::function<void( const std::string & )> & status, SpellBook::Filter & filter, bool switchFilters );
 +    void testCombatSpellBook();
++    void testAdventureSpellBook();
 +    int showBattleHeroActions( const HeroBase & hero, bool cast, bool retreat, bool surrender, bool heroScreen = false );
 +    void testBattleHeroActions();
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
@@ -5058,10 +5063,10 @@ index 0000000..d0c07e5
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 new file mode 100644
-index 0000000..9f5d4f9
+index 0000000..611c1db
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_spellbook.cpp
-@@ -0,0 +1,399 @@
+@@ -0,0 +1,545 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -5069,11 +5074,13 @@ index 0000000..9f5d4f9
 +#include <array>
 +#include <cmath>
 +#include <cstring>
++#include <iterator>
 +#include <memory>
 +#include <stdexcept>
 +#include <utility>
 +#include <SDL.h>
 +#include "cursor.h"
++#include "color.h"
 +#include "artifact.h"
 +#include "dialog.h"
 +#include "game_assets.h"
@@ -5245,7 +5252,23 @@ index 0000000..9f5d4f9
 +Spell Interface3DS::showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, const bool canCast,
 +                                      size_t & page, const std::function<void( const std::string & )> & status )
 +{
++    auto filter = SpellBook::Filter::CMBT;
++    return showSpellBook( hero, spells, canCast, page, status, filter, false );
++}
++
++Spell Interface3DS::showSpellBook( const HeroBase & hero, const std::vector<Spell> & availableSpells, const bool canCast,
++                                 size_t & page, const std::function<void( const std::string & )> & status,
++                                 SpellBook::Filter & filter, const bool switchFilters )
++{
 +    using namespace fheroes2;
++    std::vector<Spell> spells;
++    const auto refill = [&]() {
++        spells.clear();
++        std::copy_if( availableSpells.begin(), availableSpells.end(), std::back_inserter( spells ), [&]( const Spell & spell ) {
++            return filter == SpellBook::Filter::CMBT ? spell.isCombat() : spell.isAdventure();
++        } );
++    };
++    refill();
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
@@ -5276,6 +5299,7 @@ index 0000000..9f5d4f9
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) ) );
 +    }
 +    const auto spellArea = []( size_t slot ) { return Rect{ slot / 3 ? 168 : 16, 32 + int( slot % 3 ) * 54, 136, 52 }; };
++    const std::array<Rect, 2> tabs{ Rect{ 224, 4, 42, 24 }, Rect{ 272, 4, 42, 24 } };
 +    const auto update = [&]() {
 +        scroll = 0;
 +        std::string body = spells.empty() ? _( "No spell to cast." ) : getSpellDescription( spells[selected], &hero );
@@ -5301,7 +5325,7 @@ index 0000000..9f5d4f9
 +    Point start, last; Uint32 began = 0; Spell result( Spell::NONE );
 +    const auto draw = [&]() {
 +        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawBorder( top, border );
-+        Text title( spells.empty() ? _( "View Combat Spells" ) : spells[selected].GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
++        Text title( spells.empty() ? ( filter == SpellBook::Filter::CMBT ? _( "View Combat Spells" ) : _( "View Adventure Spells" ) ) : spells[selected].GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
 +        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
 +        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
@@ -5313,7 +5337,19 @@ index 0000000..9f5d4f9
 +        if ( !page ) Blit( corner, 0, 0, spread, leaf.width() - corner.x() - corner.width(), corner.y(), corner.width(), corner.height(), true );
 +        if ( page + 6 >= spells.size() ) Blit( corner, spread, leaf.width() + corner.x(), corner.y() );
 +        Image book( 320, 196 ); book.reset(); Resize( spread, book ); Blit( book, bottom, 0, 0 );
-+        Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 8, 10, 304, bottom );
++        Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 8, 10, switchFilters ? 208 : 304, bottom );
++        if ( switchFilters ) {
++            for ( size_t i = 0; i < tabs.size(); ++i ) {
++                const auto & tab = tabs[i];
++                const auto & original = Assets::getImage( ICN::BOOK, 3 + int( i ) );
++                Image bookmark( tab.width - 4, tab.height - 4 ); bookmark.reset(); Resize( original, bookmark );
++                Blit( bookmark, bottom, tab.x + 2, tab.y + 2 );
++                if ( ( i == 0 ) == ( filter == SpellBook::Filter::ADVN ) ) {
++                    Fill( bottom, tab.x, tab.y, tab.width, 1, border ); Fill( bottom, tab.x, tab.y + tab.height - 1, tab.width, 1, border );
++                    Fill( bottom, tab.x, tab.y, 1, tab.height, border ); Fill( bottom, tab.x + tab.width - 1, tab.y, 1, tab.height, border );
++                }
++            }
++        }
 +        for ( size_t slot = 0; slot < 6 && page + slot < spells.size(); ++slot ) {
 +            const auto & spell = spells[page + slot]; const Rect area = spellArea( slot );
 +            if ( page + slot == selected ) {
@@ -5329,7 +5365,9 @@ index 0000000..9f5d4f9
 +            name.draw( area.x + 4, area.y + 30, 128, bottom );
 +            Text( "[" + std::to_string( spell.spellPoints( &hero ) ) + "]", FontType::smallWhite() ).draw( area.x + 104, area.y + 8, 28, bottom );
 +        }
-+        Text( std::to_string( page / 6 + 1 ) + "/" + std::to_string( std::max<size_t>( 1, ( spells.size() + 5 ) / 6 ) ), FontType::smallWhite() ).draw( 0, 196, 320, bottom );
++        Text section( filter == SpellBook::Filter::CMBT ? _( "View Combat Spells" ) : _( "View Adventure Spells" ), FontType::smallWhite() );
++        section.fitToOneRow( 220 ); section.draw( 4, 196, 220, bottom );
++        Text( std::to_string( page / 6 + 1 ) + "/" + std::to_string( std::max<size_t>( 1, ( spells.size() + 5 ) / 6 ) ), FontType::smallWhite() ).draw( 224, 196, 92, bottom );
 +        buttons[0]->enable(); buttons[1]->enable(); buttons[2]->enable();
 +        if ( !page ) buttons[0]->disable(); if ( page + 6 >= spells.size() ) buttons[1]->disable(); if ( spells.empty() ) buttons[2]->disable();
 +        for ( size_t i = 0; i < buttons.size(); ++i ) { if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom ); }
@@ -5338,6 +5376,10 @@ index 0000000..9f5d4f9
 +    const auto changePage = [&]( int direction ) {
 +        if ( direction < 0 && page >= 6 ) { page -= 6; selected = page; update(); }
 +        else if ( direction > 0 && page + 6 < spells.size() ) { page += 6; selected = page; update(); }
++    };
++    const auto changeFilter = [&]( const SpellBook::Filter requested ) {
++        if ( !switchFilters || requested == filter ) return;
++        filter = requested; refill(); page = 0; selected = 0; update();
 +    };
 +    const auto activate = [&]( int action ) {
 +        down = false; pressed = -1;
@@ -5350,7 +5392,13 @@ index 0000000..9f5d4f9
 +        }
 +    };
 +    draw();
-+    if ( Platform3DS::smokeTest() && ( !Save( top, Platform3DS::battleHUDImage() ? "sdmc:/3ds/fheroes2/spellbook-battle-top.bmp" : "sdmc:/3ds/fheroes2/spellbook-top.bmp" ) || !Save( bottom, Platform3DS::battleHUDImage() ? "sdmc:/3ds/fheroes2/spellbook-battle-bottom.bmp" : "sdmc:/3ds/fheroes2/spellbook-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save spellbook" );
++    if ( Platform3DS::smokeTest() ) {
++        const std::string prefix = filter == SpellBook::Filter::ADVN ? "sdmc:/3ds/fheroes2/spellbook-adventure" : Platform3DS::battleHUDImage() ? "sdmc:/3ds/fheroes2/spellbook-battle" : "sdmc:/3ds/fheroes2/spellbook";
++        if ( !Save( top, prefix + "-top.bmp" ) || !Save( bottom, prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save spellbook" );
++        const char * preview = switchFilters ? "spellbook-library" : filter == SpellBook::Filter::ADVN && canCast && spells.size() >= 7 && hero.GetSpellPoints() ? "spellbook-adventure-cast" : nullptr;
++        if ( preview && ( !Save( top, std::string( "sdmc:/3ds/fheroes2/" ) + preview + "-top.bmp" ) || !Save( bottom, std::string( "sdmc:/3ds/fheroes2/" ) + preview + "-bottom.bmp" ) ) )
++            throw std::runtime_error( "Cannot save adventure book preview" );
++    }
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        Platform3DS::PanelInput input; bool redraw = false;
@@ -5358,7 +5406,7 @@ index 0000000..9f5d4f9
 +            redraw = true;
 +            if ( input.type == PanelInputType::Key ) {
 +                switch ( input.key ) {
-+                case PanelKey::Toggle: break;
++                case PanelKey::Toggle: changeFilter( filter == SpellBook::Filter::ADVN ? SpellBook::Filter::CMBT : SpellBook::Filter::ADVN ); break;
 +                case PanelKey::Cancel: closed = true; break;
 +                case PanelKey::Confirm: activate( 2 ); break;
 +                case PanelKey::Left: changePage( -1 ); break;
@@ -5383,6 +5431,10 @@ index 0000000..9f5d4f9
 +            else if ( input.type == PanelInputType::TouchUp ) {
 +                if ( down && !moved && pressed >= 0 && ( buttons[pressed]->area() & last ) ) activate( pressed );
 +                else if ( down && !moved && touched >= 0 ) { selected = touched; update(); }
++                else if ( down && !moved && switchFilters ) {
++                    for ( size_t i = 0; i < tabs.size(); ++i ) if ( ( tabs[i] & start ) && ( tabs[i] & last ) )
++                        changeFilter( i == 0 ? SpellBook::Filter::ADVN : SpellBook::Filter::CMBT );
++                }
 +                down = false; pressed = -1; touched = -1;
 +            }
 +        }
@@ -5458,6 +5510,105 @@ index 0000000..9f5d4f9
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    const int evil = run( cancel ); Settings::Get().setInterfaceType( previous ); if ( evil != Spell::NONE ) throw std::runtime_error( "Spellbook Evil interface differs" );
 +    COUT( "3DS COMBAT SPELLBOOK SMOKE: PASS actual_book learned_scroll_filter mana_cost_bonus long_scroll missing_book choice_touch_controller confirm_required pages_restore cancel_drag scroll_keeps_selection nested_hold readonly zero_mana empty evil unchanged_hero_frame_context" )
++}
++
++void Interface3DS::testAdventureSpellBook()
++{
++    using namespace fheroes2;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    const std::vector<TimedEvent> confirm{ { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } };
++    const std::vector<TimedEvent> cancel{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    const std::vector<TimedEvent> reject{ { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) },
++        { 120, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) },
++        { 100, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT ); hero.SetColor( PlayerColor::BLUE ); hero.SpellBookActivate(); hero.SetSpellPoints( 100 ); hero.IncreaseMovePoints( 1000 );
++    for ( int id : { Spell::VIEWMINES, Spell::VIEWRESOURCES, Spell::VIEWARTIFACTS, Spell::VIEWTOWNS, Spell::VIEWHEROES, Spell::DIMENSIONDOOR, Spell::BLESS } )
++        hero.AppendSpellToBook( Spell( id ), true );
++    Artifact scrollArtifact( Artifact::SPELL_SCROLL ); scrollArtifact.SetSpell( Spell::VIEWALL ); hero.GetBagArtifacts().PushArtifact( scrollArtifact );
++    auto expected = hero.getAllSpells(); expected.erase( std::remove_if( expected.begin(), expected.end(), []( const Spell & spell ) { return !spell.isAdventure(); } ), expected.end() ); std::sort( expected.begin(), expected.end() );
++    if ( expected.size() != 7 || !expected.isPresentSpell( Spell( Spell::VIEWALL ) ) ) throw std::runtime_error( "Adventure spellbook fixture lacks scroll/pagination" );
++    const auto crop = Platform3DS::viewport(); const auto * strip = Platform3DS::commandStripImage(); Image frame; Copy( Display::instance(), frame );
++    std::string callbackText;
++    const auto run = [&]( const SpellBook::Filter filter, bool cast, bool restore, std::vector<TimedEvent> sequence ) {
++        const auto mana = hero.GetSpellPoints(), movement = hero.GetMovePoints(); const auto known = hero.getAllSpells();
++        callbackText.clear();
++        const int result = runInjectedInput( [&]() { return hero.OpenSpellBook( filter, cast, restore, [&]( const std::string & text ) { callbackText = text; } ).GetID(); }, std::move( sequence ) );
++        if ( hero.GetSpellPoints() != mana || hero.GetMovePoints() != movement || hero.getAllSpells() != known
++             || Platform3DS::viewport() != crop || Platform3DS::commandStripImage() != strip
++             || std::memcmp( frame.image(), Display::instance().image(), frame.width() * frame.height() ) )
++            throw std::runtime_error( "Adventure book changed hero/frame/map context" );
++        return result;
++    };
++    if ( run( SpellBook::Filter::ADVN, true, false, confirm ) != expected[0].GetID() ) throw std::runtime_error( "Adventure book first spell differs" );
++    if ( run( SpellBook::Filter::ADVN, true, false, {
++        { 250, touch( SDL_FINGERDOWN, 80, 110 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, touch( SDL_FINGERDOWN, 174, 219 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } } ) != expected[1].GetID() )
++        throw std::runtime_error( "Adventure book touch choice differs" );
++    if ( run( SpellBook::Filter::ADVN, true, false, {
++        { 250, touch( SDL_FINGERDOWN, 80, 110 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE )
++        throw std::runtime_error( "Adventure book selection cast without confirmation" );
++    if ( run( SpellBook::Filter::ADVN, true, false, {
++        { 250, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != expected[6].GetID()
++         || run( SpellBook::Filter::ADVN, true, true, confirm ) != expected[6].GetID() )
++        throw std::runtime_error( "Adventure book page/restore differs" );
++    if ( run( SpellBook::Filter::ADVN, true, false, {
++        { 250, touch( SDL_FINGERDOWN, 174, 219 ) }, { 80, touch( SDL_FINGERMOTION, 120, 180 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE )
++        throw std::runtime_error( "Adventure book button drag cast" );
++    if ( run( SpellBook::Filter::ADVN, true, false, {
++        { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE )
++        throw std::runtime_error( "Adventure book held information differs" );
++    if ( run( SpellBook::Filter::ALL, false, false, {
++        { 250, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE
++         || callbackText.find( Spell( Spell::BLESS ).GetName() ) == std::string::npos )
++        throw std::runtime_error( "Full book controller tab switch differs" );
++    if ( run( SpellBook::Filter::ALL, false, false, {
++        { 250, touch( SDL_FINGERDOWN, 290, 12 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, touch( SDL_FINGERDOWN, 244, 12 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE
++         || callbackText.find( expected[0].GetName() ) == std::string::npos )
++        throw std::runtime_error( "Full book touch tab switch differs" );
++    if ( run( SpellBook::Filter::ALL, false, false, reject ) != Spell::NONE ) throw std::runtime_error( "Read-only adventure book returned spell" );
++    hero.SetSpellPoints( 0 );
++    if ( run( SpellBook::Filter::ADVN, true, false, reject ) != Spell::NONE ) throw std::runtime_error( "Adventure book allowed zero mana" );
++    hero.SetSpellPoints( 100 );
++    // Custom one-spell fixtures must not inherit the earlier VIEWALL scroll.
++    hero.GetBagArtifacts().RemoveArtifact( scrollArtifact );
++    hero.ResetMovePoints();
++    SpellBook tired; tired.Append( Spell( Spell::DIMENSIONDOOR ) );
++    if ( hero.CanCastSpell( Spell( Spell::DIMENSIONDOOR ) )
++         || runInjectedInput( [&]() { return tired.Open( hero, SpellBook::Filter::ADVN, true, false, {} ).GetID(); }, reject ) != Spell::NONE )
++        throw std::runtime_error( "Adventure book allowed tired hero" );
++    hero.IncreaseMovePoints( 1000 ); hero.SetModes( Heroes::SHIPMASTER ); hero.AppendSpellToBook( Spell( Spell::SUMMONBOAT ), true );
++    SpellBook boat; boat.Append( Spell( Spell::SUMMONBOAT ) );
++    if ( hero.CanCastSpell( Spell( Spell::SUMMONBOAT ) )
++         || runInjectedInput( [&]() { return boat.Open( hero, SpellBook::Filter::ADVN, true, false, {} ).GetID(); }, reject ) != Spell::NONE )
++        throw std::runtime_error( "Adventure book ignored boat restriction" );
++    hero.ResetModes( Heroes::SHIPMASTER );
++    Spell longest( Spell::NONE ); int longestHeight = 0;
++    for ( int id : Spell::getAllSpellIdsSuitableForSpellBook() ) {
++        const Spell spell( id ); if ( !spell.isAdventure() ) continue;
++        const int height = Assets::getImage( ICN::SPELLS, spell.IndexSprite() ).height() + 28 + Text( getSpellDescription( spell, &hero ), FontType::normalWhite() ).height( 376 );
++        if ( height > longestHeight ) { longestHeight = height; longest = spell; }
++    }
++    SpellBook longBook; longBook.Append( longest );
++    if ( runInjectedInput( [&]() { return longBook.Open( hero, SpellBook::Filter::ADVN, false, false, {} ).GetID(); }, {
++        { 250, touch( SDL_FINGERDOWN, 120, 180 ) }, { 80, touch( SDL_FINGERMOTION, 120, 20 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE
++         || ( longestHeight > 188 ? lastScroll <= 0 : lastScroll != 0 ) )
++        throw std::runtime_error( "Adventure description scroll differs" );
++    SpellBook empty;
++    if ( runInjectedInput( [&]() { return empty.Open( hero, SpellBook::Filter::ADVN, false, false, {} ).GetID(); }, cancel ) != Spell::NONE )
++        throw std::runtime_error( "Adventure empty book differs" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    const int evil = run( SpellBook::Filter::ALL, false, false, cancel ); Settings::Get().setInterfaceType( previous );
++    if ( evil != Spell::NONE ) throw std::runtime_error( "Adventure book Evil UI differs" );
++    COUT( "3DS ADVENTURE SPELLBOOK SMOKE: PASS actual_book adventure_scroll_filter choice_touch_controller confirm_required pages_restore cancel_drag readonly_tabs_Y_touch zero_mana tired_boat_restrictions long_scroll empty evil unchanged_mana_movement_book_frame_context" )
 +}
 +
 +#endif

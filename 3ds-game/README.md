@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.20: adventure spellbook
+
+The Adventure Map spellbook now uses original book artwork on the lower screen, with six spells per spread. The upper screen shows the selected spell's description, cost and availability reason. Selecting a spell only highlights it; Cast Spell or A confirms. D-pad Up/Down selects a spell, Left/Right changes pages, L closes, and B or holding a spell opens information. A stylus drag scrolls a long upper description without casting.
+
+Viewing the full book through the hero's artifact uses the same interface. Original bookmarks at the upper right of the lower screen switch adventure/combat sections; Y also switches sections. In view mode, confirmation opens information. Casting on the map or in battle shows only the corresponding spells. Original game code retains mana/movement costs, learned spells/scrolls, hero restrictions and spell execution.
+
+Updating from 0.3.19 only requires replacing `3ds/fheroes2/fheroes2.3dsx`. Physical validation of 0.3.20 is pending: test both entry points, select/cancel/cast, pagination, information/scrolling and full-book tabs on New 3DS XL.
+
+Validation passed: ARM Release; Russian New/Old and English New menu regressions, including combat book and existing panels/dialogs; actual ADVN/ALL OpenSpellBook calls, scroll artifacts, pagination/restoration, touch/controller selection, explicit confirmation, Y/touch tabs, information, zero mana, exhausted hero, boat restrictions, empty book and Evil UI. Closing preserves mana, movement, spells, frame and map context. Long Russian descriptions scroll; original English descriptions fit and scrolling remains bounded. Both engine tests, desktop syntax for six files and clean-baseline patch application passed. Actual ActionSpellCast, world effects and caller payment were not executed; physical validation remains pending. Emulator audio is unverified because DSP firmware is absent.
+
 ## Preview 0.3.19: shared upstream review fixes
 
 The current port incorporates shared fixes from PR #11048: pointer state reaches the renderer through the input layer, the native backend uses RenderEngine::create(), and named geometry and framebuffer checks protect drawing. Settings keeps the required software cursor enabled, including when reading configuration. Model detection logs failures, and startup handles missing argv. Stylus controls, panels, dialogs and R+Start remain available. Early logging, intro handling and audio recovery retain the full port's 0.3.18 behavior.
