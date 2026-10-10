@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.18
+# fheroes2 for Nintendo 3DS — preview 0.3.19
+
+## Preview 0.3.19: shared upstream review fixes
+
+The current port incorporates shared fixes from PR #11048: pointer state reaches the renderer through the input layer, the native backend uses RenderEngine::create(), and named geometry and framebuffer checks protect drawing. Settings keeps the required software cursor enabled, including when reading configuration. Model detection logs failures, and startup handles missing argv. Stylus controls, panels, dialogs and R+Start remain available. Early logging, intro handling and audio recovery retain the full port's 0.3.18 behavior.
+
+Updating from 0.3.18 only requires replacing `3ds/fheroes2/fheroes2.3dsx`. Physical validation of 0.3.19 is pending: check Circle Pad/stylus follow, held right-click, map/battle Y panels, R+Start and return from dialogs on New 3DS XL.
 
 ## Preview 0.3.18: battle results and surrender across both screens
 

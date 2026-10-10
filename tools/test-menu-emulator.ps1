@@ -42,6 +42,7 @@ try {
         if ($process.HasExited -and !$report.Contains('3DS MENU SMOKE: PASS')) { throw 'Emulator exited before menu was ready' }
     } while (!$report.Contains('3DS MENU SMOKE: PASS') -and [DateTime]::UtcNow -lt $deadline)
     if (!$report.Contains('3DS MENU SMOKE: PASS')) { throw 'Menu test timeout' }
+    if (!$report.Contains('3DS RENDERER BRIDGE SMOKE: PASS pointer_edges button_hold software_cursor_config')) { throw 'Renderer input bridge smoke test incomplete' }
     if (!$report.Contains('3DS COMMAND STRIP SMOKE: PASS')) { throw 'Command panel smoke test incomplete' }
     if (!$report.Contains('3DS MAP SCROLL SMOKE: PASS')) { throw 'Adventure map scroll smoke test incomplete' }
     if (!$report.Contains('3DS NATIVE MESSAGES SMOKE: PASS')) { throw 'Native message smoke test incomplete' }

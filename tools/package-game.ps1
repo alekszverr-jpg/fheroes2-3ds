@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.18'
+$version = '0.3.19'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -20,6 +20,8 @@ $manifest = [ordered]@{
     port_version=$version; upstream='9754feff8501dbb69df95f3b999156a32eb8d7d3'
     sdl2='4c2d9014afda49553c76f7045529207bb593f9b5'; sdl2_mixer='8f0c805d54dbd1ff6b4b784d351ca884b8fe5ee9'
     binary_sha256=(Get-FileHash (Join-Path $app 'fheroes2.3dsx') -Algorithm SHA256).Hash.ToLowerInvariant()
+    shared_review_fixes='Input/render separation; unified RenderEngine factory; required software cursor via Settings/config; named geometry/framebuffer validation; model error logging; null argv guard'
+    hardware_shared_review_fixes='0.3.19 pending New 3DS XL validation; no physical Old 3DS'
     renderer='native RGBA8 framebuffer, 800x480 indexed game frame, 400x240 standard or optional 800x240 high-resolution 2D overview'
     native_messages='Common supported showMessage and chest gold/experience choice; native 400x240 information top, 320x240 answers bottom; remaining specialized dialogs retain original layouts'
     hardware_native_messages='0.3.3 pending physical validation; synthetic New/Old emulator checks are not full gameplay'
@@ -34,7 +36,7 @@ $manifest = [ordered]@{
     battle_report_layout='Full lower modal background; persistent D-pad scroll hint and directional arrows; proportional casualty icons in padded 36x32 cells; inset surrender portrait'
     native_surrender='Top opponent portrait/ransom/funds/shortfall, lower Accept/Marketplace/Decline; original AllowPayment and marketplace availability, refreshed after original Marketplace; caller handles payment/battle completion'
     emulated_battle_outcome='Russian New/Old and English New: native summary Okay/Restart/cancel, long and empty losses, stylus scroll, drag cancellation; actual surrender affordable/unaffordable/cancel with unchanged funds; artifact held details; actual Arena outcome paths and restart with human fixture; marketplace trades and final caller payments/experience/artifact transfer not exercised'
-    hardware_battle_outcome='0.3.17 New 3DS XL screenshots confirm result and surrender display; user requested layout fixes, 0.3.18 pending physical validation; no physical Old 3DS'
+    hardware_battle_outcome='0.3.17 New 3DS XL screenshots confirm result and surrender display; user requested layout fixes, 0.3.18 layout accepted by user on New 3DS XL without scenario breakdown; no physical Old 3DS'
     emulated_hero_actions='Touch/controller results, disabled actions, drag cancellation, Y closure and unchanged frame/viewport; actual Arena Y dispatch and HUD restoration; no real retreat/surrender or full hero-screen interaction exercised'
     native_hero_actions='Combat Y/click hero opens lower cast/retreat/surrender/close dock; Y/L close, disabled actions and original caller confirmations retained'
     native_combat_spellbook='CMBT-only original book artwork, two lower leaves with three spells each, costs/mana, explicit confirm and page controls; hero-aware top description/stylus scroll and held info; original learned spells/scrolls, costs, CanCastSpell and caller cast/target/payment rules'

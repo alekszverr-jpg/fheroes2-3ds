@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.19: shared upstream review fixes
+
+The current port incorporates shared fixes from PR #11048: pointer state reaches the renderer through the input layer, the native backend uses RenderEngine::create(), and named geometry and framebuffer checks protect drawing. Settings keeps the required software cursor enabled, including when reading configuration. Model detection logs failures, and startup handles missing argv. Stylus controls, panels, dialogs and R+Start remain available. Early logging, intro handling and audio recovery retain the full port's 0.3.18 behavior.
+
+Updating from 0.3.18 only requires replacing `3ds/fheroes2/fheroes2.3dsx`. Physical validation of 0.3.19 is pending: check Circle Pad/stylus follow, held right-click, map/battle Y panels, R+Start and return from dialogs on New 3DS XL.
+
+Validation passed: ARM Release; Russian New/Old and English New Azahar menu/dialog/panel regressions; renderer pointer edges, button hold and software-cursor configuration; engine tests on both models; desktop syntax for nine files; exported patch application to a clean baseline. Emulator audio is unverified because DSP firmware is absent. Full-match and physical validation of this version are pending.
+
 ## Preview 0.3.18: battle report and surrender layout
 
 These dialogs now cover the entire lower screen, hiding the adventure map or battlefield behind the controls. Scrollable reports show a persistent D-pad up/down hint, a wider scrollbar and direction arrows. Casualty icons fit consistent 36×32 cells while preserving their proportions, with padding and aligned names/counts. The surrender portrait has more left padding. Updating from 0.3.17 only requires replacing `3ds/fheroes2/fheroes2.3dsx`. Physical validation is pending.
