@@ -1308,6 +1308,52 @@ index c1b573a..508c9d9 100644
      return DialogSelectSecondary( name, primarySkillType, sec1, sec2, hero );
 +#endif
  }
+diff --git a/src/fheroes2/dialog/dialog_marketplace.cpp b/src/fheroes2/dialog/dialog_marketplace.cpp
+index 744c072..03620a6 100644
+--- a/src/fheroes2/dialog/dialog_marketplace.cpp
++++ b/src/fheroes2/dialog/dialog_marketplace.cpp
+@@ -51,6 +51,10 @@
+ #include "ui_text.h"
+ #include "ui_tool.h"
+ #include "world.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#include <limits>
++#endif
+ 
+ namespace
+ {
+@@ -343,6 +347,30 @@ namespace
+ 
+ void Dialog::Marketplace( Kingdom & kingdom, bool fromTradingPost )
+ {
++#if defined( __3DS__ )
++    // The native panel selects a trade. Resource mutations stay in this game dialog.
++    const auto & players = Settings::Get().GetPlayers();
++    const bool gift = std::count_if( players.begin(), players.end(), []( const Player * player ) {
++        return player && world.GetKingdom( player->GetColor() ).isPlay();
++    } ) >= 2;
++    while ( true ) {
++        const auto choice = Interface3DS::showMarketplace( kingdom.GetFunds(), fromTradingPost ? 3 : kingdom.GetCountMarketplace(), fromTradingPost, gift );
++        if ( choice.action == Interface3DS::MarketChoice::Action::Close ) return;
++        if ( choice.action == Interface3DS::MarketChoice::Action::Gift ) {
++            if ( gift ) Dialog::MakeGiftResource( kingdom );
++            continue;
++        }
++        const uint32_t cost = GetTradeCosts( kingdom, choice.from, choice.to, fromTradingPost );
++        if ( !cost || !choice.units ) continue;
++        const uint64_t sell = uint64_t( choice.units ) * ( choice.to == Resource::GOLD ? 1 : cost );
++        const uint64_t buy = uint64_t( choice.units ) * ( choice.to == Resource::GOLD ? cost : 1 );
++        const auto funds = kingdom.GetFunds();
++        if ( sell > uint64_t( std::max<int32_t>( 0, funds.Get( choice.from ) ) )
++             || buy > uint64_t( std::numeric_limits<int32_t>::max() - std::max<int32_t>( 0, funds.Get( choice.to ) ) ) ) continue;
++        kingdom.OddFundsResource( Funds( choice.from, static_cast<uint32_t>( sell ) ) );
++        kingdom.AddFundsResource( Funds( choice.to, static_cast<uint32_t>( buy ) ) );
++    }
++#endif
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
 diff --git a/src/fheroes2/dialog/dialog_recruit.cpp b/src/fheroes2/dialog/dialog_recruit.cpp
 index 06b17d3..0245f4c 100644
 --- a/src/fheroes2/dialog/dialog_recruit.cpp
@@ -1401,7 +1447,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..12027a5 100644
+index 69d39fb..1ab743d 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,17 @@
@@ -1450,7 +1496,7 @@ index 69d39fb..12027a5 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +333,79 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +333,80 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1518,6 +1564,7 @@ index 69d39fb..12027a5 100644
 +        Interface3DS::testChestChoice();
 +        Interface3DS::testLevelUp();
 +        Interface3DS::testRecruit();
++        Interface3DS::testMarketplace();
 +        Battle::Interface::testBattleHUD3DS();
 +        Platform3DS::setHighResolutionEnabled( false );
 +        display.render();
@@ -5070,10 +5117,10 @@ index 0000000..14a157f
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..54d4bf9
+index 0000000..0618c9d
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,64 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5113,6 +5160,16 @@ index 0000000..54d4bf9
 +    void showBattleNecromancy( uint32_t count, const std::function<bool( fheroes2::Image & )> & animation );
 +    bool showBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdom & kingdom );
 +    void testBattleOutcome();
++    struct MarketChoice
++    {
++        enum class Action { Close, Trade, Gift };
++        Action action = Action::Close;
++        int from = 0;
++        int to = 0;
++        uint32_t units = 0;
++    };
++    MarketChoice showMarketplace( const Funds & funds, uint32_t markets, bool tradingPost, bool gift );
++    void testMarketplace();
 +    void showBattleLog( const std::vector<std::string> & messages );
 +    void testBattleLog();
 +    bool showChestChoice( const std::string & header, const std::string & body, uint32_t gold, uint32_t experience,
@@ -5126,6 +5183,310 @@ index 0000000..54d4bf9
 +    void testArmySplit();
 +    int showArmyInfo( const Troop & troop, int flags, bool reflected );
 +    void testArmyInfo();
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp
+new file mode 100644
+index 0000000..ba4d434
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_market.cpp
+@@ -0,0 +1,298 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <limits>
++#include <memory>
++#include <stdexcept>
++#include <SDL.h>
++#include "cursor.h"
++#include "dialog.h"
++#include "game_assets.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "platform_3ds.h"
++#include "resource.h"
++#include "resource_trading.h"
++#include "screen.h"
++#include "settings.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_window.h"
++#include "ui_text.h"
++namespace
++{
++    using namespace fheroes2;
++    using Platform3DS::PanelKey;
++    using Platform3DS::PanelInputType;
++    constexpr std::array<int, 7> resources{ Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS, Resource::GOLD };
++    struct Quote
++    {
++        uint32_t sell = 0, buy = 0, maximum = 0;
++    };
++    Quote quote( const Funds & funds, uint32_t markets, int from, int to )
++    {
++        if ( !markets || !from || !to || from == to ) return {};
++        const auto cost = getTradeCost( markets, from, to );
++        if ( !cost ) return {};
++        Quote value{ to == Resource::GOLD ? 1U : cost, to == Resource::GOLD ? cost : 1U, 0 };
++        const uint32_t available = std::max<int32_t>( 0, funds.Get( from ) );
++        const uint32_t room = std::numeric_limits<int32_t>::max() - std::max<int32_t>( 0, funds.Get( to ) );
++        value.maximum = std::min( available / value.sell, room / value.buy );
++        return value;
++    }
++    class MarketScope
++    {
++    public:
++        MarketScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++            LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~MarketScope()
++        {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance();
++            display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
++        }
++    };
++}
++
++Interface3DS::MarketChoice Interface3DS::showMarketplace( const Funds & funds, const uint32_t markets, const bool tradingPost, const bool gift )
++{
++    const CursorRestorer hideCursor( false );
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const int resourceIcn = evil ? ICN::TRADPOSE : ICN::TRADPOST;
++    const std::string title = tradingPost ? _( "Trading Post" ) : _( "Marketplace" );
++    std::array<Rect, 21> areas;
++    for ( int side = 0; side < 2; ++side ) {
++        for ( int i = 0; i < 7; ++i ) {
++            const int column = i == 6 ? 1 : i % 3, row = i == 6 ? 2 : i / 3;
++            areas[side * 7 + i] = { 12 + side * 160 + column * 42, 28 + row * 42, 40, 40 };
++        }
++    }
++    const std::array<std::string, 7> labels{ "-", "+", _( "MIN" ), _( "MAX" ), _( "TRADE" ), _( "GIFT" ), _( "Exit" ) };
++    std::vector<std::unique_ptr<ButtonBase>> buttons;
++    for ( int i = 0; i < 7; ++i ) {
++        Sprite released, pressed;
++        const int width = i < 4 ? 64 : 90;
++        makeButtonSprites( released, pressed, "", { width, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        Text text( labels[i], FontType::normalWhite() );
++        if ( text.width() > width - 4 ) text.set( labels[i], FontType::smallWhite() );
++        text.draw( 2, ( released.height() - text.height( width - 4 ) ) / 2, width - 4, released );
++        text.draw( 1, ( pressed.height() - text.height( width - 4 ) ) / 2 + 1, width - 4, pressed );
++        buttons.emplace_back( std::make_unique<ButtonSprite>( i < 4 ? 12 + i * 76 : 12 + ( i - 4 ) * 100, i < 4 ? 157 : 205, std::move( released ), std::move( pressed ) ) );
++        areas[14 + i] = buttons.back()->area();
++    }
++    const Rect slider( 12, 189, 296, 12 );
++    int from = 0, to = 0, focus = 0, pressed = -1;
++    uint32_t units = 0;
++    bool down = false, moved = false, sliding = false, closed = false;
++    Point start;
++    MarketChoice result;
++    Quote current;
++    const MarketScope scope( top, bottom );
++    const auto enabled = [&]( int index ) {
++        if ( index < 14 ) return true;
++        if ( index < 18 ) return current.maximum > 0;
++        if ( index == 18 ) return units > 0 && units <= current.maximum;
++        if ( index == 19 ) return gift;
++        return true;
++    };
++    const auto select = [&]( int index ) {
++        focus = index;
++        if ( index < 14 ) {
++            if ( index < 7 ) from = resources[index]; else to = resources[index - 7];
++            current = quote( funds, markets, from, to ); units = 0;
++        }
++        else if ( enabled( index ) ) {
++            if ( index == 14 && units ) --units;
++            else if ( index == 15 && units < current.maximum ) ++units;
++            else if ( index == 16 ) units = 1;
++            else if ( index == 17 ) units = current.maximum;
++            else if ( index >= 18 ) {
++                result = { index == 18 ? MarketChoice::Action::Trade : index == 19 ? MarketChoice::Action::Gift : MarketChoice::Action::Close, from, to, units };
++                closed = true;
++            }
++        }
++    };
++    const auto slide = [&]( int x ) {
++        if ( current.maximum ) units = 1 + uint64_t( std::clamp<int32_t>( x - slider.x, 0, slider.width - 1 ) ) * ( current.maximum - 1 ) / ( slider.width - 1 );
++    };
++    const auto capture = [&]() {
++        if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/market-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/market-bottom.bmp" ) ) )
++            throw std::runtime_error( "Cannot capture marketplace" );
++    };
++    const auto draw = [&]() {
++        top.fill( 0 ); bottom.fill( 0 );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
++        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        Fill( top, 12, 32, 376, 180, GetColorId( 35, 29, 24 ) );
++        Text( title, FontType::normalYellow() ).draw( 12, 8, 376, top );
++        if ( !from || !to ) {
++            Text( _( "Please inspect our fine wares. If you feel like offering a trade, click on the items you wish to trade with and for." ), FontType::normalWhite() ).draw( 24, 48, 352, top );
++        }
++        else {
++            for ( int side = 0; side < 2; ++side ) {
++                const int resource = side ? to : from, x = side ? 208 : 20;
++                Text( Resource::String( resource ), FontType::normalYellow() ).draw( x, 40, 172, top );
++                const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( resource ) );
++                Blit( icon, top, x + ( 172 - icon.width() ) / 2, 66 );
++                Text( std::to_string( side ? units * current.buy : units * current.sell ), FontType::normalWhite() ).draw( x, 105, 172, top );
++                Text( std::to_string( funds.Get( resource ) ) + " -> " + std::to_string( int64_t( funds.Get( resource ) ) + ( side ? int64_t( units ) * current.buy : -int64_t( units ) * current.sell ) ), FontType::smallWhite() ).draw( x, 132, 172, top );
++            }
++            const std::string rate = current.sell ? std::to_string( current.sell ) + " : " + std::to_string( current.buy ) : _( "n/a" );
++            Text( rate, FontType::normalYellow() ).draw( 20, 156, 360, top );
++            Text( std::to_string( units ) + " / " + std::to_string( current.maximum ), FontType::normalWhite() ).draw( 20, 180, 360, top );
++        }
++        Text( "D-pad: < >   A   L     ^ + / v -", FontType::smallWhite() ).draw( 12, 220, 376, top );
++        Text( _( "Your Resources" ), FontType::smallYellow() ).draw( 8, 10, 144, bottom );
++        Text( _( "Available Trades" ), FontType::smallYellow() ).draw( 168, 10, 144, bottom );
++        for ( int i = 0; i < 14; ++i ) {
++            const auto & area = areas[i]; const int resource = resources[i % 7];
++            Blit( Assets::getImage( resourceIcn, 7 + i % 7 ), bottom, area.x + 3, area.y );
++            std::string number = i < 7 ? std::to_string( funds.Get( resource ) ) : "";
++            if ( i >= 7 && from ) {
++                const auto value = quote( funds, markets, from, resource );
++                number = value.sell ? std::to_string( value.sell ) + ":" + std::to_string( value.buy ) : "-";
++            }
++            Text count( number, FontType::smallWhite() );
++            if ( count.width() > 40 ) count.set( "...", FontType::smallWhite() );
++            count.draw( area.x, area.y + 26, 40, bottom );
++            if ( ( i < 7 ? from : to ) == resource ) {
++                const auto color = GetColorId( 255, 225, 96 );
++                Fill( bottom, area.x, area.y - 1, 40, 1, color ); Fill( bottom, area.x, area.y + 39, 40, 1, color );
++                Fill( bottom, area.x, area.y, 1, 39, color ); Fill( bottom, area.x + 39, area.y, 1, 39, color );
++            }
++        }
++        for ( int i = 0; i < 7; ++i ) {
++            if ( enabled( 14 + i ) ) buttons[i]->enable(); else buttons[i]->disable();
++            if ( down && !moved && pressed == 14 + i ) buttons[i]->press(); else buttons[i]->release();
++            buttons[i]->draw( bottom );
++        }
++        const auto & focused = areas[focus]; Fill( bottom, focused.x, focused.y - 2, focused.width, 1, GetColorId( 160, 220, 255 ) );
++        Fill( bottom, slider.x, slider.y + 4, slider.width, 4, GetColorId( 50, 40, 30 ) );
++        const int knobX = slider.x + ( current.maximum > 1 && units ? uint64_t( units - 1 ) * ( slider.width - 8 ) / ( current.maximum - 1 ) : 0 );
++        Fill( bottom, knobX, slider.y, 8, 12, GetColorId( 255, 225, 96 ) );
++        Display::instance().render();
++    };
++    draw();
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input; bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                switch ( input.key ) {
++                case PanelKey::Cancel: closed = true; break;
++                case PanelKey::Confirm: select( focus ); break;
++                case PanelKey::Left: focus = ( focus + 20 ) % 21; break;
++                case PanelKey::Right: focus = ( focus + 1 ) % 21; break;
++                case PanelKey::Up: if ( units < current.maximum ) ++units; break;
++                case PanelKey::Down: if ( units ) --units; break;
++                default: break;
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                down = true; moved = false; start = input.position; pressed = -1; sliding = slider & start;
++                if ( sliding ) slide( start.x );
++                else for ( int i = 0; i < 21; ++i ) if ( areas[i] & start ) { pressed = focus = i; break; }
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( sliding ) slide( input.position.x );
++            }
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( areas[pressed] & input.position ) ) select( pressed );
++                down = sliding = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    if ( Platform3DS::smokeTest() && result.action == MarketChoice::Action::Close ) { draw(); capture(); }
++    return result;
++}
++void Interface3DS::testMarketplace()
++{
++    using Step = std::pair<uint32_t, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = button; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto tap = [&]( std::vector<Step> & steps, int x, int y ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, x, y ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, x, y ) ); };
++    const auto cancel = [&]( std::vector<Step> & steps ) { steps.emplace_back( 600, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) ); steps.emplace_back( 120, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) ); };
++    const auto run = [&]( const std::function<void()> & dialog, std::vector<Step> steps ) {
++        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto hud = Platform3DS::battleHUDImage();
++        const auto strip = Platform3DS::commandStripImage(); const auto modal = Platform3DS::modalBottomImage(); const auto modalTop = Platform3DS::modalTopImage();
++        const std::vector<uint8_t> before( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "market-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start market input" );
++        int status = 0;
++        try { dialog(); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        const auto after = Platform3DS::viewport();
++        if ( status || crop.x != after.x || crop.y != after.y || hud != Platform3DS::battleHUDImage() || strip != Platform3DS::commandStripImage()
++             || modal != Platform3DS::modalBottomImage() || modalTop != Platform3DS::modalTopImage()
++             || std::memcmp( before.data(), display.image(), before.size() ) || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() )
++            throw std::runtime_error( "Market leaked input or changed frame/context" );
++    };
++    // Cover all resource directions, and ensure quotes cannot spend or overflow signed Funds.
++    const Funds large( 1000000, 1000000, 1000000, 1000000, 1000000, 1000000, 1000000 );
++    for ( uint32_t markets : { 1U, 3U, 9U } ) for ( int from : resources ) for ( int to : resources ) {
++        const auto value = quote( large, markets, from, to );
++        if ( from == to ) { if ( value.maximum ) throw std::runtime_error( "Same resource trade allowed" ); continue; }
++        if ( !value.maximum || uint64_t( value.maximum ) * value.sell > uint32_t( large.Get( from ) )
++             || uint64_t( value.maximum ) * value.buy > uint32_t( std::numeric_limits<int32_t>::max() - large.Get( to ) ) ) throw std::runtime_error( "Market quote exceeds funds" );
++    }
++    const auto goldBuy = quote( Funds( Resource::GOLD, 2800 ), 3, Resource::GOLD, Resource::WOOD );
++    const auto goldSell = quote( Funds( Resource::WOOD, 11 ), 3, Resource::WOOD, Resource::GOLD );
++    if ( goldBuy.sell != 1250 || goldBuy.buy != 1 || goldBuy.maximum != 2 || goldSell.sell != 1 || goldSell.buy != 50 || goldSell.maximum != 11
++         || quote( large, 0, Resource::WOOD, Resource::ORE ).maximum
++         || quote( Funds( Resource::GOLD, 1249 ), 3, Resource::GOLD, Resource::WOOD ).maximum ) throw std::runtime_error( "Original marketplace rates differ" );
++    Funds full = large; full.gold = std::numeric_limits<int32_t>::max();
++    if ( quote( full, 3, Resource::WOOD, Resource::GOLD ).maximum ) throw std::runtime_error( "Market allows fund overflow" );
++    const auto trade = [&]( const Funds & initial, const Funds & expected, int fromIndex, int toIndex, bool slider, bool drag ) {
++        Kingdom kingdom; kingdom.AddFundsResource( initial ); std::vector<Step> steps;
++        const auto position = []( int index, int side ) { return Point( 32 + side * 160 + ( index == 6 ? 1 : index % 3 ) * 42, 44 + ( index == 6 ? 2 : index / 3 ) * 42 ); };
++        const auto from = position( fromIndex, 0 ), to = position( toIndex, 1 ); tap( steps, from.x, from.y ); tap( steps, to.x, to.y );
++        if ( slider ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, 12, 194 ) ); steps.emplace_back( 80, touch( SDL_FINGERMOTION, 160, 194 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 160, 194 ) ); }
++        else tap( steps, 270, 170 );
++        if ( drag ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, 50, 217 ) ); steps.emplace_back( 80, touch( SDL_FINGERMOTION, 50, 160 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 50, 160 ) ); }
++        else tap( steps, 50, 217 );
++        cancel( steps ); run( [&]() { Dialog::Marketplace( kingdom, true ); }, std::move( steps ) );
++        if ( !( kingdom.GetFunds() == expected ) ) throw std::runtime_error( "Real market changed incorrect funds" );
++    };
++    trade( Funds( Resource::GOLD, 2800 ), Funds( 0, 2, 0, 0, 0, 0, 300 ), 6, 0, false, false );
++    trade( Funds( Resource::WOOD, 11 ), Funds( Resource::GOLD, 550 ), 0, 6, false, false );
++    trade( Funds( 4, 11, 0, 0, 0, 0, 0 ), Funds( 6, 1, 0, 0, 0, 0, 0 ), 0, 2, false, false );
++    trade( Funds( Resource::WOOD, 11 ), Funds( 0, 5, 0, 0, 0, 0, 300 ), 0, 6, true, false );
++    trade( Funds( Resource::WOOD, 11 ), Funds( Resource::WOOD, 11 ), 0, 6, false, true );
++    trade( Funds{}, Funds{}, 0, 6, false, false );
++    trade( Funds( Resource::WOOD, 11 ), Funds( Resource::WOOD, 11 ), 0, 0, false, false );
++    Kingdom keyboard; keyboard.AddFundsResource( Funds( Resource::WOOD, 11 ) ); std::vector<Step> steps;
++    const auto press = [&]( int button ) { steps.emplace_back( 60, key( button, true ) ); steps.emplace_back( 60, key( button, false ) ); };
++    press( SDL_CONTROLLER_BUTTON_A ); for ( int i = 0; i < 9; ++i ) press( SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( SDL_CONTROLLER_BUTTON_A );
++    press( SDL_CONTROLLER_BUTTON_DPAD_UP ); for ( int i = 0; i < 9; ++i ) press( SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( SDL_CONTROLLER_BUTTON_A ); cancel( steps );
++    run( [&]() { Dialog::Marketplace( keyboard, true ); }, std::move( steps ) );
++    if ( !( keyboard.GetFunds() == Funds( 1, 6, 0, 0, 0, 0, 0 ) ) ) throw std::runtime_error( "Controller market trade failed" );
++    std::vector<Step> disabled; tap( disabled, 50, 217 ); tap( disabled, 150, 217 ); cancel( disabled );
++    run( [&]() { const auto choice = showMarketplace( large, 1, false, false ); if ( choice.action != MarketChoice::Action::Close ) throw std::runtime_error( "Disabled trade/gift accepted" ); }, std::move( disabled ) );
++    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 );
++    Platform3DS::pushModalImages( &parentTop, &parentBottom );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    trade( Funds( Resource::WOOD, 11 ), Funds( Resource::GOLD, 550 ), 0, 6, false, false );
++    Settings::Get().setInterfaceType( previous ); Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++    std::vector<Step> gifting; tap( gifting, 150, 217 );
++    run( [&]() { if ( showMarketplace( large, 1, false, true ).action != MarketChoice::Action::Gift ) throw std::runtime_error( "Gift did not dispatch" ); }, std::move( gifting ) );
++    // Leave a readable populated normal-market capture for visual review.
++    std::vector<Step> preview; tap( preview, 32, 44 ); tap( preview, 234, 128 ); tap( preview, 270, 170 ); cancel( preview );
++    run( [&]() { const auto result = showMarketplace( large, 1, false, true ); if ( result.action != MarketChoice::Action::Close ) throw std::runtime_error( "Preview applied trade" ); }, std::move( preview ) );
++    COUT( "3DS MARKET SMOKE: PASS all_rates real_dialog_gold_resource_rounding slider controller disabled_same_empty drag_cancel gift_dispatch evil nested_modal unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp

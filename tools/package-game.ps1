@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.21'
+$version = '0.3.22'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -32,13 +32,16 @@ $manifest = [ordered]@{
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
+    native_marketplace='Full lower resource grids/quantity/slider/Trade/Gift/Exit; top exact quote/balances; original rates and game-dialog mutations; existing gift dialog'
+    emulated_marketplace='Russian New/Old and English New passed: all rates at 1/3/9 markets; real Trading Post trades/rounding, slider/controller, disabled/drag cancellation, Gift dispatch and nested modal/Evil frame/HUD/viewport/input restoration; town entry/full gifting/surrender return pending hardware'
+    hardware_marketplace='0.3.22 pending New 3DS XL validation; no physical Old 3DS'
     native_necromancy='Top original WINCMBT animation/message/skeleton count; full lower modal background and Okay; original raising calculations and army mutations remain with caller'
     emulated_necromancy='Azahar New/Old Russian and New English passed: dialog controls/counts/evil UI, real Arena animation and unchanged army/frame/HUD/viewport/actions; full battle raising and audio pending hardware'
     hardware_necromancy='0.3.21 accepted by user on New 3DS XL on 2026-10-11; individual cases not enumerated; no physical Old 3DS'
     native_battle_outcome='Native top original summary animation/outcome/experience/ransom and scrollable casualties; lower Okay/optional Restart; captured and ultimate-artifact notices with held B details'
     battle_report_layout='Full lower modal background; persistent D-pad scroll hint and directional arrows; proportional casualty icons in padded 36x32 cells; inset surrender portrait'
-    native_surrender='Top opponent portrait/ransom/funds/shortfall, lower Accept/Marketplace/Decline; original AllowPayment and marketplace availability, refreshed after original Marketplace; caller handles payment/battle completion'
-    emulated_battle_outcome='Russian New/Old and English New: native summary Okay/Restart/cancel, long and empty losses, stylus scroll, drag cancellation; actual surrender affordable/unaffordable/cancel with unchanged funds; artifact held details; actual Arena outcome paths and restart with human fixture; marketplace trades and final caller payments/experience/artifact transfer not exercised'
+    native_surrender='Top opponent portrait/ransom/funds/shortfall, lower Accept/Marketplace/Decline; original AllowPayment and marketplace availability, refreshed after Marketplace game dialog; caller handles payment/battle completion'
+    emulated_battle_outcome='Russian New/Old and English New: native summary Okay/Restart/cancel, long and empty losses, stylus scroll, drag cancellation; actual surrender affordable/unaffordable/cancel with unchanged funds; artifact held details; actual Arena outcome paths and restart with human fixture; marketplace trades separately exercised by 0.3.22; final caller payments/experience/artifact transfer not exercised'
     hardware_battle_outcome='0.3.17 New 3DS XL screenshots confirm result and surrender display; user requested layout fixes, 0.3.18 layout accepted by user on New 3DS XL without scenario breakdown; no physical Old 3DS'
     emulated_hero_actions='Touch/controller results, disabled actions, drag cancellation, Y closure and unchanged frame/viewport; actual Arena Y dispatch and HUD restoration; no real retreat/surrender or full hero-screen interaction exercised'
     native_hero_actions='Combat Y/click hero opens lower cast/retreat/surrender/close dock; Y/L close, disabled actions and original caller confirmations retained'
