@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.20'
+$version = '0.3.21'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -32,6 +32,9 @@ $manifest = [ordered]@{
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
+    native_necromancy='Top original WINCMBT animation/message/skeleton count; full lower modal background and Okay; original raising calculations and army mutations remain with caller'
+    emulated_necromancy='Azahar New/Old Russian and New English passed: dialog controls/counts/evil UI, real Arena animation and unchanged army/frame/HUD/viewport/actions; full battle raising and audio pending hardware'
+    hardware_necromancy='0.3.21 pending New 3DS XL validation; no physical Old 3DS'
     native_battle_outcome='Native top original summary animation/outcome/experience/ransom and scrollable casualties; lower Okay/optional Restart; captured and ultimate-artifact notices with held B details'
     battle_report_layout='Full lower modal background; persistent D-pad scroll hint and directional arrows; proportional casualty icons in padded 36x32 cells; inset surrender portrait'
     native_surrender='Top opponent portrait/ransom/funds/shortfall, lower Accept/Marketplace/Decline; original AllowPayment and marketplace availability, refreshed after original Marketplace; caller handles payment/battle completion'

@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.20
+# fheroes2 for Nintendo 3DS — preview 0.3.21
+
+## Preview 0.3.21: post-battle necromancy
+
+0.3.21 validation: ARM Release built; complete Azahar New/Old Russian and New English runs passed. Covered A/touch/L, drag cancellation, counts 0/1/123456/UINT32_MAX and evil UI. The real Arena dialog call checks original animation advancement and unchanged army, frame, HUD, viewport and actions. Desktop syntax passed for six affected/related files; the exported patch applies to the clean pinned revision. Raising troops after a complete battle and audio still require hardware validation.
+
+Necromancy now uses both screens: the original animation, message and skeleton count appear on top; a full dialog background and Okay button cover the lower screen. A/Start or touch confirms, L closes. D-pad Up/Down or a stylus drag above the button scrolls long text; dragging away from the button cancels its press. The original WINCMBT sequence and timer are shared with adapted battle summaries. Original game code still calculates and adds the raised troops.
+
+Updating from 0.3.20 only requires replacing `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL, test a victory with Necromancy, animation, message/count, closing and the resulting army. Physical validation of the 0.3.20 adventure book and 0.3.21 is still pending. Marketplace is a separate next step.
 
 ## Preview 0.3.20: adventure spellbook
 

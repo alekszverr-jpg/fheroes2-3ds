@@ -517,7 +517,7 @@ index e3d7171..8773662 100644
      correctedPath.clear();
  
 diff --git a/src/fheroes2/battle/battle_dialogs.cpp b/src/fheroes2/battle/battle_dialogs.cpp
-index c336081..76fb2ca 100644
+index c336081..3eb8688 100644
 --- a/src/fheroes2/battle/battle_dialogs.cpp
 +++ b/src/fheroes2/battle/battle_dialogs.cpp
 @@ -29,6 +29,10 @@
@@ -531,7 +531,31 @@ index c336081..76fb2ca 100644
  #include "army.h"
  #include "artifact.h"
  #include "audio.h"
-@@ -482,6 +486,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -178,6 +182,23 @@ namespace
+         std::queue<LoopedAnimation> _queue;
+     };
+ 
++#if defined( __3DS__ )
++    std::function<bool( fheroes2::Image & )> nativeReportAnimation( LoopedAnimationSequence & sequence )
++    {
++        sequence.push( ICN::WINCMBT, true );
++        return [ &sequence, initial = true, lastId = sequence.id() ]( fheroes2::Image & image ) mutable {
++            if ( !initial && !Game::validateAnimationDelay( Game::DelayType::BATTLE_DIALOG_DELAY ) ) return false;
++            if ( !initial && sequence.nextFrame() ) return false;
++            const auto & base = Assets::getImage( sequence.id(), 0 );
++            if ( initial ) { image.resize( 231, 133 ); image.fill( 0 ); fheroes2::Copy( base, 0, 0, image, 0, 0, base.width(), base.height() ); }
++            else if ( lastId != sequence.id() ) fheroes2::Copy( base, 0, 0, image, base.x(), base.y(), base.width(), base.height() );
++            lastId = sequence.id();
++            const auto & frame = Assets::getImage( sequence.id(), initial ? 1 : sequence.frameId() );
++            fheroes2::Blit( frame, image, frame.x(), frame.y() ); initial = false; return true;
++        };
++    }
++#endif
++
+     void setupAnimation( fheroes2::Display & display, const fheroes2::Rect & animationRoi, LoopedAnimationSequence & sequence )
+     {
+         sequence.push( ICN::WINCMBT, true ); // needs specific for battle summary
+@@ -482,6 +503,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
          return false;
      }
  
@@ -539,7 +563,7 @@ index c336081..76fb2ca 100644
      fheroes2::Display & display = fheroes2::Display::instance();
  
      // Set the cursor image. After this dialog the Game Area or the Battlefield will be shown, so it does not require a cursor restorer.
-@@ -498,6 +503,8 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -498,6 +520,8 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
      const fheroes2::Rect animationRoi( roi.x + ( ( roi.width - animationBorderRoi.width ) / 2 ) + 4, roi.y + 21, animationBorderRoi.width, animationBorderRoi.height );
      Copy( originalBorderImage, animationBorderRoi.x, animationBorderRoi.y, display, animationRoi.x - 4, animationRoi.y - 4, animationRoi.width, animationRoi.height );
  
@@ -548,25 +572,14 @@ index c336081..76fb2ca 100644
      // Setup summary texts according to results and get the corresponding animation sequence.
      std::string surrenderText;
      std::string outcomeText;
-@@ -533,6 +540,41 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -533,6 +557,30 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
          sequence.push( ICN::UNKNOWN, false );
      }
  
 +#if defined( __3DS__ )
 +    // Native modal images present the report immediately; consume the same pending transition as the desktop report.
 +    Game::validateDisplayFadeIn();
-+    sequence.push( ICN::WINCMBT, true );
-+    bool initial = true; int lastId = sequence.id();
-+    const auto animation = [&]( fheroes2::Image & image ) {
-+        if ( !initial && !Game::validateAnimationDelay( Game::DelayType::BATTLE_DIALOG_DELAY ) ) return false;
-+        if ( !initial && sequence.nextFrame() ) return false;
-+        const auto & base = Assets::getImage( sequence.id(), 0 );
-+        if ( initial ) { image.resize( 231, 133 ); image.fill( 0 ); fheroes2::Copy( base, 0, 0, image, 0, 0, base.width(), base.height() ); }
-+        else if ( lastId != sequence.id() ) fheroes2::Copy( base, 0, 0, image, base.x(), base.y(), base.width(), base.height() );
-+        lastId = sequence.id();
-+        const auto & frame = Assets::getImage( sequence.id(), initial ? 1 : sequence.frameId() );
-+        fheroes2::Blit( frame, image, frame.x(), frame.y() ); initial = false; return true;
-+    };
++    const auto animation = nativeReportAnimation( sequence );
 +    if ( Interface3DS::showBattleSummary( title, surrenderText + ( surrenderText.empty() || outcomeText.empty() ? "" : "\n\n" ) + outcomeText,
 +             _attackingArmy->GetKilledTroops(), _defendingArmy->GetKilledTroops(), allowToRestart, animation ) ) return true;
 +    if ( !artifacts.empty() ) {
@@ -590,7 +603,7 @@ index c336081..76fb2ca 100644
      setupAnimation( display, animationRoi, sequence );
  
      const fheroes2::Rect summaryRoi( roi.x + 11, roi.y + bsTextYOffset, roi.width - 22, roi.height - bsTextYOffset );
-@@ -781,6 +823,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -781,10 +829,18 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
          }
      }
      return false;
@@ -598,7 +611,18 @@ index c336081..76fb2ca 100644
  }
  
  void Battle::Arena::DialogBattleNecromancy( const uint32_t raiseCount )
-@@ -861,6 +904,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
+ {
++#if defined( __3DS__ )
++    LoopedAnimationSequence nativeSequence;
++    Game::PlayPickupSound();
++    Interface3DS::showBattleNecromancy( raiseCount, nativeReportAnimation( nativeSequence ) );
++    return;
++#endif
++
+     // Set the cursor image. This dialog does not require a cursor restorer.
+     Cursor::Get().SetThemes( Cursor::POINTER );
+ 
+@@ -861,6 +917,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
  
      const PlayerColor currentColor = GetCurrentColor();
      const bool readonly = ( currentColor != hero.GetColor() || !buttons );
@@ -617,7 +641,7 @@ index c336081..76fb2ca 100644
      const fheroes2::Sprite & dialog = Assets::getImage( ( conf.isEvilInterfaceEnabled() ? ICN::VGENBKGE : ICN::VGENBKG ), 0 );
  
      const fheroes2::Point dialogShadow( 15, 15 );
-@@ -1093,6 +1148,10 @@ bool Battle::DialogBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdo
+@@ -1093,6 +1161,10 @@ bool Battle::DialogBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdo
          return false;
      }
  
@@ -629,7 +653,7 @@ index c336081..76fb2ca 100644
      LocalEvent & le = LocalEvent::Get();
      const Settings & conf = Settings::Get();
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..6e890fc 100644
+index f3e8496..c496103 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
 @@ -22,6 +22,20 @@
@@ -748,7 +772,7 @@ index f3e8496..6e890fc 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,19 +1727,311 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,19 +1727,327 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -1046,6 +1070,22 @@ index f3e8496..6e890fc 100644
 +        outcome.attacker = RESULT_LOSS; runSummary( outcome, false, false );
 +        outcome.attacker = RESULT_WINS; outcome.defender = RESULT_SURRENDER | RESULT_LOSS; runSummary( outcome, false, false );
 +        COUT( "3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS actual_arena victory_defeat_retreat_surrender_enemy_surrender restart_choice animation_path unchanged_frame_hud_viewport_actions release_isolation" )
++        const auto armyCount = attacker.getTotalCount();
++        SDL_Thread * necromancyCloser = SDL_CreateThread( []( void * ) -> int {
++            SDL_Delay( 850 ); SDL_Event e{}; e.type = SDL_CONTROLLERBUTTONDOWN; e.cbutton.button = SDL_CONTROLLER_BUTTON_A; e.cbutton.state = SDL_PRESSED;
++            if ( SDL_PushEvent( &e ) != 1 ) return 1;
++            SDL_Delay( 80 ); e.type = SDL_CONTROLLERBUTTONUP; e.cbutton.state = SDL_RELEASED;
++            return SDL_PushEvent( &e ) == 1 ? 0 : 1;
++        }, "battle-necromancy-smoke", nullptr );
++        if ( !necromancyCloser ) throw std::runtime_error( "Cannot start necromancy input" );
++        int necromancyStatus = 0;
++        try { battle.DialogBattleNecromancy( 123 ); } catch ( ... ) { SDL_WaitThread( necromancyCloser, &necromancyStatus ); throw; }
++        SDL_WaitThread( necromancyCloser, &necromancyStatus ); events.HandleEvents( false, true );
++        if ( necromancyStatus || attacker.getTotalCount() != armyCount || Platform3DS::hasModalImages() || events.MouseClickLeft()
++             || Platform3DS::battleHUDImage() != &ui._battleHUD3DS || Platform3DS::viewport() != cardCrop || actions.size() != actionCount
++             || std::memcmp( beforeCard.image(), display.image(), display.width() * display.height() ) )
++            throw std::runtime_error( "Actual necromancy changed army/frame/context or leaked input" );
++        COUT( "3DS NECROMANCY INTEGRATION SMOKE: PASS actual_arena original_animation unchanged_army_frame_hud_viewport_actions release_isolation" )
 +        ui._currentUnit = nullptr;
 +    }
 +    if ( Platform3DS::battleHUDImage() || Platform3DS::commandStripImage() != savedStrip )
@@ -1060,7 +1100,7 @@ index f3e8496..6e890fc 100644
  void Battle::Interface::RedrawArmies()
  {
      // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
-@@ -3152,10 +3498,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+@@ -3152,10 +3514,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
              Redraw();
              _needRedraw = false;
          }
@@ -1073,7 +1113,7 @@ index f3e8496..6e890fc 100644
      }
  
      popup.reset();
-@@ -3170,15 +3518,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3170,15 +3534,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
      LocalEvent & le = LocalEvent::Get();
      Settings & conf = Settings::Get();
  
@@ -1112,7 +1152,7 @@ index f3e8496..6e890fc 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3468,7 +3839,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3468,7 +3855,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
              msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
  
              if ( le.MouseClickLeft( status ) ) {
@@ -1125,7 +1165,7 @@ index f3e8496..6e890fc 100644
              }
              else if ( le.isMouseRightButtonPressedInArea( status ) ) {
                  fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
-@@ -3583,7 +3959,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3583,7 +3975,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -3033,10 +3073,10 @@ index 0000000..7c35e25
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..58787c9
+index 0000000..8d46d57
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,267 @@
+@@ -0,0 +1,293 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -3225,6 +3265,25 @@ index 0000000..58787c9
 +    return report( full, restart ? std::vector<std::string>{ _( "Restart" ), _( "Okay" ) } : std::vector<std::string>{ _( "Okay" ) },
 +                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, _( "Battlefield Casualties" ), "battle-summary", animation ) == 0 && restart;
 +}
++void Interface3DS::showBattleNecromancy( const uint32_t count, const std::function<bool( fheroes2::Image & )> & animation )
++{
++    using namespace fheroes2;
++    const Monster skeleton( Monster::SKELETON );
++    std::string message = _( "Practicing the dark arts of necromancy, you are able to raise %{count} of the enemy's dead to return under your service as %{monster}." );
++    StringReplace( message, "%{count}", count ); StringReplace( message, "%{monster}", skeleton.GetPluralName( count ) );
++    const Text title( _( "Necromancy!" ), FontType::normalYellow() ), body( message, FontType::normalWhite() );
++    const int textY = title.height( 184 ) + 8;
++    Image content( 376, std::max<int32_t>( 204, textY + body.height( 184 ) + 8 ) ); content.fill( backgroundColor() );
++    title.draw( 0, 0, 184, content ); body.draw( 0, textY, 184, content );
++    const auto & icon = Assets::getImage( ICN::MONS32, skeleton.GetSpriteIndex() );
++    Blit( icon, content, 286 - icon.width() / 2, 128 );
++    Text( std::to_string( count ), FontType::normalWhite() ).draw( 196, 168, 180, content );
++    const auto initialAnimationChanges = animationChanges;
++    report( content, { _( "Okay" ) }, { true }, _( "Necromancy!" ), "battle-necromancy", animation );
++    if ( Platform3DS::smokeTest() && animation && animationChanges - initialAnimationChanges < 2 )
++        throw std::runtime_error( "Necromancy animation did not advance" );
++}
++
 +void Interface3DS::showBattleArtifact( const Artifact & artifact, const std::string & message )
 +{
 +    using namespace fheroes2;
@@ -3280,6 +3339,11 @@ index 0000000..58787c9
 +    };
 +    const std::vector<TimedEvent> okay{ { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } };
 +    const std::vector<TimedEvent> cancel{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    const auto necromancy = [&]( uint32_t count ) { showBattleNecromancy( count, {} ); return 0; };
++    run( [&]() { return necromancy( 1 ); }, okay );
++    run( [&]() { return necromancy( 123456 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 211 ) }, { 80, touch( SDL_FINGERUP, 150, 211 ) } } );
++    run( [&]() { return necromancy( 0 ); }, cancel );
++    run( [&]() { return necromancy( 4294967295U ); }, { { 250, touch( SDL_FINGERDOWN, 150, 211 ) }, { 80, touch( SDL_FINGERMOTION, 150, 170 ) }, { 80, touch( SDL_FINGERUP, 150, 170 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } );
 +    Troops empty, losses;
 +    for ( int id : { Monster::PEASANT, Monster::ARCHER, Monster::GOBLIN, Monster::OGRE, Monster::BLACK_DRAGON } ) losses.PushBack( Monster( id ), 123456 );
 +    const auto summary = [&]( bool restart ) { return int( showBattleSummary( _( "A glorious victory!" ), _( "The enemy has surrendered!" ), losses, losses, restart, {} ) ); };
@@ -3301,6 +3365,8 @@ index 0000000..58787c9
 +    run( [&]() { showBattleArtifact( Artifact( Artifact::SNAKE_RING ), _( "You have captured an enemy artifact!" ) ); return 0; }, { { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    run( [&]() { return surrender( 500 ); }, cancel ); Settings::Get().setInterfaceType( previous );
++    Settings::Get().setInterfaceType( InterfaceType::EVIL ); run( [&]() { return necromancy( 12 ); }, okay ); Settings::Get().setInterfaceType( previous );
++    COUT( "3DS NECROMANCY SMOKE: PASS count_plural_extremes touch_controller cancel_drag evil unchanged_frame_hud_viewport release_isolation" )
 +    COUT( "3DS BATTLE OUTCOME SMOKE: PASS summary_restart_ok_cancel empty_long_casualties stylus_scroll button_drag surrender_actual_dialog affordable_unaffordable unchanged_funds artifact_info evil unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
@@ -5004,10 +5070,10 @@ index 0000000..14a157f
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..d4557ab
+index 0000000..54d4bf9
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,54 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5044,6 +5110,7 @@ index 0000000..d4557ab
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
 +                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );
 +    void showBattleArtifact( const Artifact & artifact, const std::string & message );
++    void showBattleNecromancy( uint32_t count, const std::function<bool( fheroes2::Image & )> & animation );
 +    bool showBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdom & kingdom );
 +    void testBattleOutcome();
 +    void showBattleLog( const std::vector<std::string> & messages );
