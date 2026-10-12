@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.22'
+$version = '0.3.23'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -32,6 +32,7 @@ $manifest = [ordered]@{
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
+    marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
     native_marketplace='Full lower resource grids/quantity/slider/Trade/Gift/Exit; top exact quote/balances; original rates and game-dialog mutations; existing gift dialog'
     emulated_marketplace='Russian New/Old and English New passed: all rates at 1/3/9 markets; real Trading Post trades/rounding, slider/controller, disabled/drag cancellation, Gift dispatch and nested modal/Evil frame/HUD/viewport/input restoration; town entry/full gifting/surrender return pending hardware'
     hardware_marketplace='0.3.22 accepted by user on New 3DS XL on 2026-10-12; individual cases not enumerated; no physical Old 3DS'

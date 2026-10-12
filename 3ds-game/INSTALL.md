@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.22
+# fheroes2 for Nintendo 3DS — preview 0.3.23
+
+## Preview 0.3.23: centered marketplace button labels
+
+0.3.23 validation: ARM Release built; complete New Russian and English runs passed and both localized button captures were visually checked. Desktop syntax and clean-baseline patch application passed. Old and engine checks were not repeated for this local label-rendering fix.
+
+All seven marketplace button labels are centered using actual sprite dimensions and visible glyph bounds. Extra button borders and the pressed-label offset are accounted for.
+
+Updating from 0.3.22 requires replacing only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check −/+, MIN/MAX, TRADE, GIFT and Exit labels in released and pressed states. Physical 0.3.23 validation is pending; the user accepted 0.3.22 on New 3DS XL.
 
 ## Preview 0.3.22: dual-screen marketplace
 

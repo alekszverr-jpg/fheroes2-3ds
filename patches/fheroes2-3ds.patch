@@ -5187,10 +5187,10 @@ index 0000000..0618c9d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp
 new file mode 100644
-index 0000000..ba4d434
+index 0000000..47c745f
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_market.cpp
-@@ -0,0 +1,298 @@
+@@ -0,0 +1,300 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -5280,8 +5280,10 @@ index 0000000..ba4d434
 +        makeButtonSprites( released, pressed, "", { width, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
 +        Text text( labels[i], FontType::normalWhite() );
 +        if ( text.width() > width - 4 ) text.set( labels[i], FontType::smallWhite() );
-+        text.draw( 2, ( released.height() - text.height( width - 4 ) ) / 2, width - 4, released );
-+        text.draw( 1, ( pressed.height() - text.height( width - 4 ) ) / 2 + 1, width - 4, pressed );
++        // Button sprites include borders beyond the requested width. Center visible glyphs in the actual sprite.
++        const Rect textArea = text.area();
++        text.draw( ( released.width() - textArea.width ) / 2 - textArea.x, ( released.height() - textArea.height ) / 2 - textArea.y, released );
++        text.draw( ( pressed.width() - textArea.width ) / 2 - textArea.x - 1, ( pressed.height() - textArea.height ) / 2 - textArea.y + 1, pressed );
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( i < 4 ? 12 + i * 76 : 12 + ( i - 4 ) * 100, i < 4 ? 157 : 205, std::move( released ), std::move( pressed ) ) );
 +        areas[14 + i] = buttons.back()->area();
 +    }
