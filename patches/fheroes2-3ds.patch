@@ -1551,7 +1551,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..9386fba 100644
+index 69d39fb..dbc848e 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -1602,7 +1602,7 @@ index 69d39fb..9386fba 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,102 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,103 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1612,7 +1612,7 @@ index 69d39fb..9386fba 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 13> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration" };
++        const std::array<const char *, 14> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -1688,6 +1688,7 @@ index 69d39fb..9386fba 100644
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
 +        runGroup( "BattleDialogs", []() { Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
++        runGroup( "Building", []() { Interface3DS::testBuildingPurchase(); } );
 +        runGroup( "Chest", []() { Interface3DS::testChestChoice(); } );
 +        runGroup( "LevelUp", []() { Interface3DS::testLevelUp(); } );
 +        runGroup( "Recruit", []() { Interface3DS::testRecruit(); } );
@@ -3561,19 +3562,28 @@ index 0000000..8d46d57
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..84a1120
+index 0000000..55f8228
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,203 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
 +#include <cmath>
++#include <cstring>
++#include <stdexcept>
++#include <utility>
 +#include <memory>
 +#include <SDL.h>
 +#include "cursor.h"
++#include "castle.h"
++#include "buildinginfo.h"
++#include "castle_building_info.h"
++#include "game_assets.h"
++#include "logging.h"
++#include "race.h"
 +#include "dialog.h"
 +#include "icn.h"
 +#include "image_tool.h"
@@ -3589,6 +3599,7 @@ index 0000000..84a1120
 +namespace
 +{
 +    using namespace fheroes2;
++    int lastBuildingScroll = 0;
 +    class BuildingScope
 +    {
 +    public:
@@ -3663,9 +3674,12 @@ index 0000000..84a1120
 +            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +            if ( selected == int( i ) ) DrawRect( bottom, buttons[i]->area(), border );
 +        }
++        lastBuildingScroll = scroll;
 +        Display::instance().render();
 +    };
 +    draw();
++    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/building-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/building-bottom.bmp" ) ) )
++        throw std::runtime_error( "Cannot save building dialog" );
 +    auto & events = LocalEvent::Get();
 +    while ( events.HandleEvents() ) {
 +        bool redraw = false; Platform3DS::PanelInput input;
@@ -3706,6 +3720,53 @@ index 0000000..84a1120
 +        if ( redraw ) draw();
 +    }
 +    return false;
++}
++void Interface3DS::testBuildingPurchase()
++{
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    const std::vector<Step> cancel{ { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    const auto run = [&]( const std::function<bool()> & dialog, std::vector<Step> steps ) {
++        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto strip = Platform3DS::commandStripImage(); const auto hud = Platform3DS::battleHUDImage();
++        const auto parentTop = Platform3DS::modalTopImage(); const auto parentBottom = Platform3DS::modalBottomImage();
++        const std::vector<uint8_t> frame( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "building-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start building test input" );
++        bool result = false; int status = 0;
++        try { result = dialog(); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( status || crop != Platform3DS::viewport() || strip != Platform3DS::commandStripImage() || hud != Platform3DS::battleHUDImage()
++             || parentTop != Platform3DS::modalTopImage() || parentBottom != Platform3DS::modalBottomImage()
++             || std::memcmp( frame.data(), display.image(), frame.size() ) || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() )
++            throw std::runtime_error( "Building dialog changed frame/context or leaked input" );
++        return result;
++    };
++    const auto & image = Assets::getImage( ICN::getBuildingIcnId( Race::KNGT ), getIndexBuildingSprite( BUILD_CASTLE ) );
++    const std::string name = Castle::GetStringBuilding( BUILD_CASTLE, Race::KNGT );
++    const std::string body = BuildingInfo::getBuildingDescription( Race::KNGT, BUILD_CASTLE );
++    const Funds cost( 10, 10, 5, 5, 5, 5, 5000 );
++    bool allowed = true;
++    const auto dialog = [&]() { return showBuildingPurchase( name, body, "", image, cost, true, [&]() { return allowed; } ); };
++    if ( run( dialog, { { 200, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) ) throw std::runtime_error( "Building default selection was not cancel" );
++    if ( !run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) } } ) ) throw std::runtime_error( "Building allowed touch rejected" );
++    allowed = false;
++    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building disabled touch accepted" );
++    if ( run( dialog, { { 200, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building disabled controller accepted" );
++    allowed = true;
++    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERMOTION, 80, 180 ) }, { 80, touch( SDL_FINGERUP, 80, 180 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building drag accepted" );
++    if ( run( dialog, { { 200, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 200, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building nested information accepted purchase" );
++    const auto longDialog = [&]() { return showBuildingPurchase( name, body + "\n\n" + body + "\n\n" + body, name, image, cost, true, [&]() { return allowed; } ); };
++    if ( run( longDialog, { { 200, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) || lastBuildingScroll <= 0 ) throw std::runtime_error( "Building long text did not scroll" );
++    if ( run( [&]() { return showBuildingPurchase( name, body, "", image, cost, false, []() { return true; } ); }, cancel ) ) throw std::runtime_error( "Building information-only accepted purchase" );
++    Castle castle( 0, 0, Race::KNGT );
++    if ( run( [&]() { return BuildingInfo( castle, BUILD_CASTLE ).DialogBuyBuilding( true ); }, cancel ) ) throw std::runtime_error( "Original building dialog cancel accepted" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
++    const bool evilResult = run( dialog, cancel ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
++    if ( evilResult ) throw std::runtime_error( "Nested Evil building cancel accepted" );
++    if ( run( dialog, cancel ) ) throw std::runtime_error( "Building preview cancel accepted" );
++    COUT( "3DS BUILDING SMOKE: PASS actual_entry_cancel allowed_touch disabled_touch_controller default_cancel drag_cancel nested_info long_scroll readonly seven_resources evil unchanged_frame_context release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp
@@ -5401,10 +5462,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..6ace5d1
+index 0000000..cd6494c
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,75 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5435,6 +5496,7 @@ index 0000000..6ace5d1
 +                     const std::vector<const fheroes2::DialogElement *> & elements );
 +    bool showBuildingPurchase( const std::string & name, const std::string & description, const std::string & requirements,
 +                               const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild );
++    void testBuildingPurchase();
 +    void testNativeMessages();
 +    Spell showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page, const std::function<void( const std::string & )> & status );
 +    Spell showSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page,

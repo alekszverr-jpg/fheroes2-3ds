@@ -2,7 +2,7 @@
 
 Automatic Azahar runs on this Windows host remain suspended after the 2026-10-13 freeze/forced reboot. Do not launch a diagnostic run without a separate explicit user request. The new infrastructure was built and checked offline, not exercised in the emulator.
 
-The runner defaults to Startup instead of the complete suite. Available groups: Startup, Messages, Chest, LevelUp, Recruit, Market, Gift, Hero, Army, Spellbook, BattleLog, BattleDialogs, BattleIntegration and Full. Full explicitly retains all 25 original component markers plus completion. Messages no longer calls unrelated groups internally. Army covers split/details, Spellbook covers combat/adventure/full books, BattleDialogs covers hero actions and battle outcomes, and BattleIntegration covers actual Arena/HUD entry points.
+The runner defaults to Startup instead of the complete suite. Available groups: Startup, Messages, Chest, LevelUp, Recruit, Market, Gift, Hero, Army, Spellbook, BattleLog, BattleDialogs, BattleIntegration, Building and Full. Full explicitly retains all 25 original component markers plus completion. Messages no longer calls unrelated groups internally. Army covers split/details, Spellbook covers combat/adventure/full books, BattleDialogs covers hero actions and battle outcomes, and BattleIntegration covers actual Arena/HUD entry points.
 
 Use `./tools/test-menu-emulator.ps1 -Group Army -PlanOnly` to inspect required checks/captures without launching Azahar or touching the profile. Future separately requested diagnostic commands can omit PlanOnly. Run sequentially. Default deadlines: 90 seconds, 120 for Spellbook/BattleDialogs/BattleIntegration, 360 for Full; these are timeouts, not measured durations.
 
@@ -13,3 +13,7 @@ Preparation skips files with equal size/UTC modification time. ForceCopy refresh
 `./tools/test-menu-infrastructure.ps1` runs offline fixture checks: copying/caching/update/force, nested maps, OGG mapping, preserved user state, group plans, Full coverage and unknown-group rejection. It does not launch Azahar. Existing historical New logs are used for marker compatibility when available.
 
 Validation completed: two-job ARM Release, desktop syntax for both modified engine files, clean-baseline patch application, PowerShell syntax, offline infrastructure checks and actual repeated resource staging. Selected-group runtime correctness/duration and the cause of the host freeze remain unverified. No console update is required for these infrastructure changes.
+
+## Short diagnostic validation
+
+On explicit user request, Russian New Startup and Building passed on 2026-10-13 with 20-second deadlines. Group times: 1.605s and 5.216s. The user reported no noticeable desktop impact during Startup. Building covers synthetic allowed/disabled UI, cancel, drag, nested info, scroll, readonly, seven resources, Evil UI and original BuildingInfo cancellation. Captures were inspected. Real payment, Old/English, other individual groups and Full were not tested. There are now 14 groups; Full adds Building to the original 25 component checks. Automatic runs remain suspended.

@@ -33,10 +33,10 @@ $historical=if (Test-Path -LiteralPath $historicalPath) { [IO.File]::ReadAllText
 foreach ($group in $menuTestGroups.Keys) {
  $plan=(& (Join-Path $root 'tools/test-menu-emulator.ps1') -Group $group -PlanOnly) | ConvertFrom-Json
  if (@($plan.Groups).Count -ne 1 -or $plan.Groups[0] -ne $group) { throw "Group leaked into another: $group" }
- foreach ($marker in $plan.Markers) { if ($null -ne $historical -and !$historical.Contains($marker)) { throw "Full suite marker was changed/lost: $marker" } }
+ foreach ($marker in $plan.Markers) { if ($null -ne $historical -and $group -ne 'Building' -and !$historical.Contains($marker)) { throw "Full suite marker was changed/lost: $marker" } }
 }
 $full=(& (Join-Path $root 'tools/test-menu-emulator.ps1') -Group Full -PlanOnly) | ConvertFrom-Json
-if (@($full.Groups).Count -ne 13 -or @($full.Markers).Count -ne 25) { throw 'Full suite lost checks' }
+if (@($full.Groups).Count -ne 14 -or @($full.Markers).Count -ne 26) { throw 'Full suite lost checks' }
 $default=(& (Join-Path $root 'tools/test-menu-emulator.ps1') -PlanOnly) | ConvertFrom-Json
 if ($default.Group -ne 'Startup' -or $default.Groups.Count -ne 1) { throw 'Default is not a quick group' }
 $rejected=$false
@@ -46,5 +46,5 @@ $initialCount=[int]([regex]::Match(($first -join "`n"),'copied=(\d+)').Groups[1]
 $forced=@(& $script -OriginalGame $source -Destination $target -ForceCopy)
 if (!(($forced -join "`n") -match "copied=$initialCount skipped=0 ")) { throw 'ForceCopy did not refresh all fixture assets' }
 $first; $second; $third; $forced
-Write-Output 'PASS: initial/incremental/changed data, nested maps, tracks, preserved saves/config, group isolation, all 25 component markers plus completion, quick default, invalid group rejection; no emulator launched'
+Write-Output 'PASS: initial/incremental/changed data, nested maps, tracks, preserved saves/config, group isolation, original component markers and Building plus completion, quick default, invalid group rejection; no emulator launched'
 

@@ -12,4 +12,5 @@ $menuTestGroups = [ordered]@{
     BattleLog = @{ Markers = @('3DS BATTLE LOG SMOKE: PASS'); Captures = @('battle-log-bottom.bmp','battle-log-scrolled-bottom.bmp') }
     BattleDialogs = @{ Markers = @('3DS HERO ACTIONS SMOKE: PASS','3DS BATTLE OUTCOME SMOKE: PASS','3DS NECROMANCY SMOKE: PASS'); Captures = @('hero-actions-bottom.bmp','battle-losses-top.bmp','battle-losses-bottom.bmp','battle-summary-top.bmp','battle-summary-bottom.bmp','battle-surrender-top.bmp','battle-surrender-bottom.bmp','battle-artifact-top.bmp','battle-artifact-bottom.bmp','battle-necromancy-top.bmp','battle-necromancy-bottom.bmp') }
     BattleIntegration = @{ Markers = @('3DS BATTLE HERO ACTIONS SMOKE: PASS','3DS BATTLE SPELLBOOK SMOKE: PASS','3DS BATTLE ARMY CARD SMOKE: PASS','3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS','3DS NECROMANCY INTEGRATION SMOKE: PASS','3DS BATTLE HUD SMOKE: PASS'); Captures = @('spellbook-battle-top.bmp','spellbook-battle-bottom.bmp') }
+    Building = @{ Markers = @('3DS BUILDING SMOKE: PASS'); Captures = @('building-top.bmp','building-bottom.bmp') }
 }
