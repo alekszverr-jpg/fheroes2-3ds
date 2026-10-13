@@ -1517,18 +1517,20 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..dfc799f 100644
+index 69d39fb..9386fba 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
-@@ -58,6 +58,17 @@
+@@ -58,6 +58,19 @@
  #include "math_base.h"
  #include "mus.h"
  #include "screen.h"
 +#include "platform_3ds.h"
 +#if defined( __3DS__ )
++#include <array>
 +#include <cstdio>
 +#include <fstream>
 +#include <SDL_gamecontroller.h>
++#include <SDL_timer.h>
 +#endif
 +#if defined( __3DS__ )
 +#include "ui_3ds_commands.h"
@@ -1538,7 +1540,7 @@ index 69d39fb..dfc799f 100644
  #include "settings.h"
  #include "system.h"
  #include "translations.h"
-@@ -122,10 +133,12 @@ namespace
+@@ -122,10 +135,12 @@ namespace
  
  void Game::runMainGameLoop()
  {
@@ -1551,7 +1553,7 @@ index 69d39fb..dfc799f 100644
  
      const CursorRestorer cursorRestorer( true, Cursor::POINTER );
  
-@@ -271,10 +284,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -271,10 +286,14 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
          {
              std::string body( _( "Welcome to Heroes of Might and Magic II powered by fheroes2 engine!" ) );
  
@@ -1566,83 +1568,103 @@ index 69d39fb..dfc799f 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +333,82 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,102 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
 +#if defined( __3DS__ )
 +    COUT( "3DS MAIN MENU READY" )
 +    if ( Platform3DS::smokeTest() ) {
-+        // Exercise the input-to-renderer bridge, including its freeze state.
-+        const auto savedPointer = LocalEvent::Get().getMouseCursorPos();
-+        for ( const auto point : { fheroes2::Point{ 0, 0 }, fheroes2::Point{ 799, 479 } } ) {
-+            Platform3DS::resetViewportFollow();
-+            Cursor::updateCursorPosition( point.x, point.y );
-+            display.render();
-+            const auto expected = point.x == 0 ? fheroes2::Point{ 0, 0 } : fheroes2::Point{ 480, 240 };
-+            if ( Platform3DS::viewport() != expected ) throw std::runtime_error( "Renderer viewport pointer bridge" );
-+        }
-+        fheroes2::engine().setViewportState( { 0, 0 }, true );
-+        display.render();
-+        if ( Platform3DS::viewport() != fheroes2::Point{ 480, 240 } ) throw std::runtime_error( "Renderer viewport hold bridge" );
-+        Cursor::updateCursorPosition( savedPointer.x, savedPointer.y );
-+        Platform3DS::resetViewportFollow();
-+        display.render();
-+
-+        conf.setCursorSoftwareEmulation( false );
-+        const char * cursorConfig = "sdmc:/3ds/fheroes2/cursor-smoke.cfg";
-+        {
-+            std::ofstream config( cursorConfig );
-+            config << "cursor soft rendering = off\n";
-+            if ( !config ) throw std::runtime_error( "Cannot write cursor smoke configuration" );
-+        }
-+        const bool cursorConfigRead = conf.Read( cursorConfig );
-+        std::remove( cursorConfig );
-+        if ( !cursorConfigRead || !conf.isCursorSoftwareEmulationEnabled() || !fheroes2::cursor().isSoftwareEmulation() )
-+            throw std::runtime_error( "Native software cursor configuration" );
-+        COUT( "3DS RENDERER BRIDGE SMOKE: PASS pointer_edges button_hold software_cursor_config" )
++        std::string group = "Full";
++        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
++        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
++        const std::array<const char *, 13> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration" };
++        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
++            throw std::runtime_error( "Unknown smoke test group: " + group );
++        COUT( "3DS TEST SELECTION group=" << group )
 +        const bool savedHighResolution = Platform3DS::highResolutionEnabled();
 +        COUT( "3DS DISPLAY STARTUP preference=" << ( savedHighResolution ? "on" : "off" ) )
-+        Platform3DS::setHighResolutionEnabled( false );
-+        Platform3DS::requestCapture();
-+        display.render();
-+        if ( !Platform3DS::supportsHighResolutionModel( 0 ) || Platform3DS::supportsHighResolutionModel( 3 )
-+             || !Platform3DS::supportsHighResolutionModel( 5 ) || Platform3DS::supportsHighResolutionModel( 255 ) )
-+            throw std::runtime_error( "High-resolution model compatibility" );
-+        if ( !Platform3DS::highResolutionSupported() ) throw std::runtime_error( "High resolution unavailable on emulated 3DS" );
-+        // Exercise the real preference writer; the emulator runner restores its temporary configuration.
-+        Platform3DS::setHighResolutionEnabled( false );
-+        Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true );
-+        if ( !Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_START, true ) || !Platform3DS::highResolutionEnabled() )
-+            throw std::runtime_error( "High-resolution chord failed" );
-+        Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false );
-+        if ( !Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_START, false ) )
-+            throw std::runtime_error( "High-resolution chord release leaked" );
-+        Platform3DS::setHighResolutionEnabled( false );
-+        if ( !conf.Read( System::concatPath( System::GetConfigDirectory( "fheroes2" ), Settings::configFileName ) )
-+             || !Platform3DS::highResolutionEnabled() ) throw std::runtime_error( "High-resolution preference did not persist" );
-+        Platform3DS::setDisplayPreferenceSaveCallback( nullptr );
-+        Platform3DS::requestCapture();
-+        display.render();
-+        Platform3DS::setHighResolutionEnabled( false );
-+        Platform3DS::requestCapture();
-+        display.render();
-+        Platform3DS::setHighResolutionEnabled( true );
-+        display.render();
-+        Interface3DS::captureCommandPanelPreview();
-+        Interface3DS::testNativeMessages();
-+        Interface3DS::testChestChoice();
-+        Interface3DS::testLevelUp();
-+        Interface3DS::testRecruit();
-+        Interface3DS::testMarketplace();
-+        Interface3DS::testResourceGift();
-+        Interface3DS::testHero();
-+        Battle::Interface::testBattleHUD3DS();
++        const auto runGroup = [&]( const char * name, const auto & action ) {
++            if ( group != "Full" && group != name ) return;
++            const Uint32 begin = SDL_GetTicks();
++            COUT( "3DS TEST BEGIN group=" << name )
++            action();
++            COUT( "3DS TEST END group=" << name << " elapsed_ms=" << SDL_GetTicks() - begin )
++        };
++        runGroup( "Startup", [&]() {
++            // Exercise the input-to-renderer bridge, including its freeze state.
++            const auto savedPointer = LocalEvent::Get().getMouseCursorPos();
++            for ( const auto point : { fheroes2::Point{ 0, 0 }, fheroes2::Point{ 799, 479 } } ) {
++                Platform3DS::resetViewportFollow();
++                Cursor::updateCursorPosition( point.x, point.y );
++                display.render();
++                const auto expected = point.x == 0 ? fheroes2::Point{ 0, 0 } : fheroes2::Point{ 480, 240 };
++                if ( Platform3DS::viewport() != expected ) throw std::runtime_error( "Renderer viewport pointer bridge" );
++            }
++            fheroes2::engine().setViewportState( { 0, 0 }, true );
++            display.render();
++            if ( Platform3DS::viewport() != fheroes2::Point{ 480, 240 } ) throw std::runtime_error( "Renderer viewport hold bridge" );
++            Cursor::updateCursorPosition( savedPointer.x, savedPointer.y );
++            Platform3DS::resetViewportFollow();
++            display.render();
++    
++            conf.setCursorSoftwareEmulation( false );
++            const char * cursorConfig = "sdmc:/3ds/fheroes2/cursor-smoke.cfg";
++            {
++                std::ofstream config( cursorConfig );
++                config << "cursor soft rendering = off\n";
++                if ( !config ) throw std::runtime_error( "Cannot write cursor smoke configuration" );
++            }
++            const bool cursorConfigRead = conf.Read( cursorConfig );
++            std::remove( cursorConfig );
++            if ( !cursorConfigRead || !conf.isCursorSoftwareEmulationEnabled() || !fheroes2::cursor().isSoftwareEmulation() )
++                throw std::runtime_error( "Native software cursor configuration" );
++            COUT( "3DS RENDERER BRIDGE SMOKE: PASS pointer_edges button_hold software_cursor_config" )
++            Platform3DS::setHighResolutionEnabled( false );
++            Platform3DS::requestCapture();
++            display.render();
++            if ( !Platform3DS::supportsHighResolutionModel( 0 ) || Platform3DS::supportsHighResolutionModel( 3 )
++                 || !Platform3DS::supportsHighResolutionModel( 5 ) || Platform3DS::supportsHighResolutionModel( 255 ) )
++                throw std::runtime_error( "High-resolution model compatibility" );
++            if ( !Platform3DS::highResolutionSupported() ) throw std::runtime_error( "High resolution unavailable on emulated 3DS" );
++            // Exercise the real preference writer; the emulator runner restores its temporary configuration.
++            Platform3DS::setHighResolutionEnabled( false );
++            Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true );
++            if ( !Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_START, true ) || !Platform3DS::highResolutionEnabled() )
++                throw std::runtime_error( "High-resolution chord failed" );
++            Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false );
++            if ( !Platform3DS::handleDisplayController( SDL_CONTROLLER_BUTTON_START, false ) )
++                throw std::runtime_error( "High-resolution chord release leaked" );
++            Platform3DS::setHighResolutionEnabled( false );
++            if ( !conf.Read( System::concatPath( System::GetConfigDirectory( "fheroes2" ), Settings::configFileName ) )
++                 || !Platform3DS::highResolutionEnabled() ) throw std::runtime_error( "High-resolution preference did not persist" );
++            Platform3DS::setDisplayPreferenceSaveCallback( nullptr );
++            Platform3DS::requestCapture();
++            display.render();
++            Platform3DS::setHighResolutionEnabled( false );
++            Platform3DS::requestCapture();
++            display.render();
++            Platform3DS::setHighResolutionEnabled( true );
++            display.render();
++            Interface3DS::captureCommandPanelPreview();
++            COUT( "3DS HIGH RESOLUTION SMOKE: PASS" )
++        } );
++        runGroup( "Messages", []() { Interface3DS::testNativeMessages(); } );
++        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
++        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
++        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
++        runGroup( "BattleDialogs", []() { Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
++        runGroup( "Chest", []() { Interface3DS::testChestChoice(); } );
++        runGroup( "LevelUp", []() { Interface3DS::testLevelUp(); } );
++        runGroup( "Recruit", []() { Interface3DS::testRecruit(); } );
++        runGroup( "Market", []() { Interface3DS::testMarketplace(); } );
++        runGroup( "Gift", []() { Interface3DS::testResourceGift(); } );
++        runGroup( "Hero", []() { Interface3DS::testHero(); } );
++        runGroup( "BattleIntegration", []() { Battle::Interface::testBattleHUD3DS(); } );
 +        Platform3DS::setHighResolutionEnabled( false );
 +        display.render();
 +        Platform3DS::setHighResolutionEnabled( savedHighResolution );
-+        COUT( "3DS HIGH RESOLUTION SMOKE: PASS" )
-+        COUT( "3DS MENU SMOKE: PASS" )
++        COUT( "3DS MENU SMOKE: PASS group=" << group )
 +        return fheroes2::GameMode::QUIT_GAME;
 +    }
 +#endif
@@ -3778,10 +3800,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..14a157f
+index 0000000..520e03c
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1419 @@
+@@ -0,0 +1,1412 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -5048,13 +5070,6 @@ index 0000000..14a157f
 +        throw std::runtime_error( "Native dialogs modified the game frame" );
 +    Platform3DS::setCommandStripImage( previousStrip );
 +    events.resetFor3DSPanel();
-+    testBattleLog();
-+    testArmySplit();
-+    testArmyInfo();
-+    testCombatSpellBook();
-+    testAdventureSpellBook();
-+    testBattleHeroActions();
-+    testBattleOutcome();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +

@@ -21,7 +21,7 @@ git diff --stat
 
 Commit the patch and any wrapper/build/documentation changes in this repository. Do not commit changes separately in the generated upstream checkout: builds expect its HEAD to stay at the pinned baseline. The export script includes tracked changes against that baseline and untracked source files, and verifies that the resulting patch corresponds to the checkout.
 
-For meaningful input or renderer changes, run the engine/menu checks in the configured isolated Azahar profile for both models and then test on hardware. Run emulator scripts sequentially because they share one profile. Record what was actually tested; distinguish emulator results from physical Old/New hardware results.
+For meaningful input or renderer changes, when host emulator runs are permitted, select the affected menu group explicitly and run the full suite separately for broad regression. `test-menu-emulator.ps1` defaults to Startup; use `-Group Full` for all checks. See [grouped testing](3ds-game/TESTING.md). For renderer/input changes run the appropriate engine/menu checks for both models and then test on hardware. Run emulator scripts sequentially because they share one profile. Record what was actually tested; distinguish emulator results from physical Old/New hardware results.
 
 ## Game data and releases
 

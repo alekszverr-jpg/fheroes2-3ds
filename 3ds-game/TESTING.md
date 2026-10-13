@@ -1,0 +1,15 @@
+# Grouped 3DS emulator checks
+
+Automatic Azahar runs on this Windows host remain suspended after the 2026-10-13 freeze/forced reboot. Do not launch a diagnostic run without a separate explicit user request. The new infrastructure was built and checked offline, not exercised in the emulator.
+
+The runner defaults to Startup instead of the complete suite. Available groups: Startup, Messages, Chest, LevelUp, Recruit, Market, Gift, Hero, Army, Spellbook, BattleLog, BattleDialogs, BattleIntegration and Full. Full explicitly retains all 25 original component markers plus completion. Messages no longer calls unrelated groups internally. Army covers split/details, Spellbook covers combat/adventure/full books, BattleDialogs covers hero actions and battle outcomes, and BattleIntegration covers actual Arena/HUD entry points.
+
+Use `./tools/test-menu-emulator.ps1 -Group Army -PlanOnly` to inspect required checks/captures without launching Azahar or touching the profile. Future separately requested diagnostic commands can omit PlanOnly. Run sequentially. Default deadlines: 90 seconds, 120 for Spellbook/BattleDialogs/BattleIntegration, 360 for Full; these are timeouts, not measured durations.
+
+Game logs contain TEST BEGIN/END and elapsed_ms per group. Runner timings.json separates preparation, emulation and capture validation and is updated during emulation, preserving incomplete status after a forced reboot. Passed requires all selected markers, group timings and fresh captures. Group-specific output directories isolate results; Full retains the previous model directory. A profile-recovery.json backup restores temporary emulator/game configuration on the next explicitly requested run after a hard reboot. Normal cleanup restores it immediately. BelowNormal priority and stopping before image validation remain in place; these do not guarantee the host freeze is fixed.
+
+Preparation skips files with equal size/UTC modification time. ForceCopy refreshes everything; use it for manual file changes preserving both metadata fields. Saves/config and stale destination files are not removed. A CP1251 Russian catalog cache is invalidated by source ru.po/msgfmt hashes. Statistics include copied/skipped/bytes/elapsed_ms. Actual repeated staging skipped 196 files, copied zero bytes, and took about 305ms in the recorded check.
+
+`./tools/test-menu-infrastructure.ps1` runs offline fixture checks: copying/caching/update/force, nested maps, OGG mapping, preserved user state, group plans, Full coverage and unknown-group rejection. It does not launch Azahar. Existing historical New logs are used for marker compatibility when available.
+
+Validation completed: two-job ARM Release, desktop syntax for both modified engine files, clean-baseline patch application, PowerShell syntax, offline infrastructure checks and actual repeated resource staging. Selected-group runtime correctness/duration and the cause of the host freeze remain unverified. No console update is required for these infrastructure changes.

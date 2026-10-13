@@ -1,0 +1,15 @@
+$menuTestGroups = [ordered]@{
+    Startup = @{ Markers = @('3DS RENDERER BRIDGE SMOKE: PASS','3DS COMMAND STRIP SMOKE: PASS','3DS MAP SCROLL SMOKE: PASS','3DS HIGH RESOLUTION SMOKE: PASS'); Captures = @('menu-top.bmp','menu-bottom.bmp','wide-menu-top.bmp','wide-menu-bottom.bmp','wide-panel-top.bmp','wide-panel-bottom.bmp') }
+    Messages = @{ Markers = @('3DS NATIVE MESSAGES SMOKE: PASS'); Captures = @('wide-info-top.bmp','wide-info-bottom.bmp','wide-dialog-top.bmp','wide-dialog-bottom.bmp') }
+    Chest = @{ Markers = @('3DS CHEST SMOKE: PASS'); Captures = @() }
+    LevelUp = @{ Markers = @('3DS LEVEL UP SMOKE: PASS'); Captures = @() }
+    Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp') }
+    Market = @{ Markers = @('3DS MARKET SMOKE: PASS'); Captures = @('market-top.bmp','market-bottom.bmp') }
+    Gift = @{ Markers = @('3DS GIFT SMOKE: PASS'); Captures = @('gift-top.bmp','gift-bottom.bmp') }
+    Hero = @{ Markers = @('3DS HERO SMOKE: PASS'); Captures = @('hero-army-top.bmp','hero-army-bottom.bmp','hero-artifacts-top.bmp','hero-artifacts-bottom.bmp','hero-skills-top.bmp','hero-skills-bottom.bmp') }
+    Army = @{ Markers = @('3DS ARMY SPLIT SMOKE: PASS','3DS ARMY INFO SMOKE: PASS'); Captures = @('army-split-bottom.bmp','army-info-top.bmp','army-info-bottom.bmp','army-info-no-upgrade-top.bmp','army-info-no-upgrade-bottom.bmp','army-info-battle-top.bmp','army-info-battle-bottom.bmp') }
+    Spellbook = @{ Markers = @('3DS COMBAT SPELLBOOK SMOKE: PASS','3DS ADVENTURE SPELLBOOK SMOKE: PASS'); Captures = @('spellbook-top.bmp','spellbook-bottom.bmp','spellbook-adventure-cast-top.bmp','spellbook-adventure-cast-bottom.bmp','spellbook-library-top.bmp','spellbook-library-bottom.bmp') }
+    BattleLog = @{ Markers = @('3DS BATTLE LOG SMOKE: PASS'); Captures = @('battle-log-bottom.bmp','battle-log-scrolled-bottom.bmp') }
+    BattleDialogs = @{ Markers = @('3DS HERO ACTIONS SMOKE: PASS','3DS BATTLE OUTCOME SMOKE: PASS','3DS NECROMANCY SMOKE: PASS'); Captures = @('hero-actions-bottom.bmp','battle-losses-top.bmp','battle-losses-bottom.bmp','battle-summary-top.bmp','battle-summary-bottom.bmp','battle-surrender-top.bmp','battle-surrender-bottom.bmp','battle-artifact-top.bmp','battle-artifact-bottom.bmp','battle-necromancy-top.bmp','battle-necromancy-bottom.bmp') }
+    BattleIntegration = @{ Markers = @('3DS BATTLE HERO ACTIONS SMOKE: PASS','3DS BATTLE SPELLBOOK SMOKE: PASS','3DS BATTLE ARMY CARD SMOKE: PASS','3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS','3DS NECROMANCY INTEGRATION SMOKE: PASS','3DS BATTLE HUD SMOKE: PASS'); Captures = @('spellbook-battle-top.bmp','spellbook-battle-bottom.bmp') }
+}
