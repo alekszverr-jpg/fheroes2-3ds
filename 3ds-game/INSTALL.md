@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.26
+# fheroes2 for Nintendo 3DS — preview 0.3.27
+
+## Preview 0.3.27: dual-screen construction confirmation
+
+The first castle adaptation covers BuildingInfo::DialogBuyBuilding. The upper screen shows original building artwork enlarged proportionally, name, description, availability reasons and requirements. Long content scrolls with D-pad up/down or dragging an empty lower-screen area. The lower screen has an opaque dialog background, original resource costs, Build and Cancel. Left/right select a button, A/Start activate, L cancels, and B/button hold show information. Cancel is selected initially; dragging off a button cancels activation.
+
+Unavailable construction cannot be confirmed: the Build button is disabled and CheckBuyBuilding is checked again before returning confirmation. Payment and construction remain in original callers. Information-only calls use the existing upper dialog including artwork/cost. Desktop, the construction list and main castle screen retain their existing layout; this adapts confirmation only.
+
+Validation: two-job ARM Release, desktop syntax for buildinginfo.cpp/ui_3ds_building.cpp and clean-baseline patch application passed. Azahar was not launched after the host freeze. Runtime/layout and game effects need New 3DS XL validation; no physical Old 3DS is available. Separate hardware acceptance of 0.3.26 has not been reported.
+
+Replace `3ds/fheroes2/fheroes2.3dsx` and Russian `3ds/fheroes2/files/lang/ru.mo` for new labels. On hardware check affordable construction/payment, cancel without payment, insufficient resources, today's build limit, unmet requirements, different races/themes, long text and held information. Check release isolation and save/load of a completed building.
 
 ## Preview 0.3.26: opaque creature card and readable spellbook tabs
 

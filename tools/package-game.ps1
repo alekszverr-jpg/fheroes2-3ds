@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.26'
+$version = '0.3.27'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -33,6 +33,9 @@ $manifest = [ordered]@{
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
     marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
+    native_building='Native dual-screen construction confirmation: original artwork/description/requirements above, opaque cost and Build/Cancel below; original eligibility rechecked on confirmation and payment handled by caller'
+    validation_building='ARM Release, desktop syntax and patch application passed; no Azahar runtime after host freeze; hardware pending'
+    upgrade_building='Replace 3dsx and Russian files/lang/ru.mo for new labels'
     native_card_book='Opaque full-screen interactive creature background; wide Adventure/Combat text tabs in full spellbook, Y retained, total mana above; original single-category casting unchanged'
     emulated_card_book='Russian New passed; English interrupted by host freeze/reboot, not passed; Old not rerun for this UI change; automatic host Azahar runs suspended'
     hardware_card_book='0.3.26 pending New 3DS XL validation'

@@ -1,5 +1,5 @@
 diff --git a/files/lang/ru.po b/files/lang/ru.po
-index 679b71a..99280c6 100644
+index 679b71a..1f64b9f 100644
 --- a/files/lang/ru.po
 +++ b/files/lang/ru.po
 @@ -12789,6 +12789,24 @@ msgstr "северо-восток"
@@ -27,7 +27,7 @@ index 679b71a..99280c6 100644
  msgid "center"
  msgstr "середин"
  
-@@ -12844,3 +12862,30 @@ msgstr "Возрождается неведомая сила..."
+@@ -12844,3 +12862,36 @@ msgstr "Возрождается неведомая сила..."
  
  #~ msgid "Create a new map from scratch."
  #~ msgstr "Создать новую карту с нуля."
@@ -58,6 +58,12 @@ index 679b71a..99280c6 100644
 +
 +msgid "spellBook3DS|Combat"
 +msgstr "Боевые"
++
++msgid "building3DS|Build"
++msgstr "Построить"
++
++msgid "building3DS|Cost"
++msgstr "Стоимость"
 diff --git a/src/engine/core.cpp b/src/engine/core.cpp
 index d50ca80..051a3d0 100644
 --- a/src/engine/core.cpp
@@ -1249,6 +1255,34 @@ index 303cfda..190bfaa 100644
  
          std::unique_ptr<OpponentSprite> _attackingOpponent;
          std::unique_ptr<OpponentSprite> _defendingOpponent;
+diff --git a/src/fheroes2/castle/buildinginfo.cpp b/src/fheroes2/castle/buildinginfo.cpp
+index 4de5b4a..3f70053 100644
+--- a/src/fheroes2/castle/buildinginfo.cpp
++++ b/src/fheroes2/castle/buildinginfo.cpp
+@@ -55,6 +55,9 @@
+ #include "ui_constants.h"
+ #include "ui_dialog.h"
+ #include "ui_text.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ namespace
+ {
+@@ -459,6 +462,13 @@ bool BuildingInfo::DialogBuyBuilding( bool buttons ) const
+         requirement = fheroes2::getBuildingRequirementString( castle.GetRace(), static_cast<BuildingType>( _buildingType ) );
+     }
+ 
++#if defined( __3DS__ )
++    const auto & nativeBuildingImage = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( _buildingType ) ) );
++    return Interface3DS::showBuildingPurchase( GetName(), descriptionText.text(), requirement, nativeBuildingImage,
++                                              PaymentConditions::BuyBuilding( castle.GetRace(), _buildingType ), buttons,
++                                              [this]() { return BuildingStatus::ALLOW_BUILD == castle.CheckBuyBuilding( _buildingType ); } );
++#endif
++
+     const bool requirementsPresent = !requirement.empty();
+ 
+     const fheroes2::Text requirementTitle( _( "Requires:" ), fheroes2::FontType::normalWhite() );
 diff --git a/src/fheroes2/dialog/dialog_armyinfo.cpp b/src/fheroes2/dialog/dialog_armyinfo.cpp
 index 6077ad9..9347377 100644
 --- a/src/fheroes2/dialog/dialog_armyinfo.cpp
@@ -3525,6 +3559,155 @@ index 0000000..8d46d57
 +    COUT( "3DS BATTLE OUTCOME SMOKE: PASS summary_restart_ok_cancel empty_long_casualties stylus_scroll button_drag surrender_actual_dialog affordable_unaffordable unchanged_funds artifact_info evil unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
+diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
+new file mode 100644
+index 0000000..84a1120
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_building.cpp
+@@ -0,0 +1,143 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <memory>
++#include <SDL.h>
++#include "cursor.h"
++#include "dialog.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "localevent.h"
++#include "platform_3ds.h"
++#include "screen.h"
++#include "settings.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace
++{
++    using namespace fheroes2;
++    class BuildingScope
++    {
++    public:
++        BuildingScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++            LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~BuildingScope()
++        {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance(); display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
++        }
++    };
++}
++bool Interface3DS::showBuildingPurchase( const std::string & name, const std::string & description, const std::string & requirements,
++                                       const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild )
++{
++    using namespace fheroes2;
++    std::string body = description;
++    if ( !requirements.empty() ) body += "\n\n" + std::string( _( "Requires:" ) ) + "\n" + requirements;
++    auto resources = getResourceDialogElements( cost );
++    if ( !interactive ) {
++        const CustomImageDialogElement image( building );
++        std::vector<const DialogElement *> elements{ &image };
++        for ( const auto & resource : resources ) elements.push_back( &resource );
++        showStandardTextMessage( name, body, Dialog::ZERO, elements );
++        return false;
++    }
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const Text text( body, FontType::normalWhite() );
++    // Preserve the original building artwork and proportions at a readable size.
++    const double scale = std::min( 2.0, std::min( 360.0 / building.width(), 116.0 / building.height() ) );
++    Image portrait( std::max( 1, int( building.width() * scale ) ), std::max( 1, int( building.height() * scale ) ) );
++    portrait.reset(); Resize( building, portrait );
++    const int textY = portrait.height() + 8;
++    Image content( 376, std::max<int32_t>( 188, textY + text.height( 376 ) ) ); content.fill( background );
++    Blit( portrait, content, ( content.width() - portrait.width() ) / 2, 0 ); text.draw( 0, textY, 376, content );
++    Image top( 400, 240 ), bottom( 320, 240 );
++    std::array<std::unique_ptr<ButtonBase>, 2> buttons;
++    for ( size_t i = 0; i < buttons.size(); ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { 142, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        Text label( i ? _( "Cancel" ) : _( "building3DS|Build" ), FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
++        label.draw( 4, ( released.height() - label.height() ) / 2, released.width() - 8, released );
++        label.draw( 3, ( pressed.height() - label.height() ) / 2 + 1, pressed.width() - 8, pressed );
++        buttons[i] = std::make_unique<ButtonSprite>( i ? 166 : 6, 206, std::move( released ), std::move( pressed ) );
++    }
++    const BuildingScope scope( top, bottom );
++    int scroll = 0, selected = 1, pressed = -1; bool down = false, moved = false;
++    Point start, last; Uint32 began = 0;
++    const auto draw = [&]() {
++        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawRect( top, { 0, 0, 400, 240 }, border );
++        Text title( name, FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
++        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
++        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
++        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawRect( bottom, { 0, 0, 320, 240 }, border );
++        Text( _( "building3DS|Cost" ), FontType::normalYellow() ).draw( 8, 8, 304, bottom );
++        int rowHeight = 0;
++        for ( const auto & resource : resources ) rowHeight = std::max<int32_t>( rowHeight, resource.area().height + 4 );
++        const int columns = resources.size() > 6 ? 4 : 3;
++        const int columnWidth = 312 / columns;
++        for ( size_t i = 0; i < resources.size(); ++i ) {
++            const auto & resource = resources[i];
++            resource.draw( bottom, { 4 + int( i % columns ) * columnWidth + ( columnWidth - resource.area().width ) / 2, 32 + int( i / columns ) * rowHeight } );
++        }
++        if ( canBuild() ) buttons[0]->enable(); else buttons[0]->disable();
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
++            if ( selected == int( i ) ) DrawRect( bottom, buttons[i]->area(), border );
++        }
++        Display::instance().render();
++    };
++    draw();
++    auto & events = LocalEvent::Get();
++    while ( events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Cancel: return false;
++                case Platform3DS::PanelKey::Left: case Platform3DS::PanelKey::Right: selected = 1 - selected; break;
++                case Platform3DS::PanelKey::Up: scroll -= 32; break;
++                case Platform3DS::PanelKey::Down: scroll += 32; break;
++                case Platform3DS::PanelKey::Confirm: if ( selected ) return false; if ( canBuild() ) return true; break;
++                case Platform3DS::PanelKey::Information:
++                    down = false; pressed = -1; showStandardTextMessage( name, body, Dialog::ZERO ); break;
++                default: break;
++                }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
++                down = true; moved = false; pressed = -1; start = last = input.position; began = SDL_GetTicks();
++                for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) selected = pressed = int( i );
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && pressed < 0 ) scroll += last.y - input.position.y;
++                last = input.position;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( buttons[pressed]->area() & last ) ) { if ( pressed ) return false; if ( canBuild() ) return true; }
++                down = false; pressed = -1;
++            }
++            scroll = std::clamp<int32_t>( scroll, 0, content.height() - 188 );
++        }
++        if ( down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) {
++            const int action = pressed; down = false; pressed = -1;
++            showStandardTextMessage( action ? _( "Cancel" ) : name, action ? _( "Exit this menu without doing anything." ) : body, Dialog::ZERO );
++            redraw = true;
++        }
++        if ( redraw ) draw();
++    }
++    return false;
++}
++#endif
 diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp
 new file mode 100644
 index 0000000..f85b17b
@@ -5218,10 +5401,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..bf2c768
+index 0000000..6ace5d1
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,74 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5250,6 +5433,8 @@ index 0000000..bf2c768
 +    bool supportsMessage( int buttons, const std::vector<const fheroes2::DialogElement *> & elements );
 +    int showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, int buttons,
 +                     const std::vector<const fheroes2::DialogElement *> & elements );
++    bool showBuildingPurchase( const std::string & name, const std::string & description, const std::string & requirements,
++                               const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild );
 +    void testNativeMessages();
 +    Spell showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page, const std::function<void( const std::string & )> & status );
 +    Spell showSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page,
