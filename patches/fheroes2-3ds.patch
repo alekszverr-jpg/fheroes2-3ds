@@ -1,5 +1,5 @@
 diff --git a/files/lang/ru.po b/files/lang/ru.po
-index 679b71a..597a431 100644
+index 679b71a..54ec436 100644
 --- a/files/lang/ru.po
 +++ b/files/lang/ru.po
 @@ -12789,6 +12789,24 @@ msgstr "северо-восток"
@@ -27,14 +27,31 @@ index 679b71a..597a431 100644
  msgid "center"
  msgstr "середин"
  
-@@ -12844,3 +12862,6 @@ msgstr "Возрождается неведомая сила..."
+@@ -12844,3 +12862,24 @@ msgstr "Возрождается неведомая сила..."
  
  #~ msgid "Create a new map from scratch."
  #~ msgstr "Создать новую карту с нуля."
 +
 +msgid "Start the Hero's movement along the current path or re-visit the object occupied by the Hero."
 +msgstr "Начать движение героя по выбранному пути или повторно посетить объект под героем."
-\ No newline at end of file
++# Nintendo 3DS hero screen
++msgid "Army"
++msgstr "Армия"
++
++msgid "Split"
++msgstr "Разделить"
++
++msgid "Spread"
++msgstr "Разреженно"
++
++msgid "Grouped"
++msgstr "Плотно"
++
++msgid "Details"
++msgstr "Сведения"
++
++msgid "Book"
++msgstr "Книга"
 diff --git a/src/engine/core.cpp b/src/engine/core.cpp
 index d50ca80..051a3d0 100644
 --- a/src/engine/core.cpp
@@ -1494,7 +1511,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..68f4d87 100644
+index 69d39fb..dfc799f 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,17 @@
@@ -1543,7 +1560,7 @@ index 69d39fb..68f4d87 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +333,81 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +333,82 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1613,6 +1630,7 @@ index 69d39fb..68f4d87 100644
 +        Interface3DS::testRecruit();
 +        Interface3DS::testMarketplace();
 +        Interface3DS::testResourceGift();
++        Interface3DS::testHero();
 +        Battle::Interface::testBattleHUD3DS();
 +        Platform3DS::setHighResolutionEnabled( false );
 +        display.render();
@@ -1904,6 +1922,30 @@ index ebf6296..dbb7edb 100644
          const bool isProperDialog = ( buttons != 0 );
  
          const int cusorTheme = isProperDialog ? ::Cursor::POINTER : ::Cursor::Get().Themes();
+diff --git a/src/fheroes2/heroes/heroes_dialog.cpp b/src/fheroes2/heroes/heroes_dialog.cpp
+index cd6cac8..1168f3f 100644
+--- a/src/fheroes2/heroes/heroes_dialog.cpp
++++ b/src/fheroes2/heroes/heroes_dialog.cpp
+@@ -66,6 +66,9 @@
+ #include "ui_text.h"
+ #include "ui_tool.h"
+ #include "ui_window.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ namespace
+ {
+@@ -75,6 +78,9 @@ namespace
+ int Heroes::OpenDialog( const bool readonly, const bool fade, const bool disableDismiss, const bool disableSwitch, const bool renderBackgroundDialog, const bool isEditor,
+                         const fheroes2::SupportedLanguage language )
+ {
++#if defined( __3DS__ )
++    if ( !isEditor ) return Interface3DS::showHero( *this, readonly, disableDismiss, disableSwitch, language );
++#endif
+     // Set the cursor image.This dialog does not require a cursor restorer. It is called from other dialogs that have the same cursor
+     // or from the Game Area that will set the appropriate cursor after this dialog is closed.
+     Cursor::Get().SetThemes( Cursor::POINTER );
 diff --git a/src/fheroes2/spell/spell_book.cpp b/src/fheroes2/spell/spell_book.cpp
 index 7b4b722..8b0dcf1 100644
 --- a/src/fheroes2/spell/spell_book.cpp
@@ -5165,10 +5207,10 @@ index 0000000..14a157f
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..6a0f7e6
+index 0000000..bf2c768
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,72 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5180,6 +5222,7 @@ index 0000000..6a0f7e6
 +#include "spell_book.h"
 +#include "color.h"
 +#include "resource.h"
++#include "ui_language.h"
 +namespace fheroes2 { class TextBase; class DialogElement; class Image; }
 +namespace Skill { class Secondary; }
 +class Heroes;
@@ -5223,6 +5266,8 @@ index 0000000..6a0f7e6
 +    struct GiftChoice { bool confirmed = false; PlayerColorsSet recipients = 0; Funds funds; };
 +    GiftChoice showResourceGift( const Funds & funds, PlayerColorsSet availableRecipients );
 +    void testResourceGift();
++    int showHero( Heroes & hero, bool readonly, bool disableDismiss, bool disableSwitch, fheroes2::SupportedLanguage language );
++    void testHero();
 +    void showBattleLog( const std::vector<std::string> & messages );
 +    void testBattleLog();
 +    bool showChestChoice( const std::string & header, const std::string & body, uint32_t gold, uint32_t experience,
@@ -5236,6 +5281,393 @@ index 0000000..6a0f7e6
 +    void testArmySplit();
 +    int showArmyInfo( const Troop & troop, int flags, bool reflected );
 +    void testArmyInfo();
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_hero.cpp b/src/fheroes2/gui/ui_3ds_hero.cpp
+new file mode 100644
+index 0000000..b3a7769
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_hero.cpp
+@@ -0,0 +1,381 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <stdexcept>
++#include <SDL.h>
++#include "army.h"
++#include "army_bar.h"
++#include "artifact.h"
++#include "cursor.h"
++#include "dialog.h"
++#include "game_assets.h"
++#include "heroes.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "monster.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "skill.h"
++#include "tools.h"
++#include "translations.h"
++#include "army_troop.h"
++#include "spell.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace
++{
++    using namespace fheroes2;
++    using Platform3DS::PanelInputType;
++    using Platform3DS::PanelKey;
++    class HeroScope
++    {
++    public:
++        HeroScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++            LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~HeroScope()
++        {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance(); display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
++        }
++    };
++    // Dispatch native taps through the original widget actions, without forging game mouse events.
++    // Selection outlines are drawn in the lower image; MovableSprite cursors must not touch the game frame.
++    template<class Bar> class NativeBar : public Bar
++    {
++    public:
++        using Bar::Bar;
++        void hold( Point point )
++        {
++            const auto item = this->GetItemIterPos( point );
++            if ( item.first == this->items.end() ) return;
++            this->ResetSelected();
++            this->ActionBarRightMouseHold( **item.first );
++        }
++        void activate( Point point, bool information = false, bool split = false )
++        {
++            const auto item = this->GetItemIterPos( point );
++            if ( item.first == this->items.end() ) return;
++            if ( split ) {
++                if ( this->isSelected() && item.first != this->curItemPos.first ) this->ActionBarRightMouseSingleClick( **item.first );
++                return;
++            }
++            if ( information || item.first == this->curItemPos.first ) {
++                this->curItemPos = item;
++                this->ActionBarLeftMouseDoubleClick( **item.first );
++            }
++            else if ( this->ActionBarLeftMouseSingleClick( **item.first ) ) this->curItemPos = item;
++            else this->ResetSelected();
++        }
++    };
++    Point center( const Rect & area ) { return { area.x + area.width / 2, area.y + area.height / 2 }; }
++    void icon( const Image & sprite, Image & target, const Rect & area )
++    {
++        const double scale = std::min( double( area.width ) / sprite.width(), double( area.height ) / sprite.height() );
++        Image scaled( std::max( 1, int( sprite.width() * scale ) ), std::max( 1, int( sprite.height() * scale ) ) ); scaled.reset(); Resize( sprite, scaled );
++        Blit( scaled, target, area.x + ( area.width - scaled.width() ) / 2, area.y + ( area.height - scaled.height() ) / 2 );
++    }
++}
++int Interface3DS::showHero( Heroes & hero, const bool readonly, const bool disableDismiss, const bool disableSwitch, const SupportedLanguage language )
++{
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const bool canDismiss = !readonly && !disableDismiss && !hero.inCastle() && !hero.Modes( Heroes::NOTDISMISS );
++    const bool canSwitch = !readonly && !disableSwitch && hero.GetKingdom().GetHeroes().size() >= 2;
++    NativeBar<ArmyBar> army( &hero.GetArmy(), false, readonly );
++    army.setTableSize( { 5, 1 } ); army.setSingleItemSize( { 56, 60 } ); army.setInBetweenItemsOffset( { 4, 0 } ); army.setRenderingOffset( { 12, 55 } );
++    NativeBar<ArtifactsBar> artifacts( &hero, true, readonly, false, true, nullptr );
++    artifacts.SetContent( hero.GetBagArtifacts() ); artifacts.setTableSize( { 7, 2 } ); artifacts.setSingleItemSize( { 40, 54 } ); artifacts.setInBetweenItemsOffset( { 2, 4 } ); artifacts.setRenderingOffset( { 12, 55 } );
++    const std::array<int, 4> primary{ Skill::Primary::ATTACK, Skill::Primary::DEFENSE, Skill::Primary::POWER, Skill::Primary::KNOWLEDGE };
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const HeroScope scope( top, bottom );
++    int tab = 0, focus = 3, pressed = -1, result = Dialog::CANCEL;
++    bool down = false, moved = false, closed = false, splitting = false; Point start; uint32_t began = 0;
++    std::vector<Rect> areas; std::vector<std::unique_ptr<ButtonBase>> buttons;
++    int itemCount = 5, dockStart = 8, footerStart = 11;
++    const auto cellCount = [&]() { return tab == 0 ? 5 : tab == 1 ? 14 : 12; };
++    const auto makeButton = [&]( const std::string & label, int x, int y, int width ) {
++        Sprite released, pressedImage;
++        makeButtonSprites( released, pressedImage, "", { width - 10, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        Text text( label, FontType::normalWhite() ); if ( text.width() > width - 12 ) text.set( label, FontType::smallWhite() );
++        text.fitToOneRow( width - 12 );
++        const auto textArea = text.area();
++        text.draw( ( released.width() - textArea.width ) / 2 - textArea.x, ( released.height() - textArea.height ) / 2 - textArea.y, released );
++        text.draw( ( pressedImage.width() - textArea.width ) / 2 - textArea.x - 1, ( pressedImage.height() - textArea.height ) / 2 - textArea.y + 1, pressedImage );
++        buttons.emplace_back( std::make_unique<ButtonSprite>( x, y, std::move( released ), std::move( pressedImage ) ) );
++        areas.push_back( buttons.back()->area() );
++    };
++    const auto layout = [&]() {
++        areas.clear(); buttons.clear(); itemCount = cellCount();
++        makeButton( _( "Army" ), 12, 8, 96 ); makeButton( _( "Artifacts" ), 112, 8, 96 ); makeButton( _( "Skills" ), 212, 8, 96 );
++        for ( int i = 0; i < itemCount; ++i ) {
++            if ( tab == 0 ) areas.emplace_back( 12 + i * 60, 55, 56, 60 );
++            else if ( tab == 1 ) areas.emplace_back( 12 + i % 7 * 42, 55 + i / 7 * 58, 40, 54 );
++            else areas.emplace_back( 12 + i % 4 * 76, i < 4 ? 50 : 106 + ( i - 4 ) / 4 * 46, 68, i < 4 ? 48 : 40 );
++        }
++        dockStart = int( areas.size() );
++        if ( tab == 0 ) {
++            makeButton( _( "Details" ), 12, 158, 96 ); makeButton( _( "Split" ), 112, 158, 96 );
++            makeButton( hero.GetArmy().isSpreadFormation() ? _( "Spread" ) : _( "Grouped" ), 212, 158, 96 );
++        }
++        else if ( tab == 1 ) { makeButton( _( "Details" ), 12, 174, 194 ); makeButton( _( "Book" ), 212, 174, 96 ); }
++        footerStart = int( areas.size() );
++        makeButton( "<", 12, 205, 36 ); makeButton( ">", 52, 205, 36 ); makeButton( _( "Dismiss" ), 98, 205, 94 ); makeButton( _( "Close" ), 198, 205, 110 );
++        focus = std::clamp( focus, 0, int( areas.size() ) - 1 );
++    };
++    const auto enabled = [&]( int index ) {
++        if ( index == footerStart || index == footerStart + 1 ) return canSwitch;
++        if ( index == footerStart + 2 ) return canDismiss;
++        if ( tab == 0 && index == dockStart + 1 ) return !readonly && army.isSelected();
++        if ( tab == 0 && index == dockStart + 2 ) return !readonly;
++        if ( tab == 1 && index == dockStart + 1 ) return hero.HaveSpellBook();
++        if ( index == dockStart && tab == 0 ) return army.isSelected();
++        if ( index == dockStart && tab == 1 ) return artifacts.isSelected();
++        return true;
++    };
++    const auto changeTab = [&]( int next ) { down = false; pressed = -1; army.ResetSelected(); artifacts.ResetSelected(); splitting = false; tab = next; focus = 3; layout(); };
++    const auto information = [&]() {
++        down = false; pressed = -1; splitting = false;
++        const int index = focus - 3;
++        if ( tab == 0 && index >= 0 && index < 5 ) army.activate( center( areas[focus] ), true );
++        else if ( tab == 1 && index >= 0 && index < 14 ) artifacts.activate( center( areas[focus] ), true );
++        else if ( tab == 2 && index >= 0 && index < 4 ) showStandardTextMessage( Skill::Primary::String( primary[index] ), Skill::Primary::StringDescription( primary[index], &hero ), Dialog::OK );
++        else if ( tab == 2 && index >= 4 && index < 12 ) {
++            const auto skills = hero.GetSecondarySkills().ToVector();
++            if ( size_t( index - 4 ) < skills.size() && skills[index - 4].isValid() ) SecondarySkillDialogElement( skills[index - 4], hero ).showPopup( Dialog::OK );
++        }
++    };
++    const auto heldInformation = [&]() {
++        down = false; pressed = -1; splitting = false;
++        const int index = focus - 3;
++        if ( tab == 0 && index >= 0 && index < 5 ) army.hold( center( areas[focus] ) );
++        else if ( tab == 1 && index >= 0 && index < 14 ) artifacts.hold( center( areas[focus] ) );
++        else if ( tab == 2 && index >= 0 && index < 4 ) showStandardTextMessage( Skill::Primary::String( primary[index] ), Skill::Primary::StringDescription( primary[index], &hero ), Dialog::ZERO );
++        else if ( tab == 2 && index >= 4 && index < 12 ) {
++            const auto skills = hero.GetSecondarySkills().ToVector();
++            if ( size_t( index - 4 ) < skills.size() && skills[index - 4].isValid() ) SecondarySkillDialogElement( skills[index - 4], hero ).showPopup( Dialog::ZERO );
++        }
++    };
++    const auto activate = [&]( int index ) {
++        if ( !enabled( index ) ) return;
++        down = false; pressed = -1;
++        if ( index < 3 ) { changeTab( index ); return; }
++        focus = index;
++        if ( index < dockStart ) {
++            if ( tab == 0 ) { army.activate( center( areas[index] ), false, splitting ); splitting = false; }
++            else if ( tab == 1 ) artifacts.activate( center( areas[index] ) );
++            else information();
++        }
++        else if ( index >= footerStart ) {
++            if ( index == footerStart ) { result = Dialog::PREV; closed = true; }
++            else if ( index == footerStart + 1 ) { result = Dialog::NEXT; closed = true; }
++            else if ( index == footerStart + 2 ) {
++                if ( showStandardTextMessage( hero.GetName(), _( "Are you sure you want to dismiss this Hero?" ), Dialog::YES | Dialog::NO ) == Dialog::YES ) { result = Dialog::DISMISS; closed = true; }
++            }
++            else closed = true;
++        }
++        else if ( tab == 0 ) {
++            if ( index == dockStart ) { if ( army.isSelected() ) { focus = 3 + army.GetSelectedIndex(); information(); } }
++            else if ( index == dockStart + 1 ) { splitting = !splitting; focus = 3 + army.GetSelectedIndex(); }
++            else { hero.GetArmy().SetSpreadFormation( !hero.GetArmy().isSpreadFormation() ); layout(); }
++        }
++        else if ( tab == 1 ) {
++            if ( index == dockStart ) { if ( artifacts.isSelected() ) { focus = 3 + artifacts.GetSelectedIndex(); information(); } }
++            else hero.OpenSpellBook( SpellBook::Filter::ALL, false, false, {} );
++        }
++    };
++    const auto draw = [&]() {
++        top.fill( 0 ); bottom.fill( 0 );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        Fill( top, 12, 48, 376, 178, GetColorId( 35, 29, 24 ) );
++        std::string heading = _( "%{name} the %{race} (Level %{level})" ); StringReplace( heading, "%{race}", Race::String( hero.GetRace() ) ); StringReplace( heading, "%{level}", hero.GetLevel() );
++        const auto gameLanguage = getLanguageFromAbbreviation( Settings::Get().getGameLanguage() );
++        auto title = getLocalizedText( getLocalizedStrings( heading, gameLanguage, "%{name}", hero.GetName(), language ), FontType::normalYellow() );
++        if ( title->height( 376 ) > 40 ) title = getLocalizedText( getLocalizedStrings( heading, gameLanguage, "%{name}", hero.GetName(), language ), FontType::smallYellow() );
++        title->drawInRoi( 12, 8, 376, top, { 12, 8, 376, 40 } );
++        hero.PortraitRedraw( 24, 55, PORT_BIG, top );
++        const std::array<int, 4> values{ hero.GetAttack(), hero.GetDefense(), hero.GetPower(), hero.GetKnowledge() };
++        for ( int i = 0; i < 4; ++i ) Text( std::string( Skill::Primary::String( primary[i] ) ) + ": " + std::to_string( values[i] ), FontType::normalWhite() ).draw( 136, 53 + i * 22, 240, top );
++        Text( _( "Experience" ) + std::string( ": " ) + std::to_string( hero.GetExperience() ), FontType::normalWhite() ).draw( 20, 154, 360, top );
++        Text( _( "Spell Points" ) + std::string( ": " ) + std::to_string( hero.GetSpellPoints() ) + "/" + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 20, 176, 360, top );
++        Text( _( "Morale" ) + std::string( ": " ) + std::to_string( hero.GetMorale() ) + "    " + _( "Luck" ) + ": " + std::to_string( hero.GetLuck() ), FontType::smallWhite() ).draw( 20, 194, 360, top );
++        Text( _( "Hero Movement Points" ) + std::string( ": " ) + std::to_string( hero.GetMovePoints() ), FontType::smallWhite() ).draw( 20, 211, 360, top );
++        const auto skills = hero.GetSecondarySkills().ToVector();
++        for ( int i = 0; i < itemCount; ++i ) {
++            const Rect & area = areas[3 + i]; Fill( bottom, area.x, area.y, area.width, area.height, GetColorId( 35, 29, 24 ) );
++            DrawRect( bottom, area, GetColorId( 90, 65, 40 ) );
++            bool selected = false;
++            if ( tab == 0 ) {
++                const auto * troop = hero.GetArmy().GetTroop( i );
++                if ( troop->isValid() ) {
++                    icon( Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() ), bottom, { area.x + 2, area.y + 2, 52, 38 } );
++                    Text count( std::to_string( troop->GetCount() ), FontType::normalWhite() );
++                    if ( count.width() > 54 ) count.set( std::to_string( troop->GetCount() ), FontType::smallWhite() );
++                    count.draw( area.x, area.y + 42, 56, bottom );
++                }
++                selected = army.isSelected() && army.GetSelectedIndex() == i;
++            }
++            else if ( tab == 1 ) {
++                const auto & artifact = hero.GetBagArtifacts()[i];
++                if ( artifact.isValid() ) icon( Assets::getImage( ICN::ARTFX, artifact.IndexSprite32() ), bottom, { area.x + 2, area.y + 7, 36, 36 } );
++                selected = artifacts.isSelected() && artifacts.GetSelectedIndex() == i;
++            }
++            else if ( i < 4 ) {
++                icon( Assets::getImage( ICN::PRIMSKIL, primary[i] - 1 ), bottom, { area.x + 16, area.y + 1, 36, 30 } );
++                Text( std::to_string( values[i] ), FontType::normalWhite() ).draw( area.x, area.y + 31, 68, bottom );
++            }
++            else if ( size_t( i - 4 ) < skills.size() && skills[i - 4].isValid() ) {
++                icon( Assets::getImage( ICN::MINISS, skills[i - 4].GetIndexSprite2() ), bottom, { area.x + 20, area.y + 1, 28, 25 } );
++                Text( Skill::Level::String( skills[i - 4].Level() ), FontType::smallWhite() ).draw( area.x, area.y + 27, 68, bottom );
++            }
++            if ( selected ) DrawRect( bottom, area, GetColorId( 255, 225, 96 ) );
++        }
++        int buttonIndex = 0;
++        for ( int i = 0; i < int( areas.size() ); ++i ) {
++            if ( i >= 3 && i < dockStart ) continue;
++            auto & button = *buttons[buttonIndex++]; if ( enabled( i ) ) button.enable(); else button.disable();
++            if ( down && !moved && pressed == i ) button.press(); else button.release(); button.draw( bottom );
++            if ( i == tab ) Fill( bottom, areas[i].x, areas[i].y + areas[i].height + 1, areas[i].width, 2, GetColorId( 255, 225, 96 ) );
++        }
++        if ( tab == 0 ) Text( splitting ? _( "Split" ) : "D-pad / A     B: " + std::string( _( "Details" ) ) + "     Y", FontType::smallYellow() ).draw( 12, 132, 296, bottom );
++        const Rect & focused = areas[focus]; Fill( bottom, focused.x, focused.y - 2, focused.width, 1, GetColorId( 160, 220, 255 ) );
++        Display::instance().render();
++    };
++    layout(); draw();
++    const auto capture = [&]() {
++        if ( !Platform3DS::smokeTest() ) return;
++        const std::string name = std::string( "sdmc:/3ds/fheroes2/hero-" ) + ( tab == 0 ? "army" : tab == 1 ? "artifacts" : "skills" );
++        if ( !Save( top, name + "-top.bmp" ) || !Save( bottom, name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture hero" );
++    };
++    capture(); auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input; bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                switch ( input.key ) {
++                case PanelKey::Cancel: closed = true; break;
++                case PanelKey::Confirm: activate( focus ); break;
++                case PanelKey::Information: information(); break;
++                case PanelKey::Toggle: changeTab( ( tab + 1 ) % 3 ); break;
++                case PanelKey::Left: focus = ( focus + int( areas.size() ) - 1 ) % areas.size(); break;
++                case PanelKey::Right: focus = ( focus + 1 ) % areas.size(); break;
++                case PanelKey::Up: focus = std::max( 0, focus - ( tab == 1 ? 7 : tab == 2 ? 4 : 5 ) ); break;
++                case PanelKey::Down: focus = std::min( int( areas.size() ) - 1, focus + ( tab == 1 ? 7 : tab == 2 ? 4 : 5 ) ); break;
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                start = input.position; down = true; moved = false; pressed = -1; began = SDL_GetTicks();
++                for ( int i = 0; i < int( areas.size() ); ++i ) if ( areas[i] & start ) { pressed = focus = i; break; }
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( areas[pressed] & input.position ) ) activate( pressed );
++                else if ( down && moved && !readonly && tab == 0 && pressed >= 3 && pressed < 8 ) {
++                    for ( int i = 3; i < 8; ++i ) if ( i != pressed && ( areas[i] & input.position ) ) {
++                        army.ResetSelected(); army.activate( center( areas[pressed] ) ); army.activate( center( areas[i] ), false, true ); splitting = false; break;
++                    }
++                }
++                down = false; pressed = -1;
++            }
++        }
++        if ( !closed && down && !moved && pressed >= 3 && pressed < dockStart && SDL_GetTicks() - began >= 550 ) { heldInformation(); redraw = true; }
++        if ( redraw && !closed ) draw();
++    }
++    if ( Platform3DS::smokeTest() ) { draw(); capture(); }
++    return result;
++}
++void Interface3DS::testHero()
++{
++    using Step = std::pair<uint32_t, SDL_Event>;
++    const auto key = []( int button, bool pressed ) { SDL_Event event{}; event.type = pressed ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = button; event.cbutton.state = pressed ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto tap = [&]( std::vector<Step> & steps, int x, int y ) { steps.emplace_back( 120, touch( SDL_FINGERDOWN, x, y ) ); steps.emplace_back( 120, touch( SDL_FINGERUP, x, y ) ); };
++    const auto press = [&]( std::vector<Step> & steps, int button, uint32_t delay = 300 ) { steps.emplace_back( delay, key( button, true ) ); steps.emplace_back( 100, key( button, false ) ); };
++    const auto close = [&]( std::vector<Step> & steps ) { press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 600 ); };
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT ), other( Heroes::SIRGALLANTH, Race::KNGT ); hero.SetColor( PlayerColor::BLUE );
++    auto & heroes = hero.GetKingdom().GetHeroes();
++    struct RestoreHeroes { VecHeroes & heroes; VecHeroes saved; ~RestoreHeroes() { heroes = saved; } } restore{ heroes, heroes };
++    heroes.clear(); heroes.push_back( &hero ); heroes.push_back( &other );
++    const auto prepare = [&]() {
++        hero.GetArmy().Reset(); hero.GetArmy().GetTroop( 0 )->Set( Monster::ARCHER, 10 ); hero.GetArmy().GetTroop( 1 )->Set( Monster::PEASANT, 20 ); hero.GetArmy().GetTroop( 2 )->Set( Monster::ARCHER, 5 );
++        for ( auto & artifact : hero.GetBagArtifacts() ) artifact.Reset();
++        hero.SpellBookActivate(); hero.GetBagArtifacts()[1] = Artifact( Artifact::SNAKE_RING ); hero.GetBagArtifacts()[2] = Artifact( Artifact::SPIKED_HELM );
++        hero.AppendSpellToBook( Spell( Spell::BLESS ), true ); hero.SetSpellPoints( 10 ); hero.GetArmy().SetSpreadFormation( false ); hero.ResetModes( Heroes::NOTDISMISS );
++    };
++    const auto run = [&]( bool readonly, bool disableDismiss, bool disableSwitch, std::vector<Step> steps ) {
++        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage();
++        const auto parentTop = Platform3DS::modalTopImage(); const auto parentBottom = Platform3DS::modalBottomImage();
++        const std::vector<uint8_t> frame( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "hero-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start hero test input" );
++        int result = 0, status = 0;
++        try { result = hero.OpenDialog( readonly, false, disableDismiss, disableSwitch, false, false, getLanguageFromAbbreviation( Settings::Get().getGameLanguage() ) ); }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        const auto after = Platform3DS::viewport();
++        if ( status || crop.x != after.x || crop.y != after.y || parentTop != Platform3DS::modalTopImage() || parentBottom != Platform3DS::modalBottomImage()
++             || hud != Platform3DS::battleHUDImage() || strip != Platform3DS::commandStripImage() || std::memcmp( frame.data(), display.image(), frame.size() )
++             || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Hero changed frame/context or leaked release" );
++        return result;
++    };
++    prepare(); std::vector<Step> steps; tap( steps, 40, 80 ); tap( steps, 220, 80 ); close( steps );
++    if ( run( false, false, false, steps ) != Dialog::CANCEL || hero.GetArmy().GetTroop( 0 )->isValid() || hero.GetArmy().GetTroop( 3 )->GetCount() != 10 || hero.GetArmy().getTotalCount() != 35 ) throw std::runtime_error( "Hero move handler differs" );
++    prepare(); steps.clear(); tap( steps, 40, 80 ); tap( steps, 160, 80 ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetArmy().GetTroop( 2 )->GetCount() != 15 || hero.GetArmy().getTotalCount() != 35 ) throw std::runtime_error( "Hero merge handler differs" );
++    prepare(); steps.clear(); tap( steps, 40, 80 ); tap( steps, 100, 80 ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetArmy().GetTroop( 0 )->GetID() != Monster::PEASANT || hero.GetArmy().GetTroop( 1 )->GetID() != Monster::ARCHER || hero.GetArmy().getTotalCount() != 35 ) throw std::runtime_error( "Hero exchange handler differs" );
++    prepare(); steps.clear(); tap( steps, 40, 80 ); tap( steps, 160, 170 ); tap( steps, 220, 80 ); press( steps, SDL_CONTROLLER_BUTTON_A, 700 ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetArmy().getTotalCount() != 35 || !hero.GetArmy().GetTroop( 3 )->isValid() || hero.GetArmy().GetTroop( 0 )->GetCount() >= 10 ) throw std::runtime_error( "Hero native split handler failed" );
++    prepare(); steps.clear(); steps.emplace_back( 120, touch( SDL_FINGERDOWN, 40, 80 ) ); steps.emplace_back( 150, touch( SDL_FINGERMOTION, 220, 80 ) ); steps.emplace_back( 120, touch( SDL_FINGERUP, 220, 80 ) ); close( steps ); close( steps );
++    run( false, false, false, steps ); if ( hero.GetArmy().getTotalCount() != 35 || hero.GetArmy().GetTroop( 3 )->isValid() ) throw std::runtime_error( "Cancelled hero drag split changed army" );
++    prepare(); steps.clear(); tap( steps, 160, 20 ); tap( steps, 74, 80 ); tap( steps, 158, 80 ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetBagArtifacts()[1].isValid() || hero.GetBagArtifacts()[3] != Artifact( Artifact::SNAKE_RING ) || !hero.HaveSpellBook() ) throw std::runtime_error( "Hero artifact reorder differs" );
++    prepare(); const auto mana = hero.GetSpellPoints(); const auto bag = hero.GetBagArtifacts().String();
++    steps.clear(); tap( steps, 160, 20 ); tap( steps, 32, 80 ); close( steps ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetSpellPoints() != mana || hero.GetBagArtifacts().String() != bag ) throw std::runtime_error( "Hero book view changed mana/inventory" );
++    prepare(); steps.clear(); tap( steps, 260, 170 ); close( steps ); run( false, false, false, steps );
++    if ( !hero.GetArmy().isSpreadFormation() ) throw std::runtime_error( "Hero formation did not change" );
++    prepare(); const auto armyBefore = hero.GetArmy().String(); const auto artifactsBefore = hero.GetBagArtifacts().String();
++    steps.clear(); tap( steps, 40, 80 ); tap( steps, 220, 80 ); tap( steps, 260, 170 ); tap( steps, 160, 20 ); tap( steps, 74, 80 ); tap( steps, 158, 80 ); tap( steps, 140, 217 ); tap( steps, 70, 217 ); close( steps );
++    run( true, false, false, steps ); if ( hero.GetArmy().String() != armyBefore || hero.GetBagArtifacts().String() != artifactsBefore || hero.GetArmy().isSpreadFormation() ) throw std::runtime_error( "Readonly hero changed contents" );
++    prepare(); steps.clear(); tap( steps, 30, 217 ); if ( run( false, false, false, steps ) != Dialog::PREV ) throw std::runtime_error( "Previous hero result differs" );
++    steps.clear(); tap( steps, 70, 217 ); if ( run( false, false, false, steps ) != Dialog::NEXT ) throw std::runtime_error( "Next hero result differs" );
++    steps.clear(); tap( steps, 30, 217 ); tap( steps, 70, 217 ); tap( steps, 140, 217 ); close( steps );
++    if ( run( false, true, true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Disabled hero actions accepted" );
++    steps.clear(); tap( steps, 140, 217 ); close( steps ); close( steps ); if ( run( false, false, false, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Dismiss cancellation closed hero with dismiss" );
++    steps.clear(); tap( steps, 140, 217 ); press( steps, SDL_CONTROLLER_BUTTON_A, 700 ); if ( run( false, false, false, steps ) != Dialog::DISMISS ) throw std::runtime_error( "Hero dismiss confirmation result differs" );
++    hero.SetModes( Heroes::NOTDISMISS ); steps.clear(); tap( steps, 140, 217 ); close( steps ); if ( run( false, false, false, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Protected hero dismissal allowed" );
++    prepare(); hero.GetArmy().Reset(); hero.GetArmy().GetTroop( 0 )->Set( Monster::ARCHER, 1 ); steps.clear(); tap( steps, 40, 80 ); press( steps, SDL_CONTROLLER_BUTTON_B ); close( steps ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetArmy().getTotalCount() != 1 ) throw std::runtime_error( "Hero last troop lost through information" );
++    prepare(); steps.clear(); steps.emplace_back( 120, touch( SDL_FINGERDOWN, 40, 80 ) ); press( steps, SDL_CONTROLLER_BUTTON_Y ); steps.emplace_back( 120, touch( SDL_FINGERUP, 40, 80 ) ); close( steps ); run( false, false, false, steps );
++    if ( hero.GetBagArtifacts().String() != artifactsBefore ) throw std::runtime_error( "Tab change reused held touch" );
++    prepare(); const auto heldArmy = hero.GetArmy().String(); steps.clear(); steps.emplace_back( 120, touch( SDL_FINGERDOWN, 40, 80 ) ); steps.emplace_back( 1200, touch( SDL_FINGERUP, 40, 80 ) ); close( steps );
++    run( false, false, false, steps ); if ( hero.GetArmy().String() != heldArmy ) throw std::runtime_error( "Held hero troop info changed army" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_A ); close( steps ); close( steps ); run( false, false, false, steps );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
++    steps.clear(); close( steps ); run( true, true, true, steps ); Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel(); Settings::Get().setInterfaceType( previous );
++    prepare(); hero.GetArmy().GetTroop( 0 )->SetCount( 1000000000 ); steps.clear(); close( steps ); run( false, false, false, steps );
++    steps.clear(); tap( steps, 160, 20 ); close( steps ); run( false, false, false, steps );
++    hero.GetSecondarySkills().ToVector().clear();
++    for ( int skill : { Skill::Secondary::PATHFINDING, Skill::Secondary::ARCHERY, Skill::Secondary::LOGISTICS, Skill::Secondary::SCOUTING, Skill::Secondary::DIPLOMACY, Skill::Secondary::LEADERSHIP, Skill::Secondary::WISDOM, Skill::Secondary::LUCK } ) hero.GetSecondarySkills().AddSkill( Skill::Secondary( skill, Skill::Level::EXPERT ) );
++    steps.clear(); tap( steps, 260, 20 ); close( steps ); run( false, false, false, steps );
++    COUT( "3DS HERO SMOKE: PASS actual_OpenDialog original_army_move_merge_swap_split drag_cancel artifacts_reorder_book readonly formation prev_next dismiss_confirm_cancel_protected last_troop tabs_held_touch skills nested_evil large_counts unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp
