@@ -35,6 +35,8 @@ function Read-MenuLog {
 try {
     $binary = Join-Path $workspace 'build/game/fheroes2.3dsx'
     $process = Start-Process -FilePath $emulator -ArgumentList ('"' + $binary + '"') -WindowStyle Hidden -PassThru
+    # Keep the desktop responsive during the growing emulator test suite.
+    if (!$process.HasExited) { $process.PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal }
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     do {
         Start-Sleep -Seconds 2
@@ -42,6 +44,10 @@ try {
         if ($process.HasExited -and !$report.Contains('3DS MENU SMOKE: PASS')) { throw 'Emulator exited before menu was ready' }
     } while (!$report.Contains('3DS MENU SMOKE: PASS') -and [DateTime]::UtcNow -lt $deadline)
     if (!$report.Contains('3DS MENU SMOKE: PASS')) { throw 'Menu test timeout' }
+    # Screenshots and the completion marker are written before PASS. Do not keep
+    # emulating the menu while PowerShell validates the captured pixels.
+    if (!$process.HasExited) { Stop-Process -Id $process.Id }
+    if (!$process.WaitForExit(5000)) { throw 'Emulator did not stop after menu test completed' }
     if (!$report.Contains('3DS RENDERER BRIDGE SMOKE: PASS pointer_edges button_hold software_cursor_config')) { throw 'Renderer input bridge smoke test incomplete' }
     if (!$report.Contains('3DS COMMAND STRIP SMOKE: PASS')) { throw 'Command panel smoke test incomplete' }
     if (!$report.Contains('3DS MAP SCROLL SMOKE: PASS')) { throw 'Adventure map scroll smoke test incomplete' }

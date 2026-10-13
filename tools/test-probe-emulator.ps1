@@ -30,6 +30,7 @@ function Read-TestLog {
 try {
     $binary = Join-Path $workspace $(if ($Engine) { 'build/game/fheroes2-engine-test.3dsx' } else { 'build/probe/fheroes2-probe.3dsx' })
     $process = Start-Process -FilePath $emulator -ArgumentList ('"' + $binary + '"') -WindowStyle Hidden -PassThru
+    if (!$process.HasExited) { $process.PriorityClass = [Diagnostics.ProcessPriorityClass]::BelowNormal }
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $finished = $false
     do {
@@ -38,6 +39,8 @@ try {
         if ($process.HasExited -and !$finished) { throw 'Emulator exited before test completed' }
     } while (!$finished -and [DateTime]::UtcNow -lt $deadline)
     if (!$finished) { throw "Emulator test timed out after $TimeoutSeconds seconds" }
+    if (!$process.HasExited) { Stop-Process -Id $process.Id }
+    if (!$process.WaitForExit(5000)) { throw 'Emulator did not stop after self-test completed' }
     Copy-Item -LiteralPath $log -Destination (Join-Path $output 'probe.log') -Force
     if (!$Engine) {
         foreach ($name in @('top.bmp','bottom.bmp')) { Copy-Item -LiteralPath (Join-Path $sd $name) -Destination $output -Force }
