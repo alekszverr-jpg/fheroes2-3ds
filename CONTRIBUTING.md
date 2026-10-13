@@ -2,6 +2,10 @@
 
 Build and test the current preview before changing code. The maintained environment is Windows/PowerShell 7; alternative host environments need their own toolchain integration.
 
+## Current host emulator limitation
+
+On 2026-10-13 this Windows host froze during Azahar validation and required a forced reboot, even with BelowNormal emulator priority. Suspend automatic Azahar runs on this host. Do not retry emulator tests unless the user explicitly requests a diagnostic run after this incident. Use builds/static checks and hardware validation in the meantime, and record incomplete emulator runs as incomplete.
+
 ## Editing the engine
 
 `tools/prepare-upstream.ps1` creates the ignored `fheroes2/` working checkout at the pinned baseline and applies `patches/fheroes2-3ds.patch`. Edit engine/game sources in that checkout. Existing edits are preserved on subsequent builds.

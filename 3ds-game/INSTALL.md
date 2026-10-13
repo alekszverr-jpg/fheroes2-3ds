@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.25
+# fheroes2 for Nintendo 3DS — preview 0.3.26
+
+## Preview 0.3.26: opaque creature card and readable spellbook tabs
+
+0.3.26 validation: ARM Release with two build jobs, the complete Russian New 3DS run, desktop syntax for both changed files, and clean-baseline patch application passed. Background and Russian tab captures were inspected. The English run was interrupted by a host freeze requiring a forced reboot and did not pass. Old and additional engine tests were not repeated for this UI change. Automatic Azahar runs on this host are suspended. Ready 3dsx/ru.mo files are staged for SD; 0.3.26 archives have not been created yet.
+
+Interactive creature information now covers the entire lower screen with its dialog background, including the area above the action buttons. The full spellbook has two wide text tabs, Adventure and Combat, at the top of the lower screen, with the selected category outlined. Y still switches categories. Original book artwork, six spells per spread, paging and explicit cast confirmation are retained. Total mana is shown on the upper screen when both categories are available.
+
+Updating from 0.3.25 requires replacing `3ds/fheroes2/fheroes2.3dsx` and Russian `3ds/fheroes2/files/lang/ru.mo` for the new labels. On New 3DS XL, check creature details from the hero army, complete background coverage and returning to the army tab. In the full book, check both touch tabs/Y, selection, paging, spell details and return to the hero. Also check the battle/adventure books for their permitted category and original cast confirmation. Hardware validation of 0.3.26 is pending; no physical Old 3DS is available.
+
+On 2026-10-13 the user accepted 0.3.25 on New 3DS XL with two UI issues: the map remained visible behind the lower creature panel and spellbook category switches were too small. No scenario breakdown was provided.
 
 ## Preview 0.3.25: dual-screen hero dialog
 

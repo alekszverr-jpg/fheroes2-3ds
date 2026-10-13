@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.25'
+$version = '0.3.26'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -33,9 +33,13 @@ $manifest = [ordered]@{
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'
     marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
+    native_card_book='Opaque full-screen interactive creature background; wide Adventure/Combat text tabs in full spellbook, Y retained, total mana above; original single-category casting unchanged'
+    emulated_card_book='Russian New passed; English interrupted by host freeze/reboot, not passed; Old not rerun for this UI change; automatic host Azahar runs suspended'
+    hardware_card_book='0.3.26 pending New 3DS XL validation'
+    upgrade_card_book='Replace 3dsx and Russian files/lang/ru.mo for category labels'
     native_hero='Top portrait/stats, lower Army/Artifacts/Skills tabs; original widget army and artifact actions, full book, readonly/dismiss/switch protections; editor uses legacy screen'
     emulated_hero='New/Old Russian and New English passed: real OpenDialog/widget moves/merges/swaps/splits, artifact/book actions, readonly, formation, navigation, dismissal result/protections, held info/tabs, nested restoration and large counts; actual castle upgrades/outer hero removal/save effects pending hardware'
-    hardware_hero='0.3.25 pending New 3DS XL validation; no physical Old 3DS'
+    hardware_hero='0.3.25 accepted on New 3DS XL with lower creature background and tiny book tab issues; no scenario breakdown; no physical Old 3DS'
     upgrade_hero='Replace 3dsx and Russian files/lang/ru.mo for new short labels'
     native_resource_gift='Full lower recipients/resources/quantity/slider/send/cancel; top per-recipient gift and total balances; original next-day event and sender deduction handler'
     emulated_resource_gift='Russian New/Old and English New passed: multi-recipient budgets/reset, seven resources, gold steps/MIN/MAX/slider/controller, disabled/drag/cancel, signed limits, nested/Evil modal/frame/HUD/viewport/input; real caller cancellation; confirmed send and next-day event delivery not exercised by automated tests'

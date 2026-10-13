@@ -1,5 +1,5 @@
 diff --git a/files/lang/ru.po b/files/lang/ru.po
-index 679b71a..54ec436 100644
+index 679b71a..99280c6 100644
 --- a/files/lang/ru.po
 +++ b/files/lang/ru.po
 @@ -12789,6 +12789,24 @@ msgstr "северо-восток"
@@ -27,7 +27,7 @@ index 679b71a..54ec436 100644
  msgid "center"
  msgstr "середин"
  
-@@ -12844,3 +12862,24 @@ msgstr "Возрождается неведомая сила..."
+@@ -12844,3 +12862,30 @@ msgstr "Возрождается неведомая сила..."
  
  #~ msgid "Create a new map from scratch."
  #~ msgstr "Создать новую карту с нуля."
@@ -52,6 +52,12 @@ index 679b71a..54ec436 100644
 +
 +msgid "Book"
 +msgstr "Книга"
++
++msgid "spellBook3DS|Adventure"
++msgstr "Походные"
++
++msgid "spellBook3DS|Combat"
++msgstr "Боевые"
 diff --git a/src/engine/core.cpp b/src/engine/core.cpp
 index d50ca80..051a3d0 100644
 --- a/src/engine/core.cpp
@@ -2833,10 +2839,10 @@ index 0000000..43a1e49
 +};
 diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
 new file mode 100644
-index 0000000..7c35e25
+index 0000000..cbccd1b
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_army.cpp
-@@ -0,0 +1,371 @@
+@@ -0,0 +1,361 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -3040,16 +3046,6 @@ index 0000000..7c35e25
 +        const int x = ( 320 - released.width() ) / 2;
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( x, 206 - int( actions.size() - 1 - i ) * 32, std::move( released ), std::move( pressed ) ) );
 +    }
-+    // Retain the frozen game detail behind an action dock instead of a second full-screen card.
-+    const int dockTop = interactive ? 196 - int( actions.size() - 1 ) * 32 : 240;
-+    Image dock( 320, 240 - dockTop );
-+    if ( interactive ) {
-+        dock.fill( background ); StandardWindow::renderBackgroundImage( dock, { 0, 0, dock.width(), dock.height() }, 0, evil ); DrawBorder( dock, border );
-+    }
-+    const auto crop = Platform3DS::viewport();
-+    const auto & display = Display::instance();
-+    Image backdrop( 320, 240 ); backdrop.fill( background );
-+    Copy( display, crop.x, crop.y, backdrop, 0, 0, 320, std::min( dockTop, Platform3DS::detailHeight() ) );
 +    int scroll = 0, selected = int( actions.size() ) - 1, pressed = -1, result = Dialog::ZERO;
 +    bool closed = false, down = !interactive && Platform3DS::isPhysicalTouchHeld(), moved = false;
 +    Point start = Platform3DS::physicalTouchPosition(), last = start;
@@ -3065,7 +3061,7 @@ index 0000000..7c35e25
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
 +        if ( height > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
 +        if ( interactive ) {
-+            Copy( backdrop, bottom ); Copy( dock, 0, 0, bottom, 0, dockTop, dock.width(), dock.height() );
++            bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawBorder( bottom, border );
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
 +                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y + area.height + 1, area.width, 2, border ); }
@@ -6191,10 +6187,10 @@ index 0000000..c3f61e1
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 new file mode 100644
-index 0000000..611c1db
+index 0000000..87f1231
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_spellbook.cpp
-@@ -0,0 +1,545 @@
+@@ -0,0 +1,557 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -6426,8 +6422,20 @@ index 0000000..611c1db
 +        }
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) ) );
 +    }
-+    const auto spellArea = []( size_t slot ) { return Rect{ slot / 3 ? 168 : 16, 32 + int( slot % 3 ) * 54, 136, 52 }; };
-+    const std::array<Rect, 2> tabs{ Rect{ 224, 4, 42, 24 }, Rect{ 272, 4, 42, 24 } };
++    const auto spellArea = [&]( size_t slot ) { return Rect{ slot / 3 ? 168 : 16, ( switchFilters ? 36 : 32 ) + int( slot % 3 ) * 54, 136, 52 }; };
++    const std::array<Rect, 2> tabs{ Rect{ 4, 4, 152, 28 }, Rect{ 164, 4, 152, 28 } };
++    std::vector<std::unique_ptr<ButtonBase>> filterButtons;
++    if ( switchFilters ) {
++        const std::array<std::string, 2> filterLabels{ _( "spellBook3DS|Adventure" ), _( "spellBook3DS|Combat" ) };
++        for ( size_t i = 0; i < tabs.size(); ++i ) {
++            Sprite released, pressed;
++            makeButtonSprites( released, pressed, "", { tabs[i].width - 6, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++            Text label( filterLabels[i], FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
++            label.draw( 4, ( released.height() - label.height() ) / 2, released.width() - 8, released );
++            label.draw( 3, ( pressed.height() - label.height() ) / 2 + 1, pressed.width() - 8, pressed );
++            filterButtons.emplace_back( std::make_unique<ButtonSprite>( tabs[i].x, tabs[i].y, std::move( released ), std::move( pressed ) ) );
++        }
++    }
 +    const auto update = [&]() {
 +        scroll = 0;
 +        std::string body = spells.empty() ? _( "No spell to cast." ) : getSpellDescription( spells[selected], &hero );
@@ -6455,7 +6463,8 @@ index 0000000..611c1db
 +        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawBorder( top, border );
 +        Text title( spells.empty() ? ( filter == SpellBook::Filter::CMBT ? _( "View Combat Spells" ) : _( "View Adventure Spells" ) ) : spells[selected].GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
-+        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
++        if ( switchFilters ) Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 12, 224, 276, top );
++        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( switchFilters ? 288 : 0, 224, switchFilters ? 100 : 400, top );
 +        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
 +        const auto & leaf = Assets::getImage( ICN::BOOK, 0 );
 +        Image spread( leaf.width() * 2, leaf.height() ); spread.reset();
@@ -6465,16 +6474,15 @@ index 0000000..611c1db
 +        if ( !page ) Blit( corner, 0, 0, spread, leaf.width() - corner.x() - corner.width(), corner.y(), corner.width(), corner.height(), true );
 +        if ( page + 6 >= spells.size() ) Blit( corner, spread, leaf.width() + corner.x(), corner.y() );
 +        Image book( 320, 196 ); book.reset(); Resize( spread, book ); Blit( book, bottom, 0, 0 );
-+        Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 8, 10, switchFilters ? 208 : 304, bottom );
++        if ( !switchFilters ) Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 8, 10, 304, bottom );
 +        if ( switchFilters ) {
 +            for ( size_t i = 0; i < tabs.size(); ++i ) {
 +                const auto & tab = tabs[i];
-+                const auto & original = Assets::getImage( ICN::BOOK, 3 + int( i ) );
-+                Image bookmark( tab.width - 4, tab.height - 4 ); bookmark.reset(); Resize( original, bookmark );
-+                Blit( bookmark, bottom, tab.x + 2, tab.y + 2 );
++                if ( down && !moved && ( tab & start ) ) filterButtons[i]->press(); else filterButtons[i]->release();
++                filterButtons[i]->draw( bottom );
 +                if ( ( i == 0 ) == ( filter == SpellBook::Filter::ADVN ) ) {
-+                    Fill( bottom, tab.x, tab.y, tab.width, 1, border ); Fill( bottom, tab.x, tab.y + tab.height - 1, tab.width, 1, border );
-+                    Fill( bottom, tab.x, tab.y, 1, tab.height, border ); Fill( bottom, tab.x + tab.width - 1, tab.y, 1, tab.height, border );
++                    DrawRect( bottom, tab, border );
++                    DrawRect( bottom, { tab.x + 1, tab.y + 1, tab.width - 2, tab.height - 2 }, border );
 +                }
 +            }
 +        }
@@ -6696,8 +6704,8 @@ index 0000000..611c1db
 +         || callbackText.find( Spell( Spell::BLESS ).GetName() ) == std::string::npos )
 +        throw std::runtime_error( "Full book controller tab switch differs" );
 +    if ( run( SpellBook::Filter::ALL, false, false, {
-+        { 250, touch( SDL_FINGERDOWN, 290, 12 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
-+        { 80, touch( SDL_FINGERDOWN, 244, 12 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 250, touch( SDL_FINGERDOWN, 244, 16 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++        { 80, touch( SDL_FINGERDOWN, 80, 16 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +        { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Spell::NONE
 +         || callbackText.find( expected[0].GetName() ) == std::string::npos )
 +        throw std::runtime_error( "Full book touch tab switch differs" );
