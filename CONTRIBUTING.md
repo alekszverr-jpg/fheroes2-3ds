@@ -4,7 +4,7 @@ Build and test the current preview before changing code. The maintained environm
 
 ## Current host emulator limitation
 
-On 2026-10-13 this Windows host froze during Azahar validation and required a forced reboot, even with BelowNormal emulator priority. Suspend automatic Azahar runs on this host. Do not retry emulator tests unless the user explicitly requests a diagnostic run after this incident. Use builds/static checks and hardware validation in the meantime, and record incomplete emulator runs as incomplete.
+On 2026-10-13 this Windows host froze during a monolithic Azahar run and required a forced reboot. The user subsequently explicitly authorized emulator validation; all groups passed sequentially on New/Old Russian and New English with CPU/memory monitoring and per-process deadlines. Use only the affected short groups for ongoing changes, sequentially, with BelowNormal priority and bounded diagnostics. Do not automatically run monolithic Full on this host. Stop the series on a failed group, excessive load or reported desktop problems, and investigate before continuing.
 
 ## Editing the engine
 

@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.27
+# fheroes2 for Nintendo 3DS — preview 0.3.28
+
+## Preview 0.3.28: construction catalog
+
+Castle construction selection now uses both screens. The lower screen shows six original building icons per page, names, a status line (green: available, red: unavailable, brown: built), selection and paging. The upper screen shows enlarged artwork, description, current availability reason and prerequisites. Tap to select; tap the selected building/A to open the 0.3.27 confirmation. Hold/B show information, D-pad moves selection, Y changes pages, and dragging scrolls the description without activating a building. Exit/L cancel.
+
+Page controls, previous/next castle and income remain available; castle navigation is disabled with only one castle. Options opens the complete original window for hero recruitment, garrison formation and other existing actions. The main castle scene and these extra actions retain their original layout. BuildingInfo/original rules supply building IDs, dwelling upgrades, next guild level and tavern/shrine substitutions. Eligibility is checked before returning a build choice to the original Castle::BuyBuilding caller; the catalog does not spend funds itself.
+
+Validation: two-job ARM Release, desktop syntax for four files, clean-baseline patch application and offline test catalog checks passed. Independent Construction passed New/Old Russian and New English (about 14 seconds including loading); Building/New regression passed. Covered selection, Y/touch pages, Options result, disabled/enabled castle navigation, nested purchase cancellation, held info, drag cancellation, unchanged funds/frame/context and release isolation. Russian/English captures were inspected. Positive catalog purchase, real recruitment/income, actual castle entry, other races and game effects require hardware checks; synthetic fixtures do not construct buildings. Monolithic Full was not run.
+
+On 2026-10-14 the user accepted 0.3.27 on New 3DS XL without a scenario breakdown; no physical Old 3DS is available. Replace `3ds/fheroes2/fheroes2.3dsx` and Russian `3ds/fheroes2/files/lang/ru.mo` for 0.3.28. Check entry, pages/upgrades, affordable/unavailable buildings, payment/cancel, next castle, Options/recruitment, income, another race, release isolation and save/load. Hardware acceptance of 0.3.28 is pending.
 
 ## Preview 0.3.27: dual-screen construction confirmation
 
