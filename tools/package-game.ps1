@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.28'
+$version = '0.3.29'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -35,9 +35,11 @@ $manifest = [ordered]@{
     marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
     grouped_validation='42 independent menu group/model/language combinations and New/Old engine checks passed; New Russian, Old Russian, New English; no monolithic Full run'
     grouped_host_peaks='Sampled Azahar process: 10.9 percent total CPU, 604.3MB working set, 1004.9MB private; previous freeze cause unresolved'
+    construction_arrows='Graphic arrows for pages/previous-next castles; font glyphs replaced; castle buttons 96px and Income 112px; Russian/English New Construction and visual captures passed; Old not rerun for this local sprite change'
+    upgrade_construction_arrows='From 0.3.28 replace 3dsx only; translations unchanged'
     native_construction='Six original building icons per lower page; upper description/status/requirements; native confirmation; original eligibility, upgrades and purchase caller; original Options window retains recruitment/formation'
     validation_construction='Construction New/Old Russian and New English passed; Building New regression passed; selection/pages/nav/options/nested cancel/hold/drag/restoration; positive purchase, actual castle entry/income/recruitment/other races pending hardware; no monolithic Full'
-    hardware_construction='0.3.28 pending New 3DS XL; 0.3.27 accepted by user 2026-10-14 without scenario breakdown; no physical Old 3DS'
+    hardware_construction='0.3.28 accepted New 3DS XL with navigation arrow rendering issue; 0.3.29 pending; no scenario breakdown or physical Old 3DS'
     upgrade_construction='Replace 3dsx and Russian files/lang/ru.mo'
     native_building='Native dual-screen construction confirmation: original artwork/description/requirements above, opaque cost and Build/Cancel below; original eligibility rechecked on confirmation and payment handled by caller'
     validation_building='ARM/static checks and grouped New/Old Russian plus New English passed; actual BuildingInfo cancellation, synthetic allowed/disabled actions, drag, scroll, nested info, readonly, seven resources; actual payment/hardware pending'

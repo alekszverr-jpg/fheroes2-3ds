@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.29: construction navigation arrows
+
+Four page/castle navigation buttons now draw graphic arrows instead of text `<`/`>` characters that the game font rendered incorrectly. Arrows remain visible in released, pressed and disabled states; Castle labels are retained beside them. At the user's request, castle controls were widened from 76 to 96 pixels and Income narrowed from 152 to 112, leaving more space around the labels. Actions are unchanged.
+
+ARM Release and short Construction/New runs in Russian/English passed; captures were inspected. Old was not rerun for this local sprite change. On New 3DS XL check page and previous/next castle arrows, including disabled first-page/one-castle controls. Updating from 0.3.28 requires replacing only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged.
+
+On 2026-10-14 the user accepted normal operation of 0.3.28 on New 3DS XL with an issue where arrows looked like dots. No scenario breakdown was provided; no physical Old 3DS is available. Hardware validation of 0.3.29 is pending.
+
 ## Preview 0.3.28: construction catalog
 
 Castle construction selection now uses both screens. The lower screen shows six original building icons per page, names, a status line (green: available, red: unavailable, brown: built), selection and paging. The upper screen shows enlarged artwork, description, current availability reason and prerequisites. Tap to select; tap the selected building/A to open the 0.3.27 confirmation. Hold/B show information, D-pad moves selection, Y changes pages, and dragging scrolls the description without activating a building. Exit/L cancel.

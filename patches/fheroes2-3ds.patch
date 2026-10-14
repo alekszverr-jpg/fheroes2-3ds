@@ -4108,10 +4108,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_construction.cpp b/src/fheroes2/gui/ui_3ds_construction.cpp
 new file mode 100644
-index 0000000..4ffc8f2
+index 0000000..e90a2f3
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_construction.cpp
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,238 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4185,15 +4185,30 @@ index 0000000..4ffc8f2
 +    int scroll = 0, pressed = -1, touched = -1;
 +    bool down = false, moved = false; Point start, last; Uint32 began = 0;
 +    const std::array<Rect, 7> controls{ Rect{ 4, 174, 34, 28 }, Rect{ 82, 174, 34, 28 }, Rect{ 120, 174, 100, 28 }, Rect{ 224, 174, 92, 28 },
-+                                         Rect{ 4, 206, 76, 28 }, Rect{ 84, 206, 76, 28 }, Rect{ 164, 206, 152, 28 } };
-+    const std::array<std::string, 7> labels{ "<", ">", _( "construction3DS|Options" ), _( "Exit" ), "< " + std::string( _( "construction3DS|Castle" ) ), std::string( _( "construction3DS|Castle" ) ) + " >", _( "construction3DS|Income" ) };
++                                         Rect{ 4, 206, 96, 28 }, Rect{ 104, 206, 96, 28 }, Rect{ 204, 206, 112, 28 } };
++    const std::array<std::string, 7> labels{ "", "", _( "construction3DS|Options" ), _( "Exit" ), _( "construction3DS|Castle" ), _( "construction3DS|Castle" ), _( "construction3DS|Income" ) };
 +    std::array<std::unique_ptr<ButtonBase>, 7> buttons;
 +    for ( size_t i = 0; i < controls.size(); ++i ) {
 +        Sprite released, pressedSprite;
 +        makeButtonSprites( released, pressedSprite, "", { controls[i].width - 6, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= released.width() - 8 ? FontType::normalWhite() : FontType::smallWhite() ); text.fitToOneRow( released.width() - 8 );
-+        text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
-+        text.draw( 3, ( pressedSprite.height() - text.height() ) / 2 + 1, pressedSprite.width() - 8, pressedSprite );
++        const bool arrow = i < 2 || i == 4 || i == 5;
++        const bool left = i == 0 || i == 4;
++        if ( arrow ) {
++            const int centerX = i < 2 ? released.width() / 2 : left ? 10 : released.width() - 11;
++            const uint8_t white = GetColorId( 255, 255, 255 );
++            for ( int row = -6; row <= 6; ++row ) {
++                const int width = 7 - std::abs( row ), x = centerX - 3 + ( left ? std::abs( row ) : 0 );
++                Fill( released, x, released.height() / 2 + row, width, 1, white );
++                Fill( pressedSprite, x - 1, pressedSprite.height() / 2 + row + 1, width, 1, white );
++            }
++        }
++        if ( !labels[i].empty() ) {
++            const int textX = i == 4 ? 22 : 4;
++            const int textWidth = released.width() - ( i == 4 || i == 5 ? 28 : 8 );
++            Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= textWidth ? FontType::normalWhite() : FontType::smallWhite() ); text.fitToOneRow( textWidth );
++            text.draw( textX, ( released.height() - text.height() ) / 2, textWidth, released );
++            text.draw( textX - 1, ( pressedSprite.height() - text.height() ) / 2 + 1, textWidth, pressedSprite );
++        }
 +        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressedSprite ) );
 +    }
 +    const auto update = [&]() {
