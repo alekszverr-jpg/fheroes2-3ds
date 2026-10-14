@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.29
+# fheroes2 for Nintendo 3DS — preview 0.3.30
+
+## Preview 0.3.30: hero recruitment confirmation
+
+Castle::DialogBuyHero now uses separate screens: enlarged original framed portrait, original level/class/artifact description, primary statistics and army above; an opaque window with cost, treasury gold, eligibility reason and Recruit Hero/Cancel below. Normal descriptions fit; long descriptions scroll with D-pad up/down or stylus drag on free space. Left/right choose a button, A/Start confirm, L cancel, and B/hold show upper information. Cancel is selected by default; dragging off a button does not recruit.
+
+Original descriptions and PaymentConditions::RecruitHero remain. AllowBuyHero is checked while drawing and again before confirmation; funds, hero limit and an occupied castle follow original rules. The dialog returns OK/CANCEL; the existing caller recruits/places the hero and spends funds. Candidate selection and other Options still use the original layout; the main castle screen remains a subsequent task.
+
+Two-job ARM Release, three-file desktop syntax, offline group infrastructure and clean-baseline patch checks passed. Short HeroRecruit runs passed for New/Old Russian and New English (about 14s each), with captures inspected. Checks cover the real DialogBuyHero entry, null hero, allowed touch/controller, default cancel, insufficient gold, hero limit, held/nested information, drag cancellation, long-text scrolling, Evil UI and parent window/frame/viewport/input restoration without changes to funds or hero lists. Automated tests do not execute RecruitHero or its gameplay effects; monolithic Full was not run.
+
+Updating from 0.3.29 requires only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL check recruitment through Construction → Options, both candidates, cost/payment, hero appearance, insufficient funds/limit/occupied castle, cancel, and save/load after hiring. Hardware validation of 0.3.29 and 0.3.30 is pending; physical Old hardware is unavailable.
 
 ## Preview 0.3.29: construction navigation arrows
 

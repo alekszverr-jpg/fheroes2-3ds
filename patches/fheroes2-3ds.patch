@@ -1314,7 +1314,7 @@ index c525d1e..415d662 100644
      const Castle & castle;
      uint32_t _buildingType{ 0 };
 diff --git a/src/fheroes2/castle/castle_town.cpp b/src/fheroes2/castle/castle_town.cpp
-index d142f98..a346d0e 100644
+index d142f98..6629979 100644
 --- a/src/fheroes2/castle/castle_town.cpp
 +++ b/src/fheroes2/castle/castle_town.cpp
 @@ -63,6 +63,9 @@
@@ -1327,7 +1327,18 @@ index d142f98..a346d0e 100644
  
  int Castle::DialogBuyHero( const Heroes * hero ) const
  {
-@@ -177,6 +180,18 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
+@@ -99,6 +102,10 @@ int Castle::DialogBuyHero( const Heroes * hero ) const
+     StringReplace( str, "%{race}", Race::String( hero->GetRace() ) );
+     StringReplace( str, "%{count}", count );
+ 
++#if defined( __3DS__ )
++    return Interface3DS::showHeroRecruit( *this, *hero, str );
++#endif
++
+     const fheroes2::Text heroDescriptionText( std::move( str ), fheroes2::FontType::normalWhite() );
+ 
+     Resource::BoxSprite rbs( PaymentConditions::RecruitHero(), fheroes2::boxAreaWidthPx );
+@@ -177,6 +184,18 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
      }
  
      dwellingTobuild = BUILD_NOTHING;
@@ -1614,7 +1625,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..4838a63 100644
+index 69d39fb..3744d24 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -1665,7 +1676,7 @@ index 69d39fb..4838a63 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,104 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,105 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1675,7 +1686,7 @@ index 69d39fb..4838a63 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 15> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction" };
++        const std::array<const char *, 16> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -1751,6 +1762,7 @@ index 69d39fb..4838a63 100644
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
 +        runGroup( "BattleDialogs", []() { Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
++        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
 +        runGroup( "Construction", []() { Interface3DS::testConstruction(); } );
 +        runGroup( "Building", []() { Interface3DS::testBuildingPurchase(); } );
 +        runGroup( "Chest", []() { Interface3DS::testChestChoice(); } );
@@ -5770,10 +5782,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..c555a99
+index 0000000..97e44b5
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,85 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5807,6 +5819,8 @@ index 0000000..c555a99
 +    };
 +    void testConstruction();
 +    ConstructionChoice showConstruction( const Castle & castle );
++    int showHeroRecruit( const Castle & castle, const Heroes & hero, const std::string & description );
++    void testHeroRecruit();
 +    bool supportsMessage( int buttons, const std::vector<const fheroes2::DialogElement *> & elements );
 +    int showMessage( const fheroes2::TextBase & header, const fheroes2::TextBase & body, int buttons,
 +                     const std::vector<const fheroes2::DialogElement *> & elements );
@@ -6242,6 +6256,230 @@ index 0000000..b3a7769
 +    for ( int skill : { Skill::Secondary::PATHFINDING, Skill::Secondary::ARCHERY, Skill::Secondary::LOGISTICS, Skill::Secondary::SCOUTING, Skill::Secondary::DIPLOMACY, Skill::Secondary::LEADERSHIP, Skill::Secondary::WISDOM, Skill::Secondary::LUCK } ) hero.GetSecondarySkills().AddSkill( Skill::Secondary( skill, Skill::Level::EXPERT ) );
 +    steps.clear(); tap( steps, 260, 20 ); close( steps ); run( false, false, false, steps );
 +    COUT( "3DS HERO SMOKE: PASS actual_OpenDialog original_army_move_merge_swap_split drag_cancel artifacts_reorder_book readonly formation prev_next dismiss_confirm_cancel_protected last_troop tabs_held_touch skills nested_evil large_counts unchanged_frame_hud_viewport release_isolation" )
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_hero_recruit.cpp b/src/fheroes2/gui/ui_3ds_hero_recruit.cpp
+new file mode 100644
+index 0000000..39b4b97
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_hero_recruit.cpp
+@@ -0,0 +1,218 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <stdexcept>
++#include <utility>
++#include <SDL.h>
++#include "army.h"
++#include "army_troop.h"
++#include "castle.h"
++#include "cursor.h"
++#include "dialog.h"
++#include "game_assets.h"
++#include "heroes.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "payment.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "skill.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace
++{
++    using namespace fheroes2;
++    int lastRecruitScroll = 0;
++    class RecruitHeroScope
++    {
++    public:
++        RecruitHeroScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++            LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~RecruitHeroScope()
++        {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance(); display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
++        }
++    };
++}
++int Interface3DS::showHeroRecruit( const Castle & castle, const Heroes & hero, const std::string & description )
++{
++    using namespace fheroes2;
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const auto & frame = Assets::getImage( ICN::SURRENDR, 4 );
++    Image original( frame.width(), frame.height() ); original.fill( background );
++    Blit( frame, original, 0, 0 ); hero.PortraitRedraw( 5, 6, PORT_BIG, original );
++    const double scale = std::min( 2.0, 136.0 / std::max( original.width(), original.height() ) );
++    Image portrait( int( original.width() * scale ), int( original.height() * scale ) ); portrait.reset(); Resize( original, portrait );
++    std::string details = description + "\n\n";
++    for ( const auto & stat : { std::pair<int, int>{ Skill::Primary::ATTACK, hero.GetAttack() }, { Skill::Primary::DEFENSE, hero.GetDefense() },
++                               { Skill::Primary::POWER, hero.GetPower() }, { Skill::Primary::KNOWLEDGE, hero.GetKnowledge() } } )
++        details += std::string( Skill::Primary::String( stat.first ) ) + ": " + std::to_string( stat.second ) + "\n";
++    details += std::string( _( "Army" ) ) + ":\n";
++    for ( size_t i = 0; i < hero.GetArmy().Size(); ++i ) {
++        const auto * troop = hero.GetArmy().GetTroop( i );
++        if ( troop->isValid() ) details += std::string( troop->GetName() ) + ": " + std::to_string( troop->GetCount() ) + "\n";
++    }
++    if ( !details.empty() && details.back() == '\n' ) details.pop_back();
++    const Text body( details, FontType::normalWhite() );
++    Image content( 376, std::max<int32_t>( 188, std::max( portrait.height() + 8, body.height( 224 ) + 8 ) ) ); content.fill( background );
++    Blit( portrait, content, 0, 4 ); body.draw( 152, 4, 224, content );
++    Image top( 400, 240 ), bottom( 320, 240 );
++    std::array<std::unique_ptr<ButtonBase>, 2> buttons;
++    for ( size_t i = 0; i < buttons.size(); ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { 142, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        const std::string label = i ? _( "Cancel" ) : _( "Recruit Hero" );
++        Text text( label, Text( label, FontType::normalWhite() ).width() <= released.width() - 8 ? FontType::normalWhite() : FontType::smallWhite() );
++        text.fitToOneRow( released.width() - 8 );
++        text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
++        text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, pressed.width() - 8, pressed );
++        buttons[i] = std::make_unique<ButtonSprite>( i ? 166 : 6, 206, std::move( released ), std::move( pressed ) );
++    }
++    const auto cost = getResourceDialogElements( PaymentConditions::RecruitHero() );
++    const RecruitHeroScope scope( top, bottom );
++    int selected = 1, scroll = 0, pressed = -1;
++    bool down = false, moved = false; Point start, last; Uint32 began = 0;
++    const auto information = [&]() {
++        down = false; pressed = -1;
++        const CustomImageDialogElement image( original );
++        showStandardTextMessage( _( "Recruit Hero" ), details, Dialog::ZERO, { &image } );
++    };
++    const auto draw = [&]() {
++        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawRect( top, { 0, 0, 400, 240 }, border );
++        Text title( _( "Recruit Hero" ), FontType::normalYellow() ); title.draw( 12, 8, 376, top );
++        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
++        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
++        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawRect( bottom, { 0, 0, 320, 240 }, border );
++        Text name( hero.GetName(), FontType::normalYellow() ); name.fitToOneRow( 296 ); name.draw( 12, 8, 296, bottom );
++        Text( _( "building3DS|Cost" ), FontType::normalWhite() ).draw( 12, 34, 296, bottom );
++        for ( size_t i = 0; i < cost.size(); ++i ) cost[i].draw( bottom, { 160 - cost[i].area().width / 2, 54 + int( i ) * 40 } );
++        Text( std::string( _( "Gold in Treasury:" ) ) + " " + std::to_string( castle.GetKingdom().GetFunds().gold ), FontType::normalWhite() ).draw( 12, 110, 296, bottom );
++        std::string reason;
++        if ( castle.AllowBuyHero( &reason ) ) buttons[0]->enable(); else buttons[0]->disable();
++        Text( reason, FontType::smallWhite() ).draw( 12, 146, 296, bottom );
++        Text( "B: " + std::string( _( "Details" ) ), FontType::smallWhite() ).draw( 12, 188, 296, bottom );
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release();
++            buttons[i]->draw( bottom ); if ( selected == int( i ) ) DrawRect( bottom, buttons[i]->area(), border );
++        }
++        lastRecruitScroll = scroll; Display::instance().render();
++    };
++    draw();
++    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/hero-recruit-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/hero-recruit-bottom.bmp" ) ) )
++        throw std::runtime_error( "Cannot save hero recruitment dialog" );
++    auto & events = LocalEvent::Get();
++    while ( events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Cancel: return Dialog::CANCEL;
++                case Platform3DS::PanelKey::Left: case Platform3DS::PanelKey::Right: selected = 1 - selected; break;
++                case Platform3DS::PanelKey::Up: scroll -= 32; break;
++                case Platform3DS::PanelKey::Down: scroll += 32; break;
++                case Platform3DS::PanelKey::Confirm: if ( selected ) return Dialog::CANCEL; if ( castle.AllowBuyHero() ) return Dialog::OK; break;
++                case Platform3DS::PanelKey::Information: information(); break;
++                default: break;
++                }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
++                down = true; moved = false; pressed = -1; start = last = input.position; began = SDL_GetTicks();
++                for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) selected = pressed = int( i );
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && pressed < 0 ) scroll += last.y - input.position.y;
++                last = input.position;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( buttons[pressed]->area() & last ) ) {
++                    if ( pressed ) return Dialog::CANCEL;
++                    if ( castle.AllowBuyHero() ) return Dialog::OK;
++                }
++                down = false; pressed = -1;
++            }
++            scroll = std::clamp<int32_t>( scroll, 0, content.height() - 188 );
++        }
++        if ( down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) {
++            const bool cancel = pressed == 1; down = false; pressed = -1;
++            if ( cancel ) showStandardTextMessage( _( "Cancel" ), _( "Exit this menu without doing anything." ), Dialog::ZERO ); else information();
++            redraw = true;
++        }
++        if ( redraw ) draw();
++    }
++    return Dialog::CANCEL;
++}
++void Interface3DS::testHeroRecruit()
++{
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE );
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT );
++    auto & kingdom = castle.GetKingdom();
++    struct Restore {
++        Kingdom & kingdom; Funds funds; VecHeroes heroes;
++        ~Restore() { kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.AddFundsResource( funds ); kingdom.GetHeroes() = heroes; }
++    } restore{ kingdom, kingdom.GetFunds(), kingdom.GetHeroes() };
++    kingdom.GetHeroes().clear(); kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.AddFundsResource( Funds( Resource::GOLD, 10000 ) );
++    const auto run = [&]( const std::function<int()> & dialog, std::vector<Step> steps ) {
++        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto strip = Platform3DS::commandStripImage(); const auto hud = Platform3DS::battleHUDImage();
++        const auto parentTop = Platform3DS::modalTopImage(); const auto parentBottom = Platform3DS::modalBottomImage();
++        const Funds funds = kingdom.GetFunds(); const auto heroes = kingdom.GetHeroes();
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "hero-recruit-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start hero recruitment input" );
++        int result = Dialog::CANCEL, status = 0;
++        try { result = dialog(); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( status || crop != Platform3DS::viewport() || strip != Platform3DS::commandStripImage() || hud != Platform3DS::battleHUDImage()
++             || parentTop != Platform3DS::modalTopImage() || parentBottom != Platform3DS::modalBottomImage()
++             || std::memcmp( pixels.data(), display.image(), pixels.size() ) || !( funds == kingdom.GetFunds() ) || heroes != kingdom.GetHeroes()
++             || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Hero recruitment changed funds/heroes/frame/context or leaked input" );
++        return result;
++    };
++    const auto dialog = [&]() { return castle.DialogBuyHero( &hero ); };
++    const std::vector<Step> cancel{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    if ( castle.DialogBuyHero( nullptr ) != Dialog::CANCEL || !castle.AllowBuyHero() ) throw std::runtime_error( "Hero recruitment fixture unavailable" );
++    if ( run( dialog, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Hero recruitment default accepted" );
++    if ( run( dialog, { { 250, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) } } ) != Dialog::OK ) throw std::runtime_error( "Hero recruitment allowed touch rejected" );
++    if ( run( dialog, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::OK ) throw std::runtime_error( "Hero recruitment controller rejected" );
++    kingdom.OddFundsResource( kingdom.GetFunds() );
++    if ( run( dialog, { { 250, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Hero recruitment unaffordable accepted" );
++    if ( run( dialog, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Hero recruitment disabled controller accepted" );
++    kingdom.AddFundsResource( Funds( Resource::GOLD, 10000 ) );
++    kingdom.GetHeroes().assign( Kingdom::GetMaxHeroes(), &hero );
++    if ( castle.AllowBuyHero() || run( dialog, cancel ) != Dialog::CANCEL ) throw std::runtime_error( "Hero limit ignored" );
++    kingdom.GetHeroes().clear();
++    if ( run( dialog, { { 250, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERMOTION, 80, 170 ) }, { 80, touch( SDL_FINGERUP, 80, 170 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Hero recruitment drag accepted" );
++    if ( run( dialog, { { 250, touch( SDL_FINGERDOWN, 80, 220 ) }, { 900, touch( SDL_FINGERUP, 80, 220 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Held recruitment accepted" );
++    if ( run( dialog, { { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 150, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Recruitment nested information accepted" );
++    if ( run( [&]() { return showHeroRecruit( castle, hero, std::string( 1200, 'W' ) ); }, { { 250, touch( SDL_FINGERDOWN, 150, 170 ) }, { 80, touch( SDL_FINGERMOTION, 150, 50 ) }, { 80, touch( SDL_FINGERUP, 150, 50 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL || lastRecruitScroll <= 0 ) throw std::runtime_error( "Hero recruitment description did not scroll" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
++    const int evilResult = run( dialog, cancel ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
++    if ( evilResult != Dialog::CANCEL || run( dialog, cancel ) != Dialog::CANCEL ) throw std::runtime_error( "Hero recruitment nested cancel differs" );
++    COUT( "3DS HERO RECRUIT SMOKE: PASS actual_entry allowed_touch_controller default_cancel null_hero unaffordable_touch_controller hero_limit drag_cancel held_info nested_info stylus_scroll evil unchanged_funds_heroes_frame_context release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp
