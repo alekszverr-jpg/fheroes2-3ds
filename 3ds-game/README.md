@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.31: dual-screen castle options
+
+Construction Options now opens a native 3DS window. The lower screen contains both candidate portraits/names and availability indicators, Spread/Grouped garrison formation, Back and Details. The upper screen shows castle name, selected hero portrait, class/level, primary statistics and recruitment/formation restrictions. Both screens have opaque backgrounds. Tap another candidate to select, tap the selected candidate/A to open the 0.3.30 confirmation; Y switches candidates and D-pad moves focus among six controls. B/hold or Details opens the original readonly hero OpenDialog through the adapted hero UI; formation B/hold shows original explanations. Dragging does not activate actions. Back/L returns to the construction catalog.
+
+The UI returns commands and the original candidate pointer. Castle::_openConstructionDialog obtains candidates through GetRecruits, invokes DialogBuyHero/RecruitHero after confirmation, and returns the original RecruitHero result. Cancelled recruitment returns to Options. Formation uses the original SetSpreadFormation in Castle, guarded by BUILD_CAPTAIN both in the UI and when applying the command. Options no longer sends 3DS to the legacy full construction window; castle navigation/income/buildings remain in the catalog. The main castle scene retains its original layout.
+
+Two-job ARM Release, four-file desktop syntax, offline infrastructure (17 groups/29 components) and clean-baseline patch checks passed. CastleOptions passed for New/Old Russian and New English; Construction/New and HeroRecruit/New regressions also passed, with captures inspected. Checks cover both candidates/touch/Y/controller, missing candidates, captain-gated and enabled formation commands, readonly hero/B/hold, drag cancellation, Evil UI, parent windows/frame/viewport and release isolation. UI tests do not mutate funds, hero lists or formation and do not execute RecruitHero; actual formation/recruitment through the private castle handler requires hardware checks. Monolithic Full was not run.
+
+Updating from 0.3.30 requires only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL check Construction → Options, both candidates, readonly details/book, hire confirmation/cancel, payment/hero appearance, catalog return, formation unavailable without captain, both formations with captain, and save/load. Hardware validation of 0.3.29–0.3.31 is pending; physical Old hardware is unavailable.
+
 ## Preview 0.3.30: hero recruitment confirmation
 
 Castle::DialogBuyHero now uses separate screens: enlarged original framed portrait, original level/class/artifact description, primary statistics and army above; an opaque window with cost, treasury gold, eligibility reason and Recruit Hero/Cancel below. Normal descriptions fit; long descriptions scroll with D-pad up/down or stylus drag on free space. Left/right choose a button, A/Start confirm, L cancel, and B/hold show upper information. Cancel is selected by default; dragging off a button does not recruit.

@@ -13,6 +13,7 @@ $menuTestGroups = [ordered]@{
     BattleDialogs = @{ Markers = @('3DS HERO ACTIONS SMOKE: PASS','3DS BATTLE OUTCOME SMOKE: PASS','3DS NECROMANCY SMOKE: PASS'); Captures = @('hero-actions-bottom.bmp','battle-losses-top.bmp','battle-losses-bottom.bmp','battle-summary-top.bmp','battle-summary-bottom.bmp','battle-surrender-top.bmp','battle-surrender-bottom.bmp','battle-artifact-top.bmp','battle-artifact-bottom.bmp','battle-necromancy-top.bmp','battle-necromancy-bottom.bmp') }
     BattleIntegration = @{ Markers = @('3DS BATTLE HERO ACTIONS SMOKE: PASS','3DS BATTLE SPELLBOOK SMOKE: PASS','3DS BATTLE ARMY CARD SMOKE: PASS','3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS','3DS NECROMANCY INTEGRATION SMOKE: PASS','3DS BATTLE HUD SMOKE: PASS'); Captures = @('spellbook-battle-top.bmp','spellbook-battle-bottom.bmp','army-info-battle-bottom.bmp') }
     Building = @{ Markers = @('3DS BUILDING SMOKE: PASS'); Captures = @('building-top.bmp','building-bottom.bmp') }
+    CastleOptions = @{ Markers = @('3DS CASTLE OPTIONS SMOKE: PASS'); Captures = @('castle-options-top.bmp','castle-options-bottom.bmp') }
     HeroRecruit = @{ Markers = @('3DS HERO RECRUIT SMOKE: PASS'); Captures = @('hero-recruit-top.bmp','hero-recruit-bottom.bmp') }
     Construction = @{ Markers = @('3DS CONSTRUCTION SMOKE: PASS'); Captures = @('construction-top.bmp','construction-bottom.bmp') }
 }

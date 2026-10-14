@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.30'
+$version = '0.3.31'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -35,13 +35,17 @@ $manifest = [ordered]@{
     marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
     grouped_validation='42 independent menu group/model/language combinations and New/Old engine checks passed; New Russian, Old Russian, New English; no monolithic Full run'
     grouped_host_peaks='Sampled Azahar process: 10.9 percent total CPU, 604.3MB working set, 1004.9MB private; previous freeze cause unresolved'
+    native_castle_options='Two original candidates, upper hero statistics/reason, native readonly hero details, captain-gated Spread/Grouped and Back to catalog; original GetRecruits/DialogBuyHero/RecruitHero/SetSpreadFormation in Castle'
+    validation_castle_options='New/Old Russian and New English short groups passed; Construction and HeroRecruit New regressions passed; touch/controller/Y, missing candidates, captain gate, formation command return, readonly/hold/drag, Evil modal/frame/viewport/input restore; actual private-handler recruitment/formation effects and hardware pending'
+    hardware_castle_options='0.3.31 pending New 3DS XL; no physical Old 3DS'
+    upgrade_castle_options='From 0.3.30 replace 3dsx only; translations unchanged'
     native_hero_recruit='Original framed portrait, description/statistics/army above; opaque cost, treasury, reason and Recruit Hero/Cancel below; original AllowBuyHero checked before returning; caller payment/recruitment retained'
     validation_hero_recruit='Short HeroRecruit New/Old Russian and New English passed; real DialogBuyHero null/default/allowed/disabled, hero limit, drag/hold/nested/scroll/Evil restoration; unchanged funds/heroes; actual RecruitHero effects and hardware pending; no monolithic Full'
     hardware_hero_recruit='0.3.30 pending New 3DS XL; no physical Old 3DS'
     upgrade_hero_recruit='From 0.3.29 replace 3dsx only; translations unchanged'
     construction_arrows='Graphic arrows for pages/previous-next castles; font glyphs replaced; castle buttons 96px and Income 112px; Russian/English New Construction and visual captures passed; Old not rerun for this local sprite change'
     upgrade_construction_arrows='From 0.3.28 replace 3dsx only; translations unchanged'
-    native_construction='Six original building icons per lower page; upper description/status/requirements; native confirmation; original eligibility, upgrades and purchase caller; original Options window retains recruitment/formation'
+    native_construction='Six original building icons per lower page; upper description/status/requirements; native confirmation; original eligibility, upgrades and purchase caller; native Options contains candidates/formation'
     validation_construction='Construction New/Old Russian and New English passed; Building New regression passed; selection/pages/nav/options/nested cancel/hold/drag/restoration; positive purchase, actual castle entry/income/recruitment/other races pending hardware; no monolithic Full'
     hardware_construction='0.3.28 accepted New 3DS XL with navigation arrow rendering issue; 0.3.29 pending; no scenario breakdown or physical Old 3DS'
     upgrade_construction='Replace 3dsx and Russian files/lang/ru.mo'

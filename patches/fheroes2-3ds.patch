@@ -1314,7 +1314,7 @@ index c525d1e..415d662 100644
      const Castle & castle;
      uint32_t _buildingType{ 0 };
 diff --git a/src/fheroes2/castle/castle_town.cpp b/src/fheroes2/castle/castle_town.cpp
-index d142f98..6629979 100644
+index d142f98..580bc27 100644
 --- a/src/fheroes2/castle/castle_town.cpp
 +++ b/src/fheroes2/castle/castle_town.cpp
 @@ -63,6 +63,9 @@
@@ -1338,19 +1338,36 @@ index d142f98..6629979 100644
      const fheroes2::Text heroDescriptionText( std::move( str ), fheroes2::FontType::normalWhite() );
  
      Resource::BoxSprite rbs( PaymentConditions::RecruitHero(), fheroes2::boxAreaWidthPx );
-@@ -177,6 +184,18 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
+@@ -177,6 +184,35 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
      }
  
      dwellingTobuild = BUILD_NOTHING;
 +#if defined( __3DS__ )
-+    const auto nativeChoice = Interface3DS::showConstruction( *this );
-+    using NativeAction = Interface3DS::ConstructionChoice::Action;
-+    switch ( nativeChoice.action ) {
-+    case NativeAction::Build: dwellingTobuild = nativeChoice.building; return ConstructionDialogResult::Build;
-+    case NativeAction::Previous: return ConstructionDialogResult::PrevConstructionWindow;
-+    case NativeAction::Next: return ConstructionDialogResult::NextConstructionWindow;
-+    case NativeAction::Close: return ConstructionDialogResult::DoNothing;
-+    case NativeAction::OriginalOptions: break; // Keep recruitment, formation and all original options accessible.
++    bool options = false;
++    while ( true ) {
++        Interface3DS::ConstructionChoice nativeChoice;
++        if ( options ) {
++            const auto & recruits = GetKingdom().GetRecruits();
++            nativeChoice = Interface3DS::showCastleOptions( *this, recruits.GetHero1(), recruits.GetHero2() );
++        }
++        else nativeChoice = Interface3DS::showConstruction( *this );
++        using NativeAction = Interface3DS::ConstructionChoice::Action;
++        switch ( nativeChoice.action ) {
++        case NativeAction::Build: dwellingTobuild = nativeChoice.building; return ConstructionDialogResult::Build;
++        case NativeAction::Previous: return ConstructionDialogResult::PrevConstructionWindow;
++        case NativeAction::Next: return ConstructionDialogResult::NextConstructionWindow;
++        case NativeAction::Close:
++            if ( options ) { options = false; break; }
++            return ConstructionDialogResult::DoNothing;
++        case NativeAction::Options: options = true; break;
++        case NativeAction::RecruitHero:
++            if ( nativeChoice.hero && DialogBuyHero( nativeChoice.hero ) == Dialog::OK && RecruitHero( nativeChoice.hero ) )
++                return ConstructionDialogResult::RecruitHero;
++            break;
++        case NativeAction::Spread: case NativeAction::Grouped:
++            if ( isBuild( BUILD_CAPTAIN ) ) _army.SetSpreadFormation( nativeChoice.action == NativeAction::Spread );
++            break;
++        }
 +    }
 +#endif
 +
@@ -1625,7 +1642,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..3744d24 100644
+index 69d39fb..e26457c 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -1676,7 +1693,7 @@ index 69d39fb..3744d24 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,105 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,106 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1686,7 +1703,7 @@ index 69d39fb..3744d24 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 16> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit" };
++        const std::array<const char *, 17> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -1762,6 +1779,7 @@ index 69d39fb..3744d24 100644
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
 +        runGroup( "BattleDialogs", []() { Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
++        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
 +        runGroup( "Construction", []() { Interface3DS::testConstruction(); } );
 +        runGroup( "Building", []() { Interface3DS::testBuildingPurchase(); } );
@@ -3845,6 +3863,235 @@ index 0000000..55f8228
 +    COUT( "3DS BUILDING SMOKE: PASS actual_entry_cancel allowed_touch disabled_touch_controller default_cancel drag_cancel nested_info long_scroll readonly seven_resources evil unchanged_frame_context release_isolation" )
 +}
 +#endif
+diff --git a/src/fheroes2/gui/ui_3ds_castle_options.cpp b/src/fheroes2/gui/ui_3ds_castle_options.cpp
+new file mode 100644
+index 0000000..80c556c
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_castle_options.cpp
+@@ -0,0 +1,223 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <stdexcept>
++#include <utility>
++#include <SDL.h>
++#include "army.h"
++#include "castle.h"
++#include "cursor.h"
++#include "dialog.h"
++#include "heroes.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "map_format_info.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "skill.h"
++#include "tools.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace
++{
++    using namespace fheroes2;
++    class OptionsScope
++    {
++    public:
++        OptionsScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() ); LocalEvent::Get().resetFor3DSPanel();
++        }
++        ~OptionsScope()
++        {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            auto & display = Display::instance(); display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
++        }
++    };
++}
++Interface3DS::ConstructionChoice Interface3DS::showCastleOptions( const Castle & castle, Heroes * first, Heroes * second )
++{
++    using namespace fheroes2;
++    using Action = ConstructionChoice::Action;
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const std::array<Heroes *, 2> heroes{ first, second };
++    const std::array<Rect, 6> areas{ Rect{ 8, 28, 148, 116 }, { 164, 28, 148, 116 }, { 8, 160, 148, 28 }, { 164, 160, 148, 28 }, { 8, 206, 148, 28 }, { 164, 206, 148, 28 } };
++    const std::array<std::string, 4> labels{ _( "Spread" ), _( "Grouped" ), _( "Back" ), _( "Details" ) };
++    const std::array<std::string, 2> formationDescriptions{
++        _( "'Spread' combat formation spreads the castle's units from the top to the bottom of the battlefield, with at least one empty space between each unit." ),
++        _( "'Grouped' combat formation bunches the castle's units together in the center of the castle's side of the battlefield." ) };
++    std::array<Image, 2> portraits;
++    for ( size_t i = 0; i < heroes.size(); ++i ) if ( heroes[i] ) {
++        Image original( 102, 94 ); original.fill( background ); heroes[i]->PortraitRedraw( 0, 0, PORT_BIG, original );
++        portraits[i].resize( 80, 74 ); portraits[i].reset(); Resize( original, portraits[i] );
++    }
++    std::array<std::unique_ptr<ButtonBase>, 4> buttons;
++    for ( size_t i = 0; i < buttons.size(); ++i ) {
++        Sprite released, pressed; makeButtonSprites( released, pressed, "", { 142, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= 140 ? FontType::normalWhite() : FontType::smallWhite() ); text.fitToOneRow( 140 );
++        text.draw( 4, ( released.height() - text.height() ) / 2, 140, released ); text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, 140, pressed );
++        buttons[i] = std::make_unique<ButtonSprite>( areas[i + 2].x, areas[i + 2].y, std::move( released ), std::move( pressed ) );
++    }
++    Image top( 400, 240 ), bottom( 320, 240 ); const OptionsScope scope( top, bottom );
++    int candidate = first ? 0 : 1, focus = first ? 0 : second ? 1 : 4, pressed = -1;
++    bool down = false, moved = false; Point start, last; Uint32 began = 0;
++    const auto enabled = [&]( int index ) { if ( index < 2 ) return heroes[index] != nullptr; if ( index < 4 ) return castle.isBuild( BUILD_CAPTAIN ); if ( index == 5 ) return heroes[candidate] != nullptr; return true; };
++    const auto information = [&]( int index ) {
++        down = false; pressed = -1;
++        if ( index == 2 || index == 3 ) showStandardTextMessage( labels[index - 2], formationDescriptions[index - 2], Dialog::ZERO );
++        else if ( index == 4 ) showStandardTextMessage( _( "Back" ), _( "Exit this menu without doing anything." ), Dialog::ZERO );
++        else {
++            Heroes * hero = heroes[index < 2 ? index : candidate];
++            if ( hero ) hero->OpenDialog( true, true, false, false, false, false, getLanguageFromAbbreviation( Settings::Get().getGameLanguage() ) );
++        }
++    };
++    const auto activate = [&]( int index ) -> ConstructionChoice {
++        if ( !enabled( index ) ) return { Action::Options, 0 };
++        if ( index < 2 ) return { Action::RecruitHero, 0, heroes[index] };
++        if ( index == 2 ) return { Action::Spread, 0 };
++        if ( index == 3 ) return { Action::Grouped, 0 };
++        if ( index == 4 ) return {};
++        information( index ); return { Action::Options, 0 };
++    };
++    const auto draw = [&]() {
++        top.fill( background ); bottom.fill( background );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        Fill( top, 12, 32, 376, 188, background ); DrawRect( top, { 0, 0, 400, 240 }, border ); DrawRect( bottom, { 0, 0, 320, 240 }, border );
++        Text title( castle.GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
++        Heroes * hero = heroes[candidate];
++        if ( hero ) {
++            hero->PortraitRedraw( 20, 44, PORT_BIG, top );
++            Text name( hero->GetName(), FontType::normalYellow() ); name.fitToOneRow( 244 ); name.draw( 144, 40, 244, top );
++            std::string level = _( "heroQuickInfo|(Level %{level})" ); StringReplace( level, "%{level}", hero->GetLevel() );
++            Text description( std::string( Race::String( hero->GetRace() ) ) + " " + level, FontType::smallWhite() ); description.fitToOneRow( 244 ); description.draw( 144, 66, 244, top );
++            const std::array<int, 4> values{ hero->GetAttack(), hero->GetDefense(), hero->GetPower(), hero->GetKnowledge() };
++            const std::array<int, 4> skills{ Skill::Primary::ATTACK, Skill::Primary::DEFENSE, Skill::Primary::POWER, Skill::Primary::KNOWLEDGE };
++            for ( size_t i = 0; i < values.size(); ++i ) Text( std::string( Skill::Primary::String( skills[i] ) ) + ": " + std::to_string( values[i] ), FontType::normalWhite() ).draw( 144, 100 + int( i ) * 20, 244, top );
++        }
++        else Text( _( "None" ), FontType::normalWhite() ).draw( 12, 60, 376, top );
++        std::string reason;
++        if ( focus == 2 || focus == 3 ) reason = castle.isBuild( BUILD_CAPTAIN ) ? labels[castle.GetArmy().isSpreadFormation() ? 0 : 1] : std::string( _( "Requires:" ) ) + " " + Castle::GetStringBuilding( BUILD_CAPTAIN, castle.GetRace() );
++        else if ( hero ) castle.AllowBuyHero( &reason );
++        Text( reason, FontType::smallWhite() ).draw( 12, 190, 376, top );
++        Text( _( "construction3DS|Options" ), FontType::normalYellow() ).draw( 8, 8, 304, bottom );
++        for ( size_t i = 0; i < heroes.size(); ++i ) {
++            const auto & area = areas[i]; Fill( bottom, area.x + 1, area.y + 1, area.width - 2, area.height - 2, background );
++            if ( heroes[i] ) { Blit( portraits[i], bottom, area.x + 34, area.y + 4 ); Text name( heroes[i]->GetName(), FontType::smallWhite() ); name.fitToOneRow( 140 ); name.draw( area.x + 4, area.y + 86, 140, bottom ); }
++            else Text( _( "None" ), FontType::smallWhite() ).draw( area.x + 4, area.y + 44, 140, bottom );
++            DrawRect( bottom, area, candidate == int( i ) ? GetColorId( 255, 220, 70 ) : border );
++            Fill( bottom, area.x + 2, area.y + area.height - 4, area.width - 4, 2, heroes[i] && castle.AllowBuyHero() ? GetColorId( 90, 175, 85 ) : GetColorId( 175, 65, 45 ) );
++        }
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            if ( enabled( int( i ) + 2 ) ) buttons[i]->enable(); else buttons[i]->disable();
++            if ( down && !moved && pressed == int( i ) + 2 ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
++        }
++        if ( castle.isBuild( BUILD_CAPTAIN ) ) DrawRect( bottom, areas[castle.GetArmy().isSpreadFormation() ? 2 : 3], GetColorId( 90, 175, 85 ) );
++        DrawRect( bottom, areas[focus], GetColorId( 255, 220, 70 ) ); Display::instance().render();
++    };
++    draw();
++    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/castle-options-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/castle-options-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save castle options" );
++    auto & events = LocalEvent::Get();
++    while ( events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Cancel: return {};
++                case Platform3DS::PanelKey::Left: focus = ( focus + 5 ) % 6; break;
++                case Platform3DS::PanelKey::Right: focus = ( focus + 1 ) % 6; break;
++                case Platform3DS::PanelKey::Up: focus = ( focus + 4 ) % 6; break;
++                case Platform3DS::PanelKey::Down: focus = ( focus + 2 ) % 6; break;
++                case Platform3DS::PanelKey::Toggle: focus = 1 - candidate; break;
++                case Platform3DS::PanelKey::Confirm: { const auto choice = activate( focus ); if ( choice.action != Action::Options ) return choice; break; }
++                case Platform3DS::PanelKey::Information: information( focus ); break;
++                }
++                if ( focus < 2 ) candidate = focus;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
++                down = true; moved = false; pressed = -1; start = last = input.position; began = SDL_GetTicks();
++                for ( size_t i = 0; i < areas.size(); ++i ) if ( areas[i] & start ) pressed = int( i );
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) { moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6; last = input.position; }
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                const int index = pressed; const bool tap = down && !moved && index >= 0 && ( areas[index] & last ); down = false; pressed = -1;
++                if ( tap ) {
++                    if ( index < 2 && candidate != index ) { candidate = focus = index; }
++                    else { focus = index; const auto choice = activate( index ); if ( choice.action != Action::Options ) return choice; }
++                }
++            }
++        }
++        if ( down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) { const int index = pressed; if ( index < 2 ) candidate = focus = index; information( index ); redraw = true; }
++        if ( redraw ) draw();
++    }
++    return {};
++}
++void Interface3DS::testCastleOptions()
++{
++    using Action = ConstructionChoice::Action;
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE );
++    Heroes first( Heroes::LORDKILBURN, Race::KNGT ), second( Heroes::SIRGALLANTH, Race::KNGT );
++    auto & kingdom = castle.GetKingdom();
++    struct Restore { Kingdom & kingdom; Funds funds; ~Restore() { kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.AddFundsResource( funds ); } } restore{ kingdom, kingdom.GetFunds() };
++    kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.AddFundsResource( Funds( Resource::GOLD, 10000 ) );
++    const auto run = [&]( Heroes * one, Heroes * two, std::vector<Step> steps ) {
++        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto strip = Platform3DS::commandStripImage(); const auto hud = Platform3DS::battleHUDImage();
++        const auto parentTop = Platform3DS::modalTopImage(); const auto parentBottom = Platform3DS::modalBottomImage();
++        const Funds funds = kingdom.GetFunds(); const auto heroes = kingdom.GetHeroes(); const bool spread = castle.GetArmy().isSpreadFormation();
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "castle-options-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start castle options input" );
++        ConstructionChoice choice; int status = 0;
++        try { choice = showCastleOptions( castle, one, two ); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( status || crop != Platform3DS::viewport() || strip != Platform3DS::commandStripImage() || hud != Platform3DS::battleHUDImage()
++             || parentTop != Platform3DS::modalTopImage() || parentBottom != Platform3DS::modalBottomImage()
++             || std::memcmp( pixels.data(), display.image(), pixels.size() ) || !( funds == kingdom.GetFunds() ) || heroes != kingdom.GetHeroes()
++             || spread != castle.GetArmy().isSpreadFormation() || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Castle options changed funds/heroes/formation/frame/context or leaked input" );
++        return choice;
++    };
++    const std::vector<Step> cancel{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } };
++    if ( run( &first, &second, cancel ).action != Action::Close ) throw std::runtime_error( "Castle options cancel differs" );
++    auto choice = run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 70 ) }, { 80, touch( SDL_FINGERUP, 80, 70 ) } } );
++    if ( choice.action != Action::RecruitHero || choice.hero != &first ) throw std::runtime_error( "First candidate differs" );
++    choice = run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 230, 70 ) }, { 80, touch( SDL_FINGERUP, 230, 70 ) }, { 150, touch( SDL_FINGERDOWN, 230, 70 ) }, { 80, touch( SDL_FINGERUP, 230, 70 ) } } );
++    if ( choice.action != Action::RecruitHero || choice.hero != &second ) throw std::runtime_error( "Second candidate differs" );
++    choice = run( &first, &second, { { 250, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( choice.action != Action::RecruitHero || choice.hero != &second ) throw std::runtime_error( "Controller candidate differs" );
++    if ( run( nullptr, nullptr, { { 250, touch( SDL_FINGERDOWN, 80, 70 ) }, { 80, touch( SDL_FINGERUP, 80, 70 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Missing candidate enabled" );
++    if ( run( &first, nullptr, { { 250, touch( SDL_FINGERDOWN, 80, 174 ) }, { 80, touch( SDL_FINGERUP, 80, 174 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Formation enabled without captain" );
++    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 70 ) }, { 80, touch( SDL_FINGERMOTION, 230, 70 ) }, { 80, touch( SDL_FINGERUP, 230, 70 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Candidate drag activated" );
++    if ( run( &first, &second, { { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 300, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) }, { 300, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Readonly hero did not restore options" );
++    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 70 ) }, { 900, touch( SDL_FINGERUP, 80, 70 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Held candidate triggered recruit" );
++    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.builtBuildings = { BUILD_CASTLE, BUILD_CAPTAIN }; metadata.customName = _( "construction3DS|Castle" );
++    castle.loadFromResurrectionMap( metadata );
++    if ( !castle.isBuild( BUILD_CAPTAIN ) ) throw std::runtime_error( "Captain fixture missing" );
++    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 174 ) }, { 80, touch( SDL_FINGERUP, 80, 174 ) } } ).action != Action::Spread
++         || run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 230, 174 ) }, { 80, touch( SDL_FINGERUP, 230, 174 ) } } ).action != Action::Grouped ) throw std::runtime_error( "Formation action differs" );
++    if ( run( &first, &second, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ).action != Action::Spread ) throw std::runtime_error( "Controller formation differs" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
++    const auto evil = run( &first, &second, cancel ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
++    if ( evil.action != Action::Close || run( &first, &second, cancel ).action != Action::Close ) throw std::runtime_error( "Castle options nested cancel differs" );
++    COUT( "3DS CASTLE OPTIONS SMOKE: PASS first_second_touch_Y_controller missing_hero captain_gate formation_touch_controller readonly_hero held_info drag_cancel evil unchanged_funds_heroes_formation_frame_context release_isolation" )
++}
++#endif
 diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp
 new file mode 100644
 index 0000000..f85b17b
@@ -4120,7 +4367,7 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_construction.cpp b/src/fheroes2/gui/ui_3ds_construction.cpp
 new file mode 100644
-index 0000000..e90a2f3
+index 0000000..4cca1e6
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_construction.cpp
 @@ -0,0 +1,238 @@
@@ -4304,7 +4551,7 @@ index 0000000..e90a2f3
 +                down = false; pressed = touched = -1;
 +                if ( activate && button >= 0 && ( buttons[button]->area() & last ) && buttons[button]->isEnabled() ) {
 +                    if ( button == 0 ) select( page - 6 ); else if ( button == 1 ) select( page + 6 );
-+                    else if ( button == 2 ) return { Action::OriginalOptions, 0 }; else if ( button == 3 ) return {};
++                    else if ( button == 2 ) return { Action::Options, 0 }; else if ( button == 3 ) return {};
 +                    else if ( button == 4 ) return { Action::Previous, 0 }; else if ( button == 5 ) return { Action::Next, 0 };
 +                    else showKingdomIncome( castle.GetKingdom(), Dialog::OK );
 +                }
@@ -4351,7 +4598,7 @@ index 0000000..e90a2f3
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 150, 60 ) }, { 80, touch( SDL_FINGERUP, 150, 60 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastSelected != 1 ) throw std::runtime_error( "Construction touch selection differs" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastPage != 6 ) throw std::runtime_error( "Construction page toggle differs" );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 98, 186 ) }, { 80, touch( SDL_FINGERUP, 98, 186 ) }, { 150, touch( SDL_FINGERDOWN, 20, 186 ) }, { 80, touch( SDL_FINGERUP, 20, 186 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastPage ) throw std::runtime_error( "Construction touch pages differ" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 170, 186 ) }, { 80, touch( SDL_FINGERUP, 170, 186 ) } } ).action != Action::OriginalOptions ) throw std::runtime_error( "Construction options fallback differs" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 170, 186 ) }, { 80, touch( SDL_FINGERUP, 170, 186 ) } } ).action != Action::Options ) throw std::runtime_error( "Construction options fallback differs" );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 220 ) }, { 80, touch( SDL_FINGERUP, 120, 220 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Construction single-castle navigation enabled" );
 +    castles.push_back( &other );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 220 ) }, { 80, touch( SDL_FINGERUP, 120, 220 ) } } ).action != Action::Next
@@ -5782,10 +6029,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..97e44b5
+index 0000000..10c09c7
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,88 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -5813,10 +6060,13 @@ index 0000000..97e44b5
 +namespace Interface3DS
 +{
 +    struct ConstructionChoice {
-+        enum class Action { Close, Build, Previous, Next, OriginalOptions };
++        enum class Action { Close, Build, Previous, Next, Options, RecruitHero, Spread, Grouped };
 +        Action action = Action::Close;
 +        uint32_t building = 0;
++        Heroes * hero = nullptr;
 +    };
++    ConstructionChoice showCastleOptions( const Castle & castle, Heroes * first, Heroes * second );
++    void testCastleOptions();
 +    void testConstruction();
 +    ConstructionChoice showConstruction( const Castle & castle );
 +    int showHeroRecruit( const Castle & castle, const Heroes & hero, const std::string & description );
