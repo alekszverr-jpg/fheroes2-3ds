@@ -1,4 +1,16 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.32
+# fheroes2 for Nintendo 3DS — preview 0.3.33
+
+## Preview 0.3.33: built-building selector
+
+The castle Y army panel now includes Buildings beside Back. It opens six built buildings per page: creature dwellings first, followed by castle/tent, guild, market and other services/information. Original icons/names are used; the upper screen shows enlarged artwork, description and dwelling availability. Unbuilt buildings are omitted, upgraded dwellings replace their base entries, and only the highest built guild level is shown. Towers without a separate original action are excluded. Tent uses castle-upgrade destination artwork. This selects existing buildings; the castle entry still opens construction.
+
+Tap selects, repeated tap/A/Okay opens; D-pad selects, Y and graphic arrows change pages. Hold/B shows information; stylus movement scrolls long descriptions without activation. Back/L returns to the army panel, where Y/L/Back closes it. Entering Buildings clears troop selection while keeping completed transfers.
+
+The selected ID returns through the panel to Castle::OpenDialog and the same building-action loop used by city clicks/hotkeys. IDs come from the original race-specific drawing list and are checked again with isBuild. Recruitment, spellbook purchase, market, well, boat, construction and information use existing handlers; the selector does not buy/recruit/spend funds. Dwelling descriptions use BuildingInfo; other descriptions use Castle::GetDescriptionBuilding.
+
+Two-job ARM Release, four-file desktop syntax, offline infrastructure (19 groups/31 components) and clean-baseline patch checks passed. CastleBuildings passed New/Old Russian and New English; CastleArmy regression passed New/Old, with captures inspected. Checks cover built/missing entries, upgrades/highest guild, six-race original-ID mapping, excluded towers, touch/controller, pages/disabled arrow, hold/drag/long scroll, actual Y → army → Buildings ID return and nested cancellation, Evil UI and unchanged funds/garrison/frame/viewport/parent/input. The full private Castle::OpenDialog action loop on a real map and actual recruitment/trading/construction are not executed by this group; gameplay effects and persistence require hardware checks. Monolithic Full was not run.
+
+Updating from 0.3.32 requires `3ds/fheroes2/fheroes2.3dsx` and `3ds/fheroes2/files/lang/ru.mo` for the new Buildings label. On New 3DS XL check Y → Buildings, pages, upgraded-dwelling recruitment, guild/spellbook purchase, market/well/construction and cancellation, release isolation and save/load. On 2026-10-15 the user reported normal overall operation of 0.3.32 on New 3DS XL and authorized continuation, without a scenario breakdown. Hardware validation of 0.3.33 is pending; physical Old hardware is unavailable.
 
 ## Preview 0.3.32: garrison and visiting hero army panel
 
