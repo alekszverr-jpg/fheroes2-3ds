@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.31'
+$version = '0.3.32'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -35,6 +35,10 @@ $manifest = [ordered]@{
     marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
     grouped_validation='42 independent menu group/model/language combinations and New/Old engine checks passed; New Russian, Old Russian, New English; no monolithic Full run'
     grouped_host_peaks='Sampled Azahar process: 10.9 percent total CPU, 604.3MB working set, 1004.9MB private; previous freeze cause unresolved'
+    native_castle_army='Castle Y panel; original town snapshot above, garrison/guest slots and Details/Split/Hero/Back below; original ArmyBar transfers/split/card and last-hero-creature rules; main castle retains original layout'
+    validation_castle_army='CastleArmy New/Old Russian and New English plus Army New passed; SDL Y dispatch, real ArmyBar moves/merge/swap, final hero and garrison creature rules, button/drag split/cancel, controller, card/hero/held/missing guest/Evil; creature conservation/funds/heroes/frame/viewport/modal/release; full real-map castle entry, positive upgrade/dismiss and persistence pending hardware'
+    hardware_castle_army='0.3.32 pending New 3DS XL; no physical Old 3DS'
+    upgrade_castle_army='From 0.3.31 replace 3dsx only; translations unchanged'
     native_castle_options='Two original candidates, upper hero statistics/reason, native readonly hero details, captain-gated Spread/Grouped and Back to catalog; original GetRecruits/DialogBuyHero/RecruitHero/SetSpreadFormation in Castle'
     validation_castle_options='New/Old Russian and New English short groups passed; Construction and HeroRecruit New regressions passed; touch/controller/Y, missing candidates, captain gate, formation command return, readonly/hold/drag, Evil modal/frame/viewport/input restore; actual private-handler recruitment/formation effects and hardware pending'
     hardware_castle_options='0.3.31 pending New 3DS XL; no physical Old 3DS'

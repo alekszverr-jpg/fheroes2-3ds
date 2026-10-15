@@ -1,4 +1,16 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.31
+# fheroes2 for Nintendo 3DS — preview 0.3.32
+
+## Preview 0.3.32: garrison and visiting hero army panel
+
+First main-castle adaptation stage: Y opens a native army panel. Above are a snapshot of the current original town artwork without legacy army rows, castle name and selected troop information. Below are five garrison slots, five visiting hero slots, counts, Details, Split, Hero and Back. Opaque backgrounds hide the underlying map. The normal castle status line includes Y: Army. Y/L/Back closes the panel; the main scene and building interactions retain their original layout. Town artwork is static while the panel is open; animation resumes after closing.
+
+Tap/A selects a source and destination for moving/merging/swapping within or between rows. Split enables destination selection for the original redistribution dialog; dragging to an empty or same-type slot also opens it. Dragging outside or to another creature type does not change troops. D-pad moves focus, B/hold shows original information, and Details/repeated tap opens the interactive creature card. Hero opens the adapted editable guest dialog with dismissal/switching disabled from this panel. Missing guest slots and Hero perform no actions.
+
+Actions call the original ArmyBar methods, retaining merging, swapping, redistribution, upgrade/dismiss and last-hero-creature rules. The garrison can be emptied; the hero keeps at least one creature. Transfers apply immediately and closing the panel does not undo them. Cancelling redistribution leaves armies unchanged. The upper town image comes from the current game frame; the panel does not draw into that frame. The original Castle::OpenDialog redraws army rows after return.
+
+Two-job ARM Release, three-file desktop syntax, offline infrastructure (18 groups/30 components) and clean-baseline patch checks passed. CastleArmy passed New/Old Russian and New English; Army/New regression passed, with captures inspected. Checks cover actual Y handler via SDL, Y closure, original ArmyBar with real same/cross-army moves, merging/swapping, last hero creature protection for occupied/empty destinations, unrestricted final garrison creature, button/drag redistribution, cancel, controller, held info, creature/hero dialogs, missing guest and Evil UI. Each run checks creature totals by type, funds, hero list, frame/viewport/parent windows and release isolation. Full Castle::OpenDialog on a real map, positive upgrade/dismiss, refreshed legacy rows and persisted game effects are not exercised. Monolithic Full was not run.
+
+Updating from 0.3.31 requires only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL open castle → Y and check both rows, moves/merge/swap, split/cancel, last hero creature, missing guest, details/upgrade, hero/book, Y/L closure and refreshed original castle rows, then save/load. Hardware validation of 0.3.29–0.3.32 is pending; physical Old hardware is unavailable.
 
 ## Preview 0.3.31: dual-screen castle options
 
