@@ -1,6 +1,6 @@
 # Contributing
 
-Build and test the current preview before changing code. The maintained environment is Windows/PowerShell 7; alternative host environments need their own toolchain integration.
+Build and test the current preview before changing code. `build-game.ps1` defaults to two compiler jobs (including packaging); `-Jobs` can override this explicitly. The maintained environment is Windows/PowerShell 7; alternative host environments need their own toolchain integration.
 
 ## Current host emulator limitation
 

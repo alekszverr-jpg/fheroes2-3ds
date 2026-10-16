@@ -14,6 +14,7 @@
     BattleIntegration = @{ Markers = @('3DS BATTLE HERO ACTIONS SMOKE: PASS','3DS BATTLE SPELLBOOK SMOKE: PASS','3DS BATTLE ARMY CARD SMOKE: PASS','3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS','3DS NECROMANCY INTEGRATION SMOKE: PASS','3DS BATTLE HUD SMOKE: PASS'); Captures = @('spellbook-battle-top.bmp','spellbook-battle-bottom.bmp','army-info-battle-bottom.bmp') }
     Building = @{ Markers = @('3DS BUILDING SMOKE: PASS'); Captures = @('building-top.bmp','building-bottom.bmp') }
     CastleBuildings = @{ Markers = @('3DS CASTLE BUILDINGS SMOKE: PASS'); Captures = @('castle-buildings-top.bmp','castle-buildings-bottom.bmp') }
+    CastleStereo = @{ Markers = @('3DS CASTLE STEREO SMOKE: PASS'); Captures = @('castle-stereo-left.bmp','castle-stereo-right.bmp','stereo-left-top.bmp','stereo-right-top.bmp') }
     CastleScreen = @{ Markers = @('3DS CASTLE MAIN SMOKE: PASS'); Captures = @('castle-main-top.bmp','castle-main-bottom.bmp') }
     CastleArmy = @{ Markers = @('3DS CASTLE ARMY SMOKE: PASS'); Captures = @('castle-army-top.bmp','castle-army-bottom.bmp') }
     CastleOptions = @{ Markers = @('3DS CASTLE OPTIONS SMOKE: PASS'); Captures = @('castle-options-top.bmp','castle-options-bottom.bmp') }

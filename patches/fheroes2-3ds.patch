@@ -1316,22 +1316,139 @@ index c525d1e..415d662 100644
  
      const Castle & castle;
      uint32_t _buildingType{ 0 };
+diff --git a/src/fheroes2/castle/castle.h b/src/fheroes2/castle/castle.h
+index f1e4d6c..ee7ee05 100644
+--- a/src/fheroes2/castle/castle.h
++++ b/src/fheroes2/castle/castle.h
+@@ -520,6 +520,10 @@ namespace CastleDialog
+         BuildingsRenderQueue( const Castle & castle, const fheroes2::Point & top );
+     };
+ 
++#if defined( __3DS__ )
++    void redrawStereoPanorama( const Castle & castle, const fheroes2::Point & offset, const BuildingsRenderQueue & buildings,
++                              const FadeBuilding & fade, uint32_t frame, int strength, fheroes2::Image & left, fheroes2::Image & right );
++#endif
+     void redrawAllBuildings( const Castle & castle, const fheroes2::Point & offset, const BuildingsRenderQueue & buildings,
+                              const CastleDialog::FadeBuilding & alphaBuilding, const uint32_t animationIndex );
+ }
+diff --git a/src/fheroes2/castle/castle_building.cpp b/src/fheroes2/castle/castle_building.cpp
+index 1600032..1b9451a 100644
+--- a/src/fheroes2/castle/castle_building.cpp
++++ b/src/fheroes2/castle/castle_building.cpp
+@@ -32,6 +32,9 @@
+ #include "game_delays.h"
+ #include "icn.h"
+ #include "image.h"
++#if defined( __3DS__ )
++#include "image_tool.h"
++#endif
+ #include "maps_fileinfo.h"
+ #include "math_base.h"
+ #include "race.h"
+@@ -328,8 +331,9 @@ namespace
+     }
+ 
+     void redrawCastleBuildings( const Castle & castle, const fheroes2::Point & offset, const CastleDialog::BuildingsRenderQueue & buildings,
+-                                const CastleDialog::FadeBuilding & fadeBuilding, const uint32_t animationIndex )
++                                const CastleDialog::FadeBuilding & fadeBuilding, const uint32_t animationIndex, const int stereoShift = 0 )
+     {
++        const fheroes2::Point buildingOffset{ offset.x + stereoShift, offset.y };
+         fheroes2::Display & display = fheroes2::Display::instance();
+ 
+         const int castleRace = castle.GetRace();
+@@ -404,11 +408,11 @@ namespace
+                     continue;
+                 }
+ 
+-                redrawCastleBuilding( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId );
+-                redrawCastleBuildingExtended( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId );
++                redrawCastleBuilding( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId );
++                redrawCastleBuildingExtended( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId );
+ 
+                 if ( isBuildingConnectionNeeded( castle, currentBuild.id ) ) {
+-                    redrawBuildingConnection( castle, offset, currentBuild.id, fadingInBuildingId );
++                    redrawBuildingConnection( castle, buildingOffset, currentBuild.id, fadingInBuildingId );
+                 }
+             }
+ 
+@@ -434,28 +438,28 @@ namespace
+             }
+ 
+             if ( currentBuild.id == fadingInBuildingId && !fadeBuilding.isOnlyBoat() ) {
+-                redrawCastleBuilding( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId, fadeAlpha );
+-                redrawCastleBuildingExtended( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId, fadeAlpha );
++                redrawCastleBuilding( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId, fadeAlpha );
++                redrawCastleBuildingExtended( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId, fadeAlpha );
+ 
+                 if ( isBuildingConnectionNeeded( castle, currentBuild.id ) ) {
+-                    redrawBuildingConnection( castle, offset, currentBuild.id, fadingInBuildingId, fadeAlpha );
++                    redrawBuildingConnection( castle, buildingOffset, currentBuild.id, fadingInBuildingId, fadeAlpha );
+                 }
+ 
+                 continue;
+             }
+ 
+-            redrawCastleBuilding( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId );
++            redrawCastleBuilding( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId );
+ 
+             if ( currentBuild.id == BUILD_SHIPYARD && fadingInBuildingId == BUILD_SHIPYARD ) {
+-                redrawCastleBuildingExtended( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId, fadeAlpha );
++                redrawCastleBuildingExtended( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId, fadeAlpha );
+             }
+             else {
+-                redrawCastleBuildingExtended( castle, offset, currentBuild.id, animationIndex, fadingInBuildingId );
++                redrawCastleBuildingExtended( castle, buildingOffset, currentBuild.id, animationIndex, fadingInBuildingId );
+             }
+ 
+             if ( isBuildingConnectionNeeded( castle, currentBuild.id ) ) {
+-                redrawBuildingConnection( castle, offset, fadingInBuildingId, fadingInBuildingId, fadeAlpha );
+-                redrawBuildingConnection( castle, offset, currentBuild.id, fadingInBuildingId );
++                redrawBuildingConnection( castle, buildingOffset, fadingInBuildingId, fadingInBuildingId, fadeAlpha );
++                redrawBuildingConnection( castle, buildingOffset, currentBuild.id, fadingInBuildingId );
+             }
+         }
+     }
+@@ -498,3 +502,23 @@ void CastleDialog::redrawAllBuildings( const Castle & castle, const fheroes2::Po
+     redrawCastleBuildings( castle, offset, buildings, alphaBuilding, animationIndex );
+     fheroes2::drawCastleName( castle, fheroes2::Display::instance(), offset );
+ }
++
++#if defined( __3DS__ )
++void CastleDialog::redrawStereoPanorama( const Castle & castle, const fheroes2::Point & offset, const BuildingsRenderQueue & buildings,
++                                       const FadeBuilding & fade, uint32_t frame, int strength, fheroes2::Image & left, fheroes2::Image & right )
++{
++    // Render original sprites/animation/occlusion, not a displaced copy of the finished picture.
++    // Connected buildings share one near plane; the terrain/bay/river stay at screen depth.
++    auto & display = fheroes2::Display::instance(); const fheroes2::ImageRestorer restore( display );
++    fheroes2::Image town( 640, 256 ); town._disableTransformLayer();
++    const int shift = std::clamp( strength, 0, 4 );
++    const auto eye = [&]( int disparity, fheroes2::Image & image ) {
++        redrawCastleBuildings( castle, offset, buildings, fade, frame, disparity );
++        fheroes2::drawCastleName( castle, display, offset );
++        fheroes2::Copy( display, offset.x, offset.y, town, 0, 0, 640, 256 );
++        if ( image.width() != 400 || image.height() != 160 ) { image.resize( 400, 160 ); image.reset(); }
++        fheroes2::Resize( town, image );
++    };
++    eye( shift, left ); eye( -shift, right );
++}
++#endif
 diff --git a/src/fheroes2/castle/castle_dialog.cpp b/src/fheroes2/castle/castle_dialog.cpp
-index 85fad68..85e74cc 100644
+index 85fad68..b880540 100644
 --- a/src/fheroes2/castle/castle_dialog.cpp
 +++ b/src/fheroes2/castle/castle_dialog.cpp
-@@ -68,6 +68,10 @@
+@@ -68,6 +68,11 @@
  #include "ui_tool.h"
  #include "ui_window.h"
  #include "world.h"
 +#if defined( __3DS__ )
 +#include "ui_3ds_dialog.h"
 +#include "image_tool.h"
++#include "platform_3ds.h"
 +#endif
  
  namespace
  {
-@@ -322,7 +326,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -322,7 +327,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
          }
      }
  
@@ -1343,7 +1460,7 @@ index 85fad68..85e74cc 100644
  
      // Previous castle button.
      fheroes2::Point statusBarPosition( dialogRoi.x, dialogRoi.y + 480 - 19 );
-@@ -469,6 +476,17 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -469,6 +477,19 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
  
      updateStatusBar();
  
@@ -1357,11 +1474,13 @@ index 85fad68..85e74cc 100644
 +    };
 +    fheroes2::Image initialCity( 400, 160 ); initialCity.reset(); fheroes2::Resize( nativeTown(), initialCity );
 +    fheroes2::Blit( initialCity, nativeScreen.top, 0, 28 );
++    nativeScreen.rightTop = nativeScreen.top;
++    int lastStereoStrength = -1;
 +#endif
      // Fade-in castle dialog.
      if ( fade ) {
          if ( renderBackgroundDialog && !isDefaultScreenSize ) {
-@@ -493,7 +511,41 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -493,7 +514,45 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
      while ( le.HandleEvents() && result == CastleDialogReturnValue::DoNothing ) {
          bool needRedraw = false;
          bool needFadeIn = false;
@@ -1377,13 +1496,17 @@ index 85fad68..85e74cc 100644
 +        alphaHero = 255;
 +        bottomArmyBar.SetArmy( hero ? &hero->GetArmy() : nullptr );
 +        topArmyBar.ResetSelected(); bottomArmyBar.ResetSelected();
++        lastStereoStrength = -1;
 +        nativeScreen.animate = [&]( fheroes2::Image & city ) {
 +            const bool fading = !fadeBuilding.isFadeDone();
 +            const bool changed = fadeBuilding.updateFadeAlpha();
 +            const bool tick = Game::validateAnimationDelay( Game::DelayType::CASTLE_AROUND_DELAY );
-+            if ( !changed && !tick && !fading ) return false;
++            const int stereo = Platform3DS::stereoStrength();
++            if ( !changed && !tick && !fading && stereo == lastStereoStrength ) return false;
++            lastStereoStrength = stereo;
 +            CastleDialog::redrawAllBuildings( *this, dialogRoi.getPosition(), cacheBuildings, fadeBuilding, castleAnimationIndex );
-+            fheroes2::Resize( nativeTown(), city );
++            if ( stereo ) CastleDialog::redrawStereoPanorama( *this, dialogRoi.getPosition(), cacheBuildings, fadeBuilding, castleAnimationIndex, stereo, city, nativeScreen.rightCity );
++            else { fheroes2::Resize( nativeTown(), city ); nativeScreen.rightCity = city; }
 +            if ( fadeBuilding.isFadeDone() ) fadeBuilding.stopFade();
 +            if ( tick ) ++castleAnimationIndex;
 +            return true;
@@ -1404,7 +1527,7 @@ index 85fad68..85e74cc 100644
          // During hero purchase or building construction skip any interaction with the dialog.
          if ( alphaHero >= 255 && fadeBuilding.isFadeDone() ) {
              if ( buttonPrevCastle.isEnabled() ) {
-@@ -609,7 +661,11 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -609,7 +668,11 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
              }
  
              // Get pressed hotkey.
@@ -1746,7 +1869,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..42b37c1 100644
+index 69d39fb..fd1b951 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -1797,7 +1920,7 @@ index 69d39fb..42b37c1 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,109 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,110 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1807,7 +1930,7 @@ index 69d39fb..42b37c1 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 20> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen" };
++        const std::array<const char *, 21> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -1886,6 +2009,7 @@ index 69d39fb..42b37c1 100644
 +        runGroup( "CastleBuildings", []() { Interface3DS::testCastleBuildings(); } );
 +        runGroup( "CastleArmy", []() { Interface3DS::testCastleArmy(); } );
 +        runGroup( "CastleScreen", []() { Interface3DS::testCastleScreen(); } );
++        runGroup( "CastleStereo", []() { Interface3DS::testCastleStereo(); } );
 +        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
 +        runGroup( "Construction", []() { Interface3DS::testConstruction(); } );
@@ -2327,10 +2451,10 @@ index 353da3b..58f2dba 100644
  void Settings::SetScrollSpeed( int speed )
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..ee317a5
+index 0000000..6edc117
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,452 @@
+@@ -0,0 +1,481 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#include "logging.h"
@@ -2349,6 +2473,7 @@ index 0000000..ee317a5
 +    bool touchHeld = false;
 +    bool capture = false;
 +    bool highResolution = true;
++    int stereoTestStrength = -1;
 +    bool displayRefresh = false;
 +    bool displayModifierHeld = false;
 +    bool displayStartCaptured = false;
@@ -2382,7 +2507,7 @@ index 0000000..ee317a5
 +    bool adventureInputActive = false;
 +    uint8_t adventureDpadHeld = 0;
 +    uint8_t adventureDpadCaptured = 0;
-+    struct ModalImages { const fheroes2::Image * top; const fheroes2::Image * bottom; };
++    struct ModalImages { const fheroes2::Image * top; const fheroes2::Image * bottom; const fheroes2::Image * rightTop; };
 +    std::vector<ModalImages> modalImages;
 +    bool modalTouchCaptured = false;
 +    bool physicalTouchHeld = false;
@@ -2413,6 +2538,28 @@ index 0000000..ee317a5
 +        }();
 +        return supported;
 +    }
++    bool supportsStereoModel( const uint8_t model )
++    {
++        return model == CFG_MODEL_3DS || model == CFG_MODEL_3DSXL || model == CFG_MODEL_N3DS || model == CFG_MODEL_N3DSXL;
++    }
++    int stereoStrength()
++    {
++        static const bool supported = []() {
++            const Result init = cfguInit();
++            if ( R_FAILED( init ) ) { ERROR_LOG( "Cannot initialize stereo model service: " << init ) return false; }
++            u8 model = 255; const Result result = CFGU_GetSystemModel( &model ); cfguExit();
++            if ( R_FAILED( result ) ) { ERROR_LOG( "Cannot determine stereo model: " << result ) return false; }
++            return supportsStereoModel( model );
++        }();
++        if ( supported && stereoTestStrength >= 0 && smokeTest() ) return stereoTestStrength;
++        const float slider = supported ? osGet3DSliderState() : 0.0f;
++        // Small quantized disparities avoid rebuilding both eyes for analog slider noise.
++        return slider > 0.01f ? std::clamp( int( slider * 4.0f ) + 1, 1, 4 ) : 0;
++    }
++    void setStereoTestStrength( int strength )
++    {
++        stereoTestStrength = smokeTest() ? std::clamp( strength, -1, 4 ) : -1;
++    }
 +    bool highResolutionEnabled() { return highResolution; }
 +    void setHighResolutionEnabled( const bool enabled )
 +    {
@@ -2441,9 +2588,9 @@ index 0000000..ee317a5
 +        }
 +        return true;
 +    }
-+    void pushModalImages( const fheroes2::Image * top, const fheroes2::Image * bottom )
++    void pushModalImages( const fheroes2::Image * top, const fheroes2::Image * bottom, const fheroes2::Image * rightTop )
 +    {
-+        modalImages.push_back( { top, bottom } );
++        modalImages.push_back( { top, bottom, rightTop } );
 +        modalTouchCaptured = modalTouchCaptured || touchHeld || stripTouchCaptured;
 +        panelInputs.clear();
 +        cancelAdventureScroll();
@@ -2462,6 +2609,12 @@ index 0000000..ee317a5
 +    const fheroes2::Image * modalBottomImage()
 +    {
 +        for ( auto layer = modalImages.rbegin(); layer != modalImages.rend(); ++layer ) if ( layer->bottom ) return layer->bottom;
++        return nullptr;
++    }
++    const fheroes2::Image * modalRightImage()
++    {
++        // A child owning the upper screen also owns its stereo policy: ordinary dialogs are flat.
++        for ( auto layer = modalImages.rbegin(); layer != modalImages.rend(); ++layer ) if ( layer->top ) return layer->rightTop;
 +        return nullptr;
 +    }
 +    bool isPhysicalTouchHeld() { return physicalTouchHeld; }
@@ -2785,10 +2938,10 @@ index 0000000..ee317a5
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..c6c04f8
+index 0000000..2bc6a43
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,72 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -2801,11 +2954,15 @@ index 0000000..c6c04f8
 +    enum class PanelInputType { Key, TouchDown, TouchMove, TouchUp, KeyUp };
 +    struct PanelInput { PanelInputType type; PanelKey key = PanelKey::Cancel; fheroes2::Point position; };
 +    // Images are owned by the synchronous dialog scopes. A top-only layer retains a lower dialog underneath.
-+    void pushModalImages( const fheroes2::Image * top, const fheroes2::Image * bottom );
++    void pushModalImages( const fheroes2::Image * top, const fheroes2::Image * bottom, const fheroes2::Image * rightTop = nullptr );
 +    void popModalImages();
 +    bool hasModalImages();
 +    const fheroes2::Image * modalTopImage();
 +    const fheroes2::Image * modalBottomImage();
++    const fheroes2::Image * modalRightImage();
++    bool supportsStereoModel( uint8_t model );
++    int stereoStrength();
++    void setStereoTestStrength( int strength );
 +    bool isPhysicalTouchHeld();
 +    fheroes2::Point physicalTouchPosition();
 +    bool handleModalTouch( PanelInputType type, float x, float y );
@@ -2859,10 +3016,10 @@ index 0000000..c6c04f8
 +#endif
 diff --git a/src/engine/screen_3ds.h b/src/engine/screen_3ds.h
 new file mode 100644
-index 0000000..43a1e49
+index 0000000..0b399c0
 --- /dev/null
 +++ b/src/engine/screen_3ds.h
-@@ -0,0 +1,232 @@
+@@ -0,0 +1,250 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +// Included inside screen.cpp's anonymous namespace after currentRGBPalette.
 +class RenderEngine final : public fheroes2::BaseRenderEngine
@@ -2995,20 +3152,22 @@ index 0000000..43a1e49
 +    {
 +        if ( !_top || !_bottom || display.width() != gameWidth || display.height() != gameHeight || !display.image() )
 +            return;
-+        const bool wide = Platform3DS::highResolutionEnabled() && Platform3DS::highResolutionSupported();
-+        if ( gfxIsWide() != wide ) {
-+            gfxSetWide( wide );
-+            COUT( "3DS top screen: " << ( wide ? "800x240 high resolution" : "400x240 standard" ) )
-+        }
-+        Platform3DS::consumeDisplayRefresh();
-+        const int topWidth = wide ? gameWidth : overviewWidth;
-+        const int sourceStep = wide ? 1 : standardHorizontalScale;
 +        const Uint64 begin = SDL_GetPerformanceCounter();
 +        const auto * panel = Platform3DS::commandPanelImage();
 +        const auto * strip = Platform3DS::commandStripImage();
 +        const auto * battleHUD = Platform3DS::battleHUDImage();
 +        const auto * modalTop = Platform3DS::modalTopImage();
 +        const auto * modalBottom = Platform3DS::modalBottomImage();
++        const auto * rightImage = Platform3DS::modalRightImage();
++        const bool stereo = modalTop && rightImage && Platform3DS::stereoStrength() > 0;
++        const bool wide = !stereo && Platform3DS::highResolutionEnabled() && Platform3DS::highResolutionSupported();
++        // Wide and stereo share the upper-screen buffers and are mutually exclusive in libctru.
++        if ( gfxIs3D() && !stereo ) gfxSet3D( false );
++        if ( gfxIsWide() != wide ) { gfxSetWide( wide ); COUT( "3DS top screen: " << ( wide ? "800x240 high resolution" : "400x240 standard" ) ) }
++        if ( gfxIs3D() != stereo ) { gfxSet3D( stereo ); COUT( "3DS castle stereo: " << ( stereo ? "on" : "off" ) ) }
++        Platform3DS::consumeDisplayRefresh();
++        const int topWidth = wide ? gameWidth : overviewWidth;
++        const int sourceStep = wide ? 1 : standardHorizontalScale;
 +        if ( !Platform3DS::hasModalImages() )
 +            Platform3DS::followCursor( _viewportCenter, SDL_GetTicks(), panel || Platform3DS::isBattleHUDPointer( _viewportCenter ) || _viewportButtonHeld );
 +        auto crop = Platform3DS::viewport();
@@ -3023,6 +3182,12 @@ index 0000000..43a1e49
 +            ERROR_LOG( "Invalid 3DS framebuffer or dimensions" )
 +            return;
 +        }
++        u16 rightHeight = 0, rightWidth = 0;
++        auto * right = stereo ? reinterpret_cast<uint32_t *>( gfxGetFramebuffer( GFX_TOP, GFX_RIGHT, &rightHeight, &rightWidth ) ) : nullptr;
++        if ( stereo && ( !right || rightHeight != screenHeight || rightWidth != overviewWidth || modalTop->width() != overviewWidth
++                         || modalTop->height() != screenHeight || rightImage->width() != overviewWidth || rightImage->height() != screenHeight ) ) {
++            ERROR_LOG( "Invalid stereo framebuffer or modal dimensions" ) return;
++        }
 +        const uint8_t * image = display.image();
 +        const int frameWidth = display.width();
 +        // Framebuffer columns are contiguous, stored bottom-to-top. No intermediate RGBA texture.
@@ -3030,6 +3195,12 @@ index 0000000..43a1e49
 +            uint32_t * out = top + x * screenHeight;
 +            for ( int y = lastScreenRow; y >= 0; --y )
 +                *out++ = _colors[modalTop ? modalTop->image()[y * overviewWidth + ( wide ? x / 2 : x )] : image[y * verticalScale * frameWidth + x * sourceStep]];
++        }
++        if ( stereo ) {
++            for ( int x = 0; x < overviewWidth; ++x ) {
++                auto * out = right + x * screenHeight;
++                for ( int y = lastScreenRow; y >= 0; --y ) *out++ = _colors[rightImage->image()[y * overviewWidth + x]];
++            }
 +        }
 +        for ( int x = 0; x < detailWidth; ++x ) {
 +            uint32_t * out = bottom + x * screenHeight;
@@ -3042,17 +3213,17 @@ index 0000000..43a1e49
 +                *out++ = _colors[pixel];
 +            }
 +        }
-+        const int left = crop.x / sourceStep, right = left + detailWidth / sourceStep - 1;
++        const int left = crop.x / sourceStep, rightEdge = left + detailWidth / sourceStep - 1;
 +        const int upper = crop.y / verticalScale, lower = upper + Platform3DS::detailHeight() / verticalScale - 1;
 +        if ( !modalTop ) {
 +            const int upperRow = lastScreenRow - upper, lowerRow = lastScreenRow - lower;
-+            for ( int x = left; x <= right; ++x ) {
++            for ( int x = left; x <= rightEdge; ++x ) {
 +                auto * column = top + x * screenHeight;
 +                column[upperRow] = cropBorderColor;
 +                column[lowerRow] = cropBorderColor;
 +            }
 +            auto * leftColumn = top + left * screenHeight;
-+            auto * rightColumn = top + right * screenHeight;
++            auto * rightColumn = top + rightEdge * screenHeight;
 +            for ( int y = upper; y <= lower; ++y ) {
 +                const int row = lastScreenRow - y;
 +                leftColumn[row] = cropBorderColor;
@@ -3065,6 +3236,10 @@ index 0000000..43a1e49
 +        }
 +        _drawTime += 1000.0 * ( SDL_GetPerformanceCounter() - begin ) / SDL_GetPerformanceFrequency();
 +        if ( Platform3DS::consumeCapture() ) {
++            if ( stereo ) {
++                snapshot( top, overviewWidth, "sdmc:/3ds/fheroes2/stereo-left-top.bmp", false );
++                snapshot( right, overviewWidth, "sdmc:/3ds/fheroes2/stereo-right-top.bmp", false );
++            }
 +            snapshot( top, topWidth,
 +                      modalTop                      ? "sdmc:/3ds/fheroes2/info-top.bmp"
 +                      : modalBottom                 ? "sdmc:/3ds/fheroes2/dialog-top.bmp"
@@ -3972,10 +4147,10 @@ index 0000000..55f8228
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_army.cpp b/src/fheroes2/gui/ui_3ds_castle_army.cpp
 new file mode 100644
-index 0000000..e88cd9f
+index 0000000..0411c74
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_army.cpp
-@@ -0,0 +1,404 @@
+@@ -0,0 +1,475 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -3988,6 +4163,7 @@ index 0000000..e88cd9f
 +#include <stdexcept>
 +#include <utility>
 +#include <SDL.h>
++#include <3ds.h>
 +#include "army.h"
 +#include "army_bar.h"
 +#include "army_troop.h"
@@ -4056,9 +4232,9 @@ index 0000000..e88cd9f
 +    class CastleArmyScope
 +    {
 +    public:
-+        CastleArmyScope( const Image & top, const Image & bottom )
++        CastleArmyScope( const Image & top, const Image & bottom, const Image * right = nullptr )
 +        {
-+            Platform3DS::pushModalImages( &top, &bottom );
++            Platform3DS::pushModalImages( &top, &bottom, right );
 +            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() ); LocalEvent::Get().resetFor3DSPanel();
 +        }
 +        ~CastleArmyScope()
@@ -4068,10 +4244,10 @@ index 0000000..e88cd9f
 +        }
 +    };
 +}
-+Interface3DS::CastleScreen::CastleScreen() : top( 400, 240 ), bottom( 320, 240 )
++Interface3DS::CastleScreen::CastleScreen() : top( 400, 240 ), bottom( 320, 240 ), rightTop( 400, 240 )
 +{
 +    top.fill( GetColorId( 35, 29, 24 ) ); bottom.fill( GetColorId( 35, 29, 24 ) );
-+    Platform3DS::pushModalImages( &top, &bottom );
++    rightTop = top; Platform3DS::pushModalImages( &top, &bottom, &rightTop );
 +}
 +Interface3DS::CastleScreen::~CastleScreen()
 +{
@@ -4125,7 +4301,7 @@ index 0000000..e88cd9f
 +        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) );
 +    }
 +    Image city( 400, 160 ); city.reset(); Resize( town, city );
-+    Image top( 400, 240 ), bottom( 320, 240 ); const CastleArmyScope scope( top, bottom );
++    Image top( 400, 240 ), bottom( 320, 240 ); const CastleArmyScope scope( top, bottom, screen ? &screen->rightTop : nullptr );
 +    int focus = 0, pressed = -1; bool down = false, moved = false, splitting = false; Point start, last; Uint32 began = 0;
 +    const auto barAt = [&]( int index ) -> CastleArmyBar & { return index < 5 ? garrison : guest; };
 +    const auto otherAt = [&]( int index ) -> CastleArmyBar & { return index < 5 ? guest : garrison; };
@@ -4193,10 +4369,14 @@ index 0000000..e88cd9f
 +        }
 +        if ( splitting ) DrawRect( bottom, controls[1], GetColorId( 90, 175, 85 ) );
 +        DrawRect( bottom, focus < 10 ? slotArea( focus ) : controls[focus - 10], GetColorId( 255, 220, 70 ) );
-+        if ( screen ) { screen->top = top; screen->bottom = bottom; }
++        if ( screen ) {
++            screen->top = top; screen->bottom = bottom; screen->rightTop = top;
++            if ( screen->rightCity.width() == 400 && screen->rightCity.height() == 160 ) Blit( screen->rightCity, screen->rightTop, 0, 28 );
++        }
 +        Display::instance().render();
 +    };
 +    const auto indexAt = [&]( Point point ) { for ( int i = 0; i < 10; ++i ) if ( slotArea( i ) & point ) return i; for ( int i = 0; i < controlCount; ++i ) if ( controls[i] & point ) return i + 10; return -1; };
++    if ( screen && screen->animate ) screen->animate( city );
 +    draw();
 +    if ( Platform3DS::smokeTest() && ( !Save( top, screen ? "sdmc:/3ds/fheroes2/castle-main-top.bmp" : "sdmc:/3ds/fheroes2/castle-army-top.bmp" ) || !Save( bottom, screen ? "sdmc:/3ds/fheroes2/castle-main-bottom.bmp" : "sdmc:/3ds/fheroes2/castle-army-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save castle army" );
 +    auto & events = LocalEvent::Get();
@@ -4378,6 +4558,72 @@ index 0000000..e88cd9f
 +    Settings::Get().setInterfaceType( previous );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
 +    COUT( "3DS CASTLE MAIN SMOKE: PASS actual_castle_loop dwelling_cancel construction_cancel Y_nested_return animated_panorama original_style navigation disabled_navigation evil unchanged_funds_army_heroes_frame_context release_isolation" )
++}
++void Interface3DS::testCastleStereo()
++{
++    using namespace fheroes2;
++    struct RestoreStereo {
++        bool preference = Platform3DS::highResolutionEnabled();
++        ~RestoreStereo() { Platform3DS::setStereoTestStrength( -1 ); Platform3DS::setHighResolutionEnabled( preference ); Display::instance().render(); }
++    } restore;
++    auto & display = Display::instance(); const ImageRestorer restoreFrame( display );
++    const auto parentTop = Platform3DS::modalTopImage(), parentBottom = Platform3DS::modalBottomImage(), parentRight = Platform3DS::modalRightImage();
++    if ( !Platform3DS::supportsStereoModel( 0 ) || !Platform3DS::supportsStereoModel( 1 ) || !Platform3DS::supportsStereoModel( 2 )
++         || !Platform3DS::supportsStereoModel( 4 ) || Platform3DS::supportsStereoModel( 3 ) || Platform3DS::supportsStereoModel( 5 ) || Platform3DS::supportsStereoModel( 255 ) ) throw std::runtime_error( "Stereo model gating differs" );
++    Image left( 400, 160 ), right( 400, 160 ); left.reset(); right.reset();
++    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" );
++    metadata.builtBuildings = { BUILD_CASTLE, DWELLING_MONSTER1, BUILD_MAGEGUILD1, BUILD_CAPTAIN, BUILD_STATUE, BUILD_WELL };
++    const std::vector<uint8_t> before( display.image(), display.image() + display.width() * display.height() );
++    for ( int race : { Race::KNGT, Race::BARB, Race::SORC, Race::WRLK, Race::WZRD, Race::NECR } ) {
++        Castle castle( 0, 0, race ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
++        const CastleDialog::BuildingsRenderQueue queue( castle, { 80, 0 } ); CastleDialog::FadeBuilding fade;
++        CastleDialog::redrawStereoPanorama( castle, { 80, 0 }, queue, fade, 2, 0, left, right );
++        if ( std::memcmp( left.image(), right.image(), 400 * 160 ) ) throw std::runtime_error( "Zero stereo disparity differs" );
++        CastleDialog::redrawAllBuildings( castle, { 80, 0 }, queue, fade, 2 );
++        Image flat( 640, 256 ), expected( 400, 160 ); flat._disableTransformLayer(); expected.reset();
++        Copy( display, 80, 0, flat, 0, 0, 640, 256 ); Resize( flat, expected );
++        if ( std::memcmp( left.image(), expected.image(), 400 * 160 ) ) throw std::runtime_error( "Zero stereo differs from original town" );
++        std::memcpy( display.image(), before.data(), before.size() );
++        CastleDialog::redrawStereoPanorama( castle, { 80, 0 }, queue, fade, 2, 4, left, right );
++        if ( !std::memcmp( left.image(), right.image(), 400 * 160 ) || std::memcmp( before.data(), display.image(), before.size() ) ) throw std::runtime_error( "Stereo eyes match or game frame changed" );
++        if ( race == Race::KNGT ) {
++            Image topLeft( 400, 240 ), topRight( 400, 240 ), bottom( 320, 240 ); topLeft.fill( 0 ); topRight.fill( 0 ); bottom.fill( 0 );
++            Blit( left, topLeft, 0, 28 ); Blit( right, topRight, 0, 28 );
++            Save( topLeft, "sdmc:/3ds/fheroes2/castle-stereo-left.bmp" ); Save( topRight, "sdmc:/3ds/fheroes2/castle-stereo-right.bmp" );
++            Platform3DS::setHighResolutionEnabled( true ); Platform3DS::setStereoTestStrength( 4 );
++            Platform3DS::pushModalImages( &topLeft, &bottom, &topRight ); Platform3DS::requestCapture(); display.render();
++            if ( !gfxIs3D() || gfxIsWide() ) throw std::runtime_error( "Stereo did not replace wide output" );
++            Platform3DS::pushModalImages( &topLeft, nullptr ); display.render();
++            if ( gfxIs3D() || !gfxIsWide() || Platform3DS::modalRightImage() ) throw std::runtime_error( "Child information dialog inherited stereo" );
++            Platform3DS::popModalImages(); display.render();
++            if ( !gfxIs3D() ) throw std::runtime_error( "Stereo did not resume after child" );
++            Platform3DS::setStereoTestStrength( 0 ); display.render();
++            if ( gfxIs3D() || !gfxIsWide() ) throw std::runtime_error( "Slider zero did not restore wide" );
++            Platform3DS::setHighResolutionEnabled( false ); display.render();
++            if ( gfxIsWide() || gfxIs3D() ) throw std::runtime_error( "Standard 2D restore failed" );
++            Platform3DS::setStereoTestStrength( 2 ); display.render();
++            if ( !gfxIs3D() || gfxIsWide() ) throw std::runtime_error( "Stereo from standard mode failed" );
++            Platform3DS::popModalImages(); display.render();
++            if ( gfxIs3D() || gfxIsWide() ) throw std::runtime_error( "Stereo leaked outside town" );
++        }
++    }
++    // Exercise the actual native main view, including a child building selector.
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
++    std::vector<SDL_Event> events;
++    for ( int button : { SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_LEFTSHOULDER } ) {
++        SDL_Event event{}; event.type = SDL_CONTROLLERBUTTONDOWN; event.cbutton.button = button; event.cbutton.state = SDL_PRESSED; events.push_back( event );
++        event.type = SDL_CONTROLLERBUTTONUP; event.cbutton.state = SDL_RELEASED; events.push_back( event );
++    }
++    Platform3DS::setStereoTestStrength( 3 );
++    SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & event : *static_cast<std::vector<SDL_Event> *>( data ) ) { SDL_Delay( 250 ); if ( SDL_PushEvent( &event ) != 1 ) return 1; } return 0; }, "castle-stereo", &events );
++    if ( !worker ) throw std::runtime_error( "Cannot start stereo input" );
++    int status = 0;
++    try { if ( castle.OpenDialog( false, false, false, true ) != Castle::CastleDialogReturnValue::Close ) throw std::runtime_error( "Stereo castle failed to close" ); }
++    catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++    SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++    if ( status || Platform3DS::modalTopImage() != parentTop || Platform3DS::modalBottomImage() != parentBottom || Platform3DS::modalRightImage() != parentRight
++         || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() || gfxIs3D() ) throw std::runtime_error( "Stereo main context/input leaked" );
++    COUT( "3DS CASTLE STEREO SMOKE: PASS six_races original_zero_disparity distinct_eyes game_frame_restored real_left_right_framebuffers wide_standard_slider_restore child_flat_and_resume main_castle_Y_return model_2DS_exclusion" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_buildings.cpp b/src/fheroes2/gui/ui_3ds_castle_buildings.cpp
@@ -6819,10 +7065,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..1560025
+index 0000000..c260b9d
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,113 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -6863,7 +7109,7 @@ index 0000000..1560025
 +        ~CastleScreen();
 +        CastleScreen( const CastleScreen & ) = delete;
 +        CastleScreen & operator=( const CastleScreen & ) = delete;
-+        fheroes2::Image top, bottom;
++        fheroes2::Image top, bottom, rightTop, rightCity;
 +        std::function<bool( fheroes2::Image & )> animate;
 +        std::function<bool()> ready;
 +        bool navigation = false;
@@ -6873,6 +7119,7 @@ index 0000000..1560025
 +    bool handleCastleArmy( Castle & castle, Heroes * hero, const fheroes2::Rect & townArea, uint32_t * building = nullptr );
 +    void testCastleArmy();
 +    void testCastleScreen();
++    void testCastleStereo();
 +    struct ConstructionChoice {
 +        enum class Action { Close, Build, Previous, Next, Options, RecruitHero, Spread, Grouped };
 +        Action action = Action::Close;

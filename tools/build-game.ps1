@@ -1,4 +1,4 @@
-param([string]$CMake = 'C:/msys64/mingw64/bin/cmake.exe', [string]$Ninja = 'C:/msys64/mingw64/bin/ninja.exe')
+﻿param([string]$CMake = 'C:/msys64/mingw64/bin/cmake.exe', [string]$Ninja = 'C:/msys64/mingw64/bin/ninja.exe', [ValidateRange(1,8)][int]$Jobs = 2)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'prepare-upstream.ps1')
@@ -34,6 +34,6 @@ if (!$head -or $head.Trim() -ne '9754feff8501dbb69df95f3b999156a32eb8d7d3') {
 $build = Join-Path $workspace 'build/game'
 & $CMake -S (Join-Path $workspace '3ds-game') -B $build -G Ninja "-DCMAKE_MAKE_PROGRAM=$Ninja" "-DCMAKE_TOOLCHAIN_FILE=$(Join-Path $workspace 'cmake/native-3ds.cmake')" -DCMAKE_BUILD_TYPE=Release
 if ($LASTEXITCODE -ne 0) { throw 'Game CMake configuration failed' }
-& $CMake --build $build --parallel 6
+& $CMake --build $build --parallel $Jobs
 if ($LASTEXITCODE -ne 0) { throw 'Game ARM build failed' }
 Write-Output "Development binary: $(Join-Path $build 'fheroes2.3dsx')"

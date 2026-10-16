@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.34** now opens the castle directly in a native two-screen view, with its animated panorama above and an original-style army panel below. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.35** adds experimental slider-controlled stereo for the castle panorama, retaining the native two-screen castle view and original-style army panel. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 
@@ -16,7 +16,7 @@ New 3DS XL gameplay and overall operation through 0.3.32 have been reported work
 
 ## Features
 
-- Top-screen overview of an 800×480 game frame, with standard 400×240 or high-resolution 800×240 **2D** output. R + Start switches and saves the preference; Old 2DS uses standard output. Stereo 3D is not implemented.
+- Top-screen overview of an 800×480 game frame, with standard 400×240 or high-resolution 800×240 **2D** output. R + Start switches and saves the preference; Old 2DS uses standard output. Local 0.3.35 adds experimental stereo for the town panorama only; stereo temporarily replaces wide output and does not alter the saved 2D preference.
 - Cursor-following touchscreen detail, Circle Pad cursor, D-pad adventure-map scrolling, taps and held stylus information.
 - Original adventure command strip and contextual combat hero panel on Y; native battle controls, scrollable log, results, surrender and necromancy dialogs.
 - Touchscreen chest and level-up choices, animated creature recruitment, troop splitting and army information cards.

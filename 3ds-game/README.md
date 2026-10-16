@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.35: experimental stereoscopic town panorama
+
+The physical 3D slider enables stereo only in the main castle view. Both eyes are rendered from original sprites with the original animation and occlusion order: terrain/river/bay stay at screen depth, architecture shares one near plane. Connected buildings and extensions remain together. This is a two-plane experiment, not individual building depths. Text and the lower controls remain flat. Four conservative slider levels control disparity; slider zero disables stereo.
+
+libctru wide 800×240 and stereo are mutually exclusive: stereo provides 400×240 per eye. Slider zero, leaving town and ordinary upper-screen dialogs restore the selected 2D mode without changing the saved high-resolution preference. R+Start still updates that preference. Both 2DS models are excluded from stereo; New 2DS XL retains wide 2D support. A child owning the upper screen suppresses the right-eye town image; returning regenerates the correct pair.
+
+Validation: two-job ARM Release, desktop syntax for six files and offline infrastructure (21 groups/33 components) passed. CastleStereo passed New/Old Russian and New English: all six races at zero/original and nonzero/distinct disparity, restored game frame, real GFX_LEFT/GFX_RIGHT output, stereo ↔ wide/standard, flat child/resume, actual Castle::OpenDialog/Y/return and both 2DS model exclusions. Captured eye framebuffers match their source geometry/palette; only the normal animated fire palette cycles differ. Engine self-test/Startup and CastleScreen passed New/Old; Messages passed New. Captures inspected; monolithic Full not run. Construction/boat animation in stereo, complete matches and physical visual comfort remain unverified.
+
+The smoke-only slider override exercises actual left/right framebuffers in Azahar; normal gameplay reads the physical slider. Game rules/input are unchanged. Updating from 0.3.34 needs only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check all races, slider comfort/edges/animation, completed buildings/boat, nested hero/book/recruitment/construction/building dialogs, stereo resumption, R+Start and previous 2D preference after exit. Hardware/visual-comfort validation is pending.
+
 ## Preview 0.3.34: main castle screen and original-style panels
 
 Entering a castle now opens the native two-screen view directly. The upper screen keeps the entire original town panorama, its aspect ratio and building animation, without legacy army rows or tiny controls. The lower screen contains garrison/guest armies, Details, Split, Hero, Buildings, Income and Close. Graphic header arrows switch castles and are disabled for a single castle. Y opens built buildings; L/Close exits the castle. Select the castle building for construction/options; a town tent retains the original castle-upgrade action.
