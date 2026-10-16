@@ -1,5 +1,5 @@
-$ErrorActionPreference = 'Stop'
-$version = '0.3.33'
+﻿$ErrorActionPreference = 'Stop'
+$version = '0.3.34'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -37,6 +37,9 @@ $manifest = [ordered]@{
     grouped_host_peaks='Sampled Azahar process: 10.9 percent total CPU, 604.3MB working set, 1004.9MB private; previous freeze cause unresolved'
     native_castle_buildings='Army panel Buildings button; six built entries/page, dwellings first, upgrades/highest guild, original race drawing IDs, upper artwork/description/availability; same Castle::OpenDialog action dispatch'
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
+    native_castle_main='Direct native main view with animated original panorama, stone/beveled army trays, Buildings/Y, income, castle arrows and close; persistent modal background across original building handlers; original ArmyBar mutations; recruited guest appears immediately'
+    emulated_castle_main='CastleScreen New/Old ru and New en passed: actual Castle::OpenDialog entry/exit and dwelling/construction cancellation, animation callback, navigation choice/disabled arrows, Evil UI and state restoration; CastleArmy New/Old and CastleBuildings New regressions passed; positive purchases/new guests/building fade/multi-castle gameplay require hardware'
+    hardware_castle_main='0.3.34 pending New 3DS XL; physical Old unavailable; stereo panorama is a future experiment'
     hardware_castle_buildings='0.3.33 pending New 3DS XL; no physical Old 3DS'
     upgrade_castle_buildings='From 0.3.32 replace 3dsx and files/lang/ru.mo for Buildings label'
     native_castle_army='Castle Y panel; original town snapshot above, garrison/guest slots and Details/Split/Hero/Back below; original ArmyBar transfers/split/card and last-hero-creature rules; main castle retains original layout'

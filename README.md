@@ -6,6 +6,8 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
+Local development **0.3.34** now opens the castle directly in a native two-screen view, with its animated panorama above and an original-style army panel below. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+
 ## Current preview
 
 Version **0.3.33** adds built-building selection through **castle → Y → Buildings**. Dwellings appear first, upgrades replace base entries, and the highest built Mage Guild level is shown. Selected buildings use the original castle action handlers. Updating from 0.3.32 requires both `3ds/fheroes2/fheroes2.3dsx` and `3ds/fheroes2/files/lang/ru.mo`; preserve your configuration and saves.

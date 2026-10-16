@@ -1,4 +1,4 @@
-$menuTestGroups = [ordered]@{
+﻿$menuTestGroups = [ordered]@{
     Startup = @{ Markers = @('3DS RENDERER BRIDGE SMOKE: PASS','3DS COMMAND STRIP SMOKE: PASS','3DS MAP SCROLL SMOKE: PASS','3DS HIGH RESOLUTION SMOKE: PASS'); Captures = @('menu-top.bmp','menu-bottom.bmp','wide-menu-top.bmp','wide-menu-bottom.bmp','wide-panel-top.bmp','wide-panel-bottom.bmp') }
     Messages = @{ Markers = @('3DS NATIVE MESSAGES SMOKE: PASS'); Captures = @('wide-info-top.bmp','wide-info-bottom.bmp','wide-dialog-top.bmp','wide-dialog-bottom.bmp') }
     Chest = @{ Markers = @('3DS CHEST SMOKE: PASS'); Captures = @() }
@@ -14,6 +14,7 @@ $menuTestGroups = [ordered]@{
     BattleIntegration = @{ Markers = @('3DS BATTLE HERO ACTIONS SMOKE: PASS','3DS BATTLE SPELLBOOK SMOKE: PASS','3DS BATTLE ARMY CARD SMOKE: PASS','3DS BATTLE SUMMARY INTEGRATION SMOKE: PASS','3DS NECROMANCY INTEGRATION SMOKE: PASS','3DS BATTLE HUD SMOKE: PASS'); Captures = @('spellbook-battle-top.bmp','spellbook-battle-bottom.bmp','army-info-battle-bottom.bmp') }
     Building = @{ Markers = @('3DS BUILDING SMOKE: PASS'); Captures = @('building-top.bmp','building-bottom.bmp') }
     CastleBuildings = @{ Markers = @('3DS CASTLE BUILDINGS SMOKE: PASS'); Captures = @('castle-buildings-top.bmp','castle-buildings-bottom.bmp') }
+    CastleScreen = @{ Markers = @('3DS CASTLE MAIN SMOKE: PASS'); Captures = @('castle-main-top.bmp','castle-main-bottom.bmp') }
     CastleArmy = @{ Markers = @('3DS CASTLE ARMY SMOKE: PASS'); Captures = @('castle-army-top.bmp','castle-army-bottom.bmp') }
     CastleOptions = @{ Markers = @('3DS CASTLE OPTIONS SMOKE: PASS'); Captures = @('castle-options-top.bmp','castle-options-bottom.bmp') }
     HeroRecruit = @{ Markers = @('3DS HERO RECRUIT SMOKE: PASS'); Captures = @('hero-recruit-top.bmp','hero-recruit-bottom.bmp') }

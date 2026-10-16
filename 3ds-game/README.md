@@ -1,5 +1,17 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.34: main castle screen and original-style panels
+
+Entering a castle now opens the native two-screen view directly. The upper screen keeps the entire original town panorama, its aspect ratio and building animation, without legacy army rows or tiny controls. The lower screen contains garrison/guest armies, Details, Split, Hero, Buildings, Income and Close. Graphic header arrows switch castles and are disabled for a single castle. Y opens built buildings; L/Close exits the castle. Select the castle building for construction/options; a town tent retains the original castle-upgrade action.
+
+The panel uses original Heroes II stone textures/buttons, recessed portrait wells, separate count strips and warm bevels/selection frames. A persistent native background covers the entire lower screen during child dialogs and construction animation. Original ArmyBar and Castle handlers still own game operations; the UI returns a building ID or navigation command. A recruited guest appears immediately rather than using the legacy portrait fade.
+
+Town layers remain rendered by the original building queue. Stereo is not implemented: a future separate experiment will test background/building/foreground depth, occlusion and all races. Validation uses short sequential Azahar groups with time/load guards, never automatic monolithic Full.
+
+Validation: two-job ARM Release, desktop syntax for three changed files and offline infrastructure (20 groups/32 components) passed. CastleScreen passed New/Old Russian and New English; CastleArmy New/Old and CastleBuildings New regressions passed. Checks include real Castle::OpenDialog entry/exit, dwelling recruitment and construction cancellation, nested return, animation callback, navigation choices/disabled arrows, Evil UI and unchanged funds/army/hero list/frame/viewport/modal context with release isolation. Russian/English captures were inspected. Positive purchases, new guest appearance, completed-building animation, actual navigation between castles, all races and save persistence still require hardware validation.
+
+Updating from 0.3.33 requires only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL check entry/animation across races, transfers/merge/split, hero/book, Y → buildings → recruitment/construction/options/market and cancellation/return, income, castle navigation, clean exit and save/load. Hardware validation of 0.3.34 is pending; physical Old hardware is unavailable.
+
 ## Preview 0.3.33: built-building selector
 
 The castle Y army panel now includes Buildings beside Back. It opens six built buildings per page: creature dwellings first, followed by castle/tent, guild, market and other services/information. Original icons/names are used; the upper screen shows enlarged artwork, description and dwelling availability. Unbuilt buildings are omitted, upgraded dwellings replace their base entries, and only the highest built guild level is shown. Towers without a separate original action are excluded. Tent uses castle-upgrade destination artwork. This selects existing buildings; the castle entry still opens construction.
