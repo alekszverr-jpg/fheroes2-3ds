@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = 'Stop'
-$version = '0.3.36'
+$version = '0.3.37'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -37,6 +37,10 @@ $manifest = [ordered]@{
     grouped_host_peaks='Sampled Azahar process: 10.9 percent total CPU, 604.3MB working set, 1004.9MB private; previous freeze cause unresolved'
     native_castle_buildings='Army panel Buildings button; six built entries/page, dwellings first, upgrades/highest guild, original race drawing IDs, upper artwork/description/availability; same Castle::OpenDialog action dispatch'
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
+    emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'
+    native_mage_guild='Original spell scrolls/artwork; built-level paging, library-aware spell lists, top descriptions/stylus scrolling and castle navigation; original caller book purchase/learning unchanged'
+    system_close='aptShouldClose SDL_QUIT bypasses game confirmation; no rendering during shutdown/unwind; ordinary game quit hook preserved'
+    hardware_guild_exit='0.3.37 pending New 3DS XL; user confirms marketplace 0.3.36 works, guild freeze in 2D/3D and HOME-close ARM11 crash; physical Old unavailable'
     emulated_castle_services='CastleScreen New/Old ru and New en: direct Construction and actual catalog cancel; full castle-market-return with markets=1; CastleStereo New/Old ru enters actual market; Market and Construction New regressions passed; reported hardware pre-market freeze not reproduced/fix unconfirmed'
     castle_service_handoff='0.3.36 direct Construction button; Income beside guest name; retain flat background between building chooser and service, restore stereo only on main-panel resume; detailed marketplace-entry diagnostics; hardware-only freeze not reproduced in Azahar and physical fix unconfirmed'
     native_castle_stereo='Experimental slider-controlled 400x240 per-eye town panorama; original sprite/animation/occlusion rendering with shared near architecture and flat terrain/bay; four conservative depth levels; 2DS exclusion, flat child upper dialogs, automatic restoration of saved wide/standard 2D preference'

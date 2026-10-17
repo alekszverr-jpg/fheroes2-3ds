@@ -15,6 +15,8 @@
     Building = @{ Markers = @('3DS BUILDING SMOKE: PASS'); Captures = @('building-top.bmp','building-bottom.bmp') }
     CastleBuildings = @{ Markers = @('3DS CASTLE BUILDINGS SMOKE: PASS'); Captures = @('castle-buildings-top.bmp','castle-buildings-bottom.bmp') }
     CastleStereo = @{ Markers = @('3DS CASTLE STEREO SMOKE: PASS'); Captures = @('castle-stereo-left.bmp','castle-stereo-right.bmp','stereo-left-top.bmp','stereo-right-top.bmp') }
+    MageGuild = @{ Markers = @('3DS MAGE GUILD SMOKE: PASS'); Captures = @('mage-guild-top.bmp','mage-guild-bottom.bmp') }
+    SystemExit = @{ Markers = @('3DS SYSTEM EXIT SMOKE: PASS'); Captures = @() }
     CastleScreen = @{ Markers = @('3DS CASTLE MAIN SMOKE: PASS'); Captures = @('castle-main-top.bmp','castle-main-bottom.bmp') }
     CastleArmy = @{ Markers = @('3DS CASTLE ARMY SMOKE: PASS'); Captures = @('castle-army-top.bmp','castle-army-bottom.bmp') }
     CastleOptions = @{ Markers = @('3DS CASTLE OPTIONS SMOKE: PASS'); Captures = @('castle-options-top.bmp','castle-options-bottom.bmp') }

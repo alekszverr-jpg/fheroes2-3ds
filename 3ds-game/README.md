@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.37: native Mage Guild and system close
+
+The legacy Mage Guild was drawn into the game framebuffer beneath the persistent castle panel, which also captured input: it appeared frozen in both 2D and 3D. It now owns native upper/lower images. The upper screen shows original guild artwork and the selected spell description; the lower screen uses original scrolls, built-level pages, castle navigation and Exit. Y cycles levels, lower arrows page levels, upper arrows change castles; stylus selects/scrolls, D-pad left/right changes focus and up/down scrolls, A activates and L exits. Original spell lists/library and caller-owned book purchase/learning rules are preserved. The guild is flat and returns to the panorama.
+
+System HOME → Close now bypasses the in-game quit confirmation when aptShouldClose is set. Repeated SDL_QUIT events could otherwise recursively open confirmations. Rendering stops while modal scopes/resources unwind; ordinary in-game exit confirmation remains. The 0.3.36 photo maps PC 0x00721CD4 to _malloc_r and LR 0x0071EF90 to _memalign_r; SP 0x08000008 and the recursive code path are consistent with stack exhaustion, but the photo is not a full backtrace or proof of a unique cause.
+
+On 2026-10-17 the user confirmed the marketplace works on New 3DS XL, reported the guild freeze in both modes and the HOME-close crash. Hardware validation of 0.3.37 is pending. Check guild entry/levels/library/descriptions/navigation and return with/without a guest/book, then HOME/resume and HOME/Close from map, castle and guild. Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. Further stereo-depth development remains deferred.
+
+0.3.37 validation (2026-10-17): MageGuild passed New/Old Russian and New English, including six races, all built levels, Wizard Library spell lists, touch/controller, description scrolling, castle navigation, Evil UI, original spells/funds and modal/frame/input restoration. Actual Castle::OpenDialog -> guild -> return passed in flat/stereo contexts. SystemExit passed New/Old Russian: repeated synthetic system SDL_QUIT bypasses confirmation, allowExit returns, nested modals unwind, ordinary quit hook remains active. New/Old engine checks and New CastleScreen/CastleStereo regressions passed. Two-job ARM Release, desktop syntax of eleven files, offline infrastructure (23 groups/35 component markers), exported patch and clean-baseline application passed. Captures inspected; short sequential monitored runs only, no monolithic Full. Real HOME/resume/close, book purchase/learning, physical guild and gameplay still require New 3DS XL verification; physical Old hardware unavailable.
+
 ## Preview 0.3.36: direct construction access and marketplace handoff
 
 The main castle panel now has an explicit Construction button for the original new-building catalog/options/hero recruitment; towns retain the original tent-upgrade action. Buildings/Y still selects existing services. Income moves beside the guest name; both army rows and their actions remain. Existing translations are reused: only the 3dsx needs updating.

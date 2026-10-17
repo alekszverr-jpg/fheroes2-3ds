@@ -111,7 +111,7 @@ index d50ca80..051a3d0 100644
  #endif
  
 diff --git a/src/engine/localevent.cpp b/src/engine/localevent.cpp
-index 145ca33..234dc94 100644
+index 145ca33..1a8f253 100644
 --- a/src/engine/localevent.cpp
 +++ b/src/engine/localevent.cpp
 @@ -65,6 +65,7 @@
@@ -122,7 +122,24 @@ index 145ca33..234dc94 100644
  
  namespace
  {
-@@ -930,6 +931,9 @@ namespace EventProcessing
+@@ -518,6 +519,16 @@ namespace EventProcessing
+                     // An event when a user pressed a button on a keyboard. Not all buttons are supported. This event should be used mainly on Android devices.
+                     break;
+                 case SDL_QUIT:
++#if defined( __3DS__ )
++                    // HOME -> Close is already confirmed by the system. Asking again causes
++                    // recursively nested confirmation dialogs as APT keeps emitting SDL_QUIT.
++                    if ( Platform3DS::systemExitRequested() ) {
++                        COUT( "3DS system close: bypassing game confirmation" )
++                        Platform3DS::requestSystemExit();
++                        if ( allowExit ) return false;
++                        throw ::fheroes2::UserRequestedApplicationClosure{};
++                    }
++#endif
+                     if ( allowExit ) {
+                         // Try to perform clear exit to catch all memory leaks, for example.
+                         return false;
+@@ -930,6 +941,9 @@ namespace EventProcessing
  
          static void onKeyboardEvent( LocalEvent & eventHandler, const SDL_KeyboardEvent & event )
          {
@@ -132,7 +149,7 @@ index 145ca33..234dc94 100644
              const fheroes2::Key key = getKeyFromSDL( event.keysym.sym );
              if ( key == fheroes2::Key::NONE ) {
                  // We do not process this key.
-@@ -987,6 +991,11 @@ namespace EventProcessing
+@@ -987,6 +1001,11 @@ namespace EventProcessing
              assert( ( button.state == SDL_PRESSED ) || ( button.state == SDL_RELEASED ) );
  
              LocalEvent::ControllerButtonType buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_UNKNOWN;
@@ -144,7 +161,7 @@ index 145ca33..234dc94 100644
  
              switch ( button.button ) {
              case SDL_CONTROLLER_BUTTON_A:
-@@ -1033,7 +1042,11 @@ namespace EventProcessing
+@@ -1033,7 +1052,11 @@ namespace EventProcessing
                  break;
              }
  
@@ -157,7 +174,7 @@ index 145ca33..234dc94 100644
              // Custom button mapping for Nintendo Switch
              if ( buttonType == LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_A ) {
                  buttonType = LocalEvent::ControllerButtonType::CONTROLLER_BUTTON_B;
-@@ -1240,8 +1253,24 @@ LocalEvent & LocalEvent::Get()
+@@ -1240,8 +1263,24 @@ LocalEvent & LocalEvent::Get()
      return le;
  }
  
@@ -182,7 +199,7 @@ index 145ca33..234dc94 100644
      // Event processing might be computationally heavy.
      // We want to make sure that we do not slow down by going into sleep mode when it is not needed.
      const fheroes2::Time eventProcessingTimer;
-@@ -1266,7 +1295,23 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
+@@ -1266,7 +1305,23 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
          return false;
      }
  
@@ -207,7 +224,7 @@ index 145ca33..234dc94 100644
          ProcessControllerAxisMotion();
      }
  
-@@ -1275,6 +1320,12 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
+@@ -1275,6 +1330,12 @@ bool LocalEvent::HandleEvents( const bool sleepAfterEventProcessing /* = true */
  
      fheroes2::Display & display = fheroes2::Display::instance();
  
@@ -220,7 +237,7 @@ index 145ca33..234dc94 100644
      // To maintain color cycling animation we need to render the whole frame with an updated palette.
      if ( isDisplayRefreshRequired || fheroes2::RenderProcessor::instance().isCyclingUpdateRequired() ) {
          renderRoi = { 0, 0, display.width(), display.height() };
-@@ -1334,6 +1385,23 @@ void LocalEvent::onMouseWheelEvent( fheroes2::Point position )
+@@ -1334,6 +1395,23 @@ void LocalEvent::onMouseWheelEvent( fheroes2::Point position )
  
  void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const int64_t touchId, const int64_t fingerId, fheroes2::PointBase2D<float> position )
  {
@@ -244,7 +261,7 @@ index 145ca33..234dc94 100644
      // ID of a finger here is a composite thing, and consists of a touch device id and a finger id. This
      // should allow gestures to be handled correctly even when using different touchpads for different
      // fingers.
-@@ -1368,9 +1436,30 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
+@@ -1368,9 +1446,30 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
      }
  
      if ( eventFingerId == _fingerIds.first ) {
@@ -276,7 +293,7 @@ index 145ca33..234dc94 100644
          // TODO: verify where it is even needed to do such weird woodoo magic for these targets.
          const fheroes2::Size screenResolution = fheroes2::engine().getCurrentScreenResolution(); // current resolution of screen
          const fheroes2::Rect windowRect = fheroes2::engine().getActiveWindowROI(); // scaled (logical) resolution
-@@ -1397,23 +1486,39 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
+@@ -1397,23 +1496,39 @@ void LocalEvent::onTouchFingerEvent( const TouchFingerEventType eventType, const
          // If there is a two-finger gesture in progress, the first finger is only used to move the cursor.
          // The operation of the left mouse button is not simulated.
          if ( !_isTwoFingerGestureInProgress ) {
@@ -328,7 +345,7 @@ index 145ca33..234dc94 100644
          }
      }
      else if ( eventFingerId == _fingerIds.second ) {
-@@ -1565,7 +1670,11 @@ void LocalEvent::onControllerButtonEvent( const bool isPressed, const Controller
+@@ -1565,7 +1680,11 @@ void LocalEvent::onControllerButtonEvent( const bool isPressed, const Controller
              _currentKeyboardValue = fheroes2::Key::KEY_E;
          }
          else if ( buttonType == ControllerButtonType::CONTROLLER_BUTTON_Y ) {
@@ -340,7 +357,7 @@ index 145ca33..234dc94 100644
          }
          else if ( buttonType == ControllerButtonType::CONTROLLER_BUTTON_BACK ) {
              _currentKeyboardValue = fheroes2::Key::KEY_F;
-@@ -1588,6 +1697,9 @@ void LocalEvent::ProcessControllerAxisMotion()
+@@ -1588,6 +1707,9 @@ void LocalEvent::ProcessControllerAxisMotion()
      _controllerTimer.reset();
  
      if ( _controllerLeftXAxis != 0 || _controllerLeftYAxis != 0 ) {
@@ -350,7 +367,7 @@ index 145ca33..234dc94 100644
          setStates( MOUSE_MOTION );
  
          const int32_t xSign = ( _controllerLeftXAxis < 0 ) ? -1 : 1;
-@@ -1748,6 +1860,9 @@ void LocalEvent::onMouseButtonEvent( const bool isPressed, const MouseButtonType
+@@ -1748,6 +1870,9 @@ void LocalEvent::onMouseButtonEvent( const bool isPressed, const MouseButtonType
  
  bool LocalEvent::MouseClickLeft()
  {
@@ -360,7 +377,7 @@ index 145ca33..234dc94 100644
      if ( !( _actionStates & MOUSE_RELEASED ) ) {
          return false;
      }
-@@ -1767,6 +1882,9 @@ bool LocalEvent::MouseClickLeft()
+@@ -1767,6 +1892,9 @@ bool LocalEvent::MouseClickLeft()
  
  bool LocalEvent::MouseClickLeft( const fheroes2::Rect & area )
  {
@@ -370,7 +387,7 @@ index 145ca33..234dc94 100644
      if ( !( _actionStates & MOUSE_RELEASED ) ) {
          return false;
      }
-@@ -1851,6 +1969,9 @@ bool LocalEvent::MouseClickRight( const fheroes2::Rect & area )
+@@ -1851,6 +1979,9 @@ bool LocalEvent::MouseClickRight( const fheroes2::Rect & area )
  
  bool LocalEvent::MouseLongPressLeft( const fheroes2::Rect & rt )
  {
@@ -450,7 +467,7 @@ index d03305c..b158db4 100644
      {                                                                                                                                                                    \
          const std::scoped_lock<std::mutex> _logfile_lock( Logging::logMutex ); /* The name was chosen on purpose to avoid name collisions with outer code blocks. */     \
 diff --git a/src/engine/screen.cpp b/src/engine/screen.cpp
-index cada8e3..dce0634 100644
+index cada8e3..c2fcd05 100644
 --- a/src/engine/screen.cpp
 +++ b/src/engine/screen.cpp
 @@ -65,6 +65,12 @@
@@ -485,7 +502,15 @@ index cada8e3..dce0634 100644
      bool shouldUseFullscreenDesktopMode()
      {
          return fheroes2::cursor().isSoftwareEmulation();
-@@ -1528,7 +1537,7 @@ namespace fheroes2
+@@ -1523,12 +1532,15 @@ namespace fheroes2
+ 
+     void Display::render( const Rect & roi )
+     {
++#if defined( __3DS__ )
++        if ( Platform3DS::systemExitRequested() ) return;
++#endif
+         Rect temp( roi );
+         if ( !getActiveArea( temp, width(), height() ) ) {
              return;
          }
  
@@ -1564,6 +1589,40 @@ index 85fad68..75997c8 100644
                              needRedraw = true;
                              break;
                          }
+diff --git a/src/fheroes2/castle/castle_mageguild.cpp b/src/fheroes2/castle/castle_mageguild.cpp
+index da5e781..0d38269 100644
+--- a/src/fheroes2/castle/castle_mageguild.cpp
++++ b/src/fheroes2/castle/castle_mageguild.cpp
+@@ -47,6 +47,9 @@
+ #include "ui_dialog.h"
+ #include "ui_mage_guild.h"
+ #include "ui_tool.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ namespace
+ {
+@@ -55,6 +58,13 @@ namespace
+ 
+ Castle::MageGuildDialogResult Castle::_openMageGuild( const Heroes * hero ) const
+ {
++#if defined( __3DS__ )
++    switch ( Interface3DS::showMageGuild( *this, hero ) ) {
++    case -1: return MageGuildDialogResult::PrevMageGuildWindow;
++    case 1: return MageGuildDialogResult::NextMageGuildWindow;
++    default: return MageGuildDialogResult::DoNothing;
++    }
++#else
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     // setup cursor
+@@ -209,4 +219,5 @@ Castle::MageGuildDialogResult Castle::_openMageGuild( const Heroes * hero ) cons
+     }
+ 
+     return MageGuildDialogResult::DoNothing;
++#endif
+ }
 diff --git a/src/fheroes2/castle/castle_town.cpp b/src/fheroes2/castle/castle_town.cpp
 index d142f98..580bc27 100644
 --- a/src/fheroes2/castle/castle_town.cpp
@@ -1897,7 +1956,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..fd1b951 100644
+index 69d39fb..388d01e 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -1948,7 +2007,7 @@ index 69d39fb..fd1b951 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,110 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,112 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -1958,7 +2017,7 @@ index 69d39fb..fd1b951 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 21> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo" };
++        const std::array<const char *, 23> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2037,6 +2096,8 @@ index 69d39fb..fd1b951 100644
 +        runGroup( "CastleBuildings", []() { Interface3DS::testCastleBuildings(); } );
 +        runGroup( "CastleArmy", []() { Interface3DS::testCastleArmy(); } );
 +        runGroup( "CastleScreen", []() { Interface3DS::testCastleScreen(); } );
++        runGroup( "MageGuild", []() { Interface3DS::testMageGuild(); } );
++        runGroup( "SystemExit", []() { Interface3DS::testSystemExit(); } );
 +        runGroup( "CastleStereo", []() { Interface3DS::testCastleStereo(); } );
 +        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
@@ -2479,10 +2540,10 @@ index 353da3b..58f2dba 100644
  void Settings::SetScrollSpeed( int speed )
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..37fb064
+index 0000000..343d884
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,485 @@
+@@ -0,0 +1,489 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#include "logging.h"
@@ -2500,6 +2561,7 @@ index 0000000..37fb064
 +    fheroes2::Point crop;
 +    bool touchHeld = false;
 +    bool capture = false;
++    bool systemClosing = false;
 +    bool highResolution = true;
 +    int stereoTestStrength = -1;
 +    bool displayRefresh = false;
@@ -2964,16 +3026,19 @@ index 0000000..37fb064
 +        static const bool enabled = std::filesystem::exists( "sdmc:/3ds/fheroes2/menu-smoke.enabled" );
 +        return enabled;
 +    }
++    bool systemExitRequested() { return systemClosing || aptShouldClose(); }
++    void requestSystemExit() { systemClosing = true; }
++    void resetSystemExitForTest() { if ( smokeTest() ) systemClosing = false; }
 +    void requestCapture() { capture = true; }
 +    bool consumeCapture() { const bool result = capture; capture = false; return result; }
 +}
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..777bd1d
+index 0000000..2b7bbae
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,76 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -3043,16 +3108,19 @@ index 0000000..777bd1d
 +    bool handleDisplayController( int button, bool pressed );
 +    bool consumeDisplayRefresh();
 +    bool smokeTest();
++    bool systemExitRequested();
++    void requestSystemExit();
++    void resetSystemExitForTest();
 +    void requestCapture();
 +    bool consumeCapture();
 +}
 +#endif
 diff --git a/src/engine/screen_3ds.h b/src/engine/screen_3ds.h
 new file mode 100644
-index 0000000..0b399c0
+index 0000000..7bc2313
 --- /dev/null
 +++ b/src/engine/screen_3ds.h
-@@ -0,0 +1,250 @@
+@@ -0,0 +1,251 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +// Included inside screen.cpp's anonymous namespace after currentRGBPalette.
 +class RenderEngine final : public fheroes2::BaseRenderEngine
@@ -3183,6 +3251,7 @@ index 0000000..0b399c0
 +    }
 +    void render( const fheroes2::Display & display, const fheroes2::Rect & ) override
 +    {
++        if ( Platform3DS::systemExitRequested() ) return;
 +        if ( !_top || !_bottom || display.width() != gameWidth || display.height() != gameHeight || !display.image() )
 +            return;
 +        const Uint64 begin = SDL_GetPerformanceCounter();
@@ -7120,10 +7189,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..62a6590
+index 0000000..2a913e0
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,116 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -7174,6 +7243,9 @@ index 0000000..62a6590
 +    bool handleCastleArmy( Castle & castle, Heroes * hero, const fheroes2::Rect & townArea, uint32_t * building = nullptr );
 +    void testCastleArmy();
 +    void testCastleScreen();
++    int showMageGuild( const Castle & castle, const Heroes * hero );
++    void testMageGuild();
++    void testSystemExit();
 +    void testCastleStereo();
 +    struct ConstructionChoice {
 +        enum class Action { Close, Build, Previous, Next, Options, RecruitHero, Spread, Grouped };
@@ -7846,6 +7918,283 @@ index 0000000..39b4b97
 +    const int evilResult = run( dialog, cancel ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
 +    if ( evilResult != Dialog::CANCEL || run( dialog, cancel ) != Dialog::CANCEL ) throw std::runtime_error( "Hero recruitment nested cancel differs" );
 +    COUT( "3DS HERO RECRUIT SMOKE: PASS actual_entry allowed_touch_controller default_cancel null_hero unaffordable_touch_controller hero_limit drag_cancel held_info nested_info stylus_scroll evil unchanged_funds_heroes_frame_context release_isolation" )
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_mage_guild.cpp b/src/fheroes2/gui/ui_3ds_mage_guild.cpp
+new file mode 100644
+index 0000000..61dd9c1
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_mage_guild.cpp
+@@ -0,0 +1,271 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <stdexcept>
++#include <SDL.h>
++#include "castle.h"
++#include "cursor.h"
++#include "exception.h"
++#include "game_assets.h"
++#include "game_init.h"
++#include "heroes.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "mageguild.h"
++#include "map_format_info.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "spell_info.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace
++{
++    using namespace fheroes2;
++    class GuildScope
++    {
++    public:
++        GuildScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            LocalEvent::Get().resetFor3DSPanel();
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++        }
++        ~GuildScope()
++        {
++            Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
++            Display::instance().render();
++        }
++    };
++    Rect spellArea( int slot ) { return { 40 + slot % 2 * 120, 27 + slot / 2 * 85, 112, 80 }; }
++    int guildArtwork( int race )
++    {
++        switch ( race ) {
++        case Race::KNGT: return ICN::MAGEGLDK;
++        case Race::BARB: return ICN::MAGEGLDB;
++        case Race::SORC: return ICN::MAGEGLDS;
++        case Race::WRLK: return ICN::MAGEGLDW;
++        case Race::NECR: return ICN::MAGEGLDN;
++        default: return ICN::MAGEGLDZ;
++        }
++    }
++}
++int Interface3DS::showMageGuild( const Castle & castle, const Heroes * hero )
++{
++    const int maximum = castle.GetLevelMageGuild();
++    if ( maximum < 1 ) return 0;
++    const CursorRestorer hideCursor( false );
++    Image top( 400, 240 ), bottom( 320, 240 ), description;
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 );
++    const std::array<Rect, 5> controls{ Rect{ 8, 207, 88, 26 }, { 104, 207, 112, 26 }, { 224, 207, 88, 26 }, { 8, 1, 28, 25 }, { 284, 1, 28, 25 } };
++    std::array<std::unique_ptr<ButtonBase>, 5> buttons;
++    for ( int i = 0; i < 5; ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { controls[i].width - 10, controls[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        if ( i == 1 ) {
++            Text text( _( "Exit" ), FontType::normalWhite() );
++            text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
++            text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, pressed.width() - 8, pressed );
++        }
++        else {
++            const bool previous = i == 0 || i == 3;
++            for ( int dx = 0; dx < 6; ++dx ) for ( int dy = -dx; dy <= dx; ++dy ) {
++                const int x = released.width() / 2 + ( previous ? dx - 3 : 3 - dx );
++                SetPixel( released, x, released.height() / 2 + dy, GetColorId( 255, 220, 150 ) );
++                SetPixel( pressed, x - 1, pressed.height() / 2 + dy + 1, GetColorId( 255, 220, 150 ) );
++            }
++        }
++        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) );
++    }
++    int level = 1, selected = 0, focus = 0, scroll = 0, pressed = -1, answer = 0;
++    bool down = false, moved = false, closed = false; Point start, last;
++    SpellStorage spells;
++    const auto refresh = [&]() {
++        spells = castle.GetMageGuild().GetSpells( maximum, castle.isLibraryBuilt(), level );
++        spells.resize( MageGuild::getMaxSpellsCount( level, castle.HaveLibraryCapability() ), Spell::NONE );
++        selected = 0; scroll = 0;
++    };
++    refresh();
++    const auto allowed = [&]( int index ) { return index == 4 ? level > 1 : index == 6 ? level < maximum : index >= 7 ? castle.GetKingdom().GetCastles().size() > 1 : true; };
++    const auto activate = [&]( int index ) {
++        if ( index < 4 ) { selected = index; scroll = 0; }
++        else if ( allowed( index ) ) {
++            if ( index == 4 || index == 6 ) { level += index == 4 ? -1 : 1; refresh(); }
++            else { answer = index == 7 ? -1 : index == 8 ? 1 : 0; closed = true; }
++        }
++    };
++    const GuildScope scope( top, bottom );
++    const auto draw = [&]() {
++        top.fill( background ); bottom.fill( background );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
++        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        Text title( castle.GetStringBuilding( uint32_t( BUILD_MAGEGUILD1 ) << ( maximum - 1 ) ), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
++        const auto & original = Assets::getImage( guildArtwork( castle.GetRace() ), maximum - 1 );
++        const auto roi = GetActiveROI( original );
++        if ( roi.width > 0 && roi.height > 0 ) {
++            const Image cropped = Crop( original, roi.x, roi.y, roi.width, roi.height );
++            const double scale = std::min( 116.0 / cropped.width(), 158.0 / cropped.height() );
++            Image art( std::max( 1, int( cropped.width() * scale ) ), std::max( 1, int( cropped.height() * scale ) ) ); art.reset(); Resize( cropped, art );
++            Blit( art, top, 8 + ( 116 - art.width() ) / 2, 42 + ( 158 - art.height() ) / 2 );
++        }
++        const Spell spell = selected < int( spells.size() ) ? spells[selected] : Spell::NONE;
++        Text name( spell != Spell::NONE ? spell.GetName() : _( "None" ), FontType::normalYellow() ); name.fitToOneRow( 248 ); name.draw( 136, 40, 248, top );
++        Text text( spell != Spell::NONE ? getSpellDescription( spell, nullptr ) : "", FontType::normalWhite() );
++        description.resize( 248, std::max<int32_t>( 1, text.height( 248 ) ) ); description.fill( background ); text.draw( 0, 0, 248, description );
++        Fill( top, 132, 62, 256, 144, background );
++        scroll = std::clamp<int32_t>( scroll, 0, std::max<int32_t>( 0, description.height() - 140 ) );
++        Copy( description, 0, scroll, top, 136, 64, 248, std::min<int32_t>( 140, description.height() - scroll ) );
++        Text( _( hero && hero->HaveSpellBook() ? "The spells the hero can learn have been added to their book." : "The above spells are available here." ), FontType::smallWhite() ).draw( 8, 216, 384, top );
++        Text castleName( castle.GetName(), FontType::normalYellow() ); castleName.fitToOneRow( 240 ); castleName.draw( 40, 7, 240, bottom );
++        Text( "Y: " + std::to_string( level ) + " / " + std::to_string( maximum ), FontType::smallYellow() ).draw( 12, 194, 296, bottom );
++        for ( int i = 0; i < 4; ++i ) {
++            const auto area = spellArea( i );
++            const Spell item = i < int( spells.size() ) ? spells[i] : Spell::NONE;
++            const auto & sheet = Assets::getImage( ICN::TOWNWIND, item != Spell::NONE ? 0 : 1 );
++            Image paper( 112, 80 ); paper.reset(); Resize( sheet, paper ); Blit( paper, bottom, area.x, area.y );
++            if ( item != Spell::NONE ) {
++                const auto & icon = Assets::getImage( ICN::SPELLS, item.IndexSprite() ); Blit( icon, bottom, area.x + ( 112 - icon.width() ) / 2, area.y + 28 - icon.height() / 2 );
++                Text label( item.GetName(), FontType::smallWhite() ); label.fitToOneRow( 96 ); label.draw( area.x + 8, area.y + 58, 96, bottom );
++            }
++            if ( selected == i ) DrawRect( bottom, area, GetColorId( 255, 220, 96 ) );
++        }
++        for ( int i = 0; i < 5; ++i ) {
++            if ( allowed( i + 4 ) ) buttons[i]->enable(); else buttons[i]->disable();
++            if ( down && !moved && pressed == i + 4 ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
++        }
++        DrawRect( bottom, focus < 4 ? spellArea( focus ) : controls[focus - 4], GetColorId( 160, 220, 255 ) );
++        Display::instance().render();
++    };
++    draw();
++    COUT( "3DS mage guild: panel ready level=" << maximum )
++    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/mage-guild-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/mage-guild-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save mage guild" );
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Cancel: closed = true; break;
++                case Platform3DS::PanelKey::Toggle: level = level % maximum + 1; refresh(); break;
++                case Platform3DS::PanelKey::Left: focus = ( focus + 8 ) % 9; if ( focus < 4 ) activate( focus ); break;
++                case Platform3DS::PanelKey::Right: focus = ( focus + 1 ) % 9; if ( focus < 4 ) activate( focus ); break;
++                case Platform3DS::PanelKey::Up: scroll -= 12; break;
++                case Platform3DS::PanelKey::Down: scroll += 12; break;
++                case Platform3DS::PanelKey::Confirm: activate( focus ); break;
++                default: break;
++                }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
++                start = last = input.position; down = true; moved = false; pressed = -1;
++                for ( int i = 0; i < 9; ++i ) if ( ( i < 4 ? spellArea( i ) : controls[i - 4] ) & start ) { pressed = focus = i; if ( i < 4 ) activate( i ); break; }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved ) scroll += last.y - input.position.y;
++                last = input.position;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( ( pressed < 4 ? spellArea( pressed ) : controls[pressed - 4] ) & input.position ) ) activate( pressed );
++                down = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    return answer;
++}
++
++void Interface3DS::testMageGuild()
++{
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto press = [&]( std::vector<Step> & steps, int button ) { steps.emplace_back( 160, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
++    const auto run = [&]( Castle & castle, std::vector<Step> steps, bool actual = false ) {
++        auto & display = Display::instance(); const ImageRestorer restore( display );
++        const auto crop = Platform3DS::viewport(); const auto top = Platform3DS::modalTopImage(), bottom = Platform3DS::modalBottomImage(), right = Platform3DS::modalRightImage();
++        const auto funds = castle.GetKingdom().GetFunds(); const auto spells = castle.GetMageGuild().GetSpells( castle.GetLevelMageGuild(), castle.isLibraryBuilt() );
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "mage-guild", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start guild input" );
++        int status = 0, result = 0;
++        try {
++            if ( actual ) { if ( castle.OpenDialog( false, false, false, true ) != Castle::CastleDialogReturnValue::Close ) throw std::runtime_error( "Guild castle did not close" ); }
++            else result = showMageGuild( castle, nullptr );
++        }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( status || top != Platform3DS::modalTopImage() || bottom != Platform3DS::modalBottomImage() || right != Platform3DS::modalRightImage()
++             || crop != Platform3DS::viewport() || std::memcmp( pixels.data(), display.image(), pixels.size() ) || !( funds == castle.GetKingdom().GetFunds() )
++             || spells != castle.GetMageGuild().GetSpells( castle.GetLevelMageGuild(), castle.isLibraryBuilt() ) || LocalEvent::Get().MouseClickLeft() ) throw std::runtime_error( "Guild changed spells/funds/frame/context or leaked input" );
++        return result;
++    };
++    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" );
++    metadata.builtBuildings = { BUILD_CASTLE, BUILD_MAGEGUILD1, BUILD_MAGEGUILD2, BUILD_MAGEGUILD3, BUILD_MAGEGUILD4, BUILD_MAGEGUILD5, BUILD_SPEC };
++    for ( int race : { Race::KNGT, Race::BARB, Race::SORC, Race::WRLK, Race::WZRD, Race::NECR } ) {
++        Castle castle( 0, 0, race ); castle.SetColor( PlayerColor::BLUE );
++        auto raceMetadata = metadata;
++        if ( race == Race::KNGT || race == Race::BARB ) raceMetadata.builtBuildings = { BUILD_CASTLE, BUILD_MAGEGUILD1, BUILD_MAGEGUILD2, BUILD_MAGEGUILD3, BUILD_SPEC };
++        castle.loadFromResurrectionMap( raceMetadata );
++        std::vector<Step> steps; for ( int page = 0; page < castle.GetLevelMageGuild(); ++page ) press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++        if ( run( castle, steps ) ) throw std::runtime_error( "Guild cancel returned navigation" );
++    }
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE );
++    metadata.builtBuildings = { BUILD_CASTLE, BUILD_MAGEGUILD1 }; castle.loadFromResurrectionMap( metadata );
++    std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, true );
++    struct StereoReset { ~StereoReset() { Platform3DS::setStereoTestStrength( -1 ); } } stereo;
++    Platform3DS::setStereoTestStrength( 3 ); run( castle, steps, true );
++    Platform3DS::setStereoTestStrength( 0 );
++    {
++        struct RestoreCastles { Kingdom & kingdom; VecCastles saved; ~RestoreCastles() { kingdom.GetCastles() = saved; } } restore{ castle.GetKingdom(), castle.GetKingdom().GetCastles() };
++        castle.GetKingdom().GetCastles().push_back( &castle ); castle.GetKingdom().GetCastles().push_back( &castle );
++        const auto tap = [&]( int x, int y ) { std::vector<Step> input; for ( auto type : { SDL_FINGERDOWN, SDL_FINGERUP } ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; input.emplace_back( 160, e ); } return input; };
++        if ( run( castle, tap( 20, 12 ) ) != -1 || run( castle, tap( 300, 12 ) ) != 1 || run( castle, tap( 160, 220 ) ) ) throw std::runtime_error( "Guild castle navigation or touch close differs" );
++    }
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps ); Settings::Get().setInterfaceType( previous );
++    run( castle, steps );
++    COUT( "3DS MAGE GUILD SMOKE: PASS native_panel six_races all_built_levels_library touch_close_castle_navigation original_spells readonly_funds_spells actual_castle_Y_guild_return flat_stereo evil frame_context_release_restored" )
++}
++void Interface3DS::testSystemExit()
++{
++    struct Restore {
++        ~Restore() { Platform3DS::resetSystemExitForTest(); Game::initEventHandler(); }
++    } restore;
++    auto & events = LocalEvent::Get(); int confirmations = 0;
++    events.setQuitEventProcessingHook( [&]() { ++confirmations; return true; } );
++    const auto top = Platform3DS::modalTopImage(), bottom = Platform3DS::modalBottomImage();
++    Image upper( 400, 240 ), lower( 320, 240 ); upper.fill( 0 ); lower.fill( 0 );
++    for ( int attempt = 0; attempt < 3; ++attempt ) {
++        bool caught = false;
++        try {
++            const GuildScope scope( upper, lower );
++            Platform3DS::requestSystemExit(); SDL_Event quit{}; quit.type = SDL_QUIT;
++            if ( SDL_PushEvent( &quit ) != 1 ) throw std::runtime_error( "Cannot push system quit" );
++            // LocalEvent processes at most one immediate event per pump; drain prior window events.
++            for ( int pump = 0; pump < 40 && !caught; ++pump ) {
++                if ( !events.HandleEvents( false, attempt == 2 ) ) caught = true;
++            }
++        }
++        catch ( const fheroes2::UserRequestedApplicationClosure & ) { caught = true; }
++        if ( !caught || confirmations || Platform3DS::modalTopImage() != top || Platform3DS::modalBottomImage() != bottom ) throw std::runtime_error( "System close confirmed recursively or leaked modal" );
++        Platform3DS::resetSystemExitForTest();
++    }
++    SDL_Event quit{}; quit.type = SDL_QUIT; SDL_PushEvent( &quit ); bool caught = false;
++    try { for ( int pump = 0; pump < 40; ++pump ) events.HandleEvents( false ); } catch ( const fheroes2::UserRequestedApplicationClosure & ) { caught = true; }
++    if ( !caught || confirmations != 1 ) throw std::runtime_error( "Ordinary SDL quit lost confirmation hook" );
++    COUT( "3DS SYSTEM EXIT SMOKE: PASS repeated_system_quit no_confirmation allowExit nested_modal_unwind render_suppression ordinary_quit_hook_preserved" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp

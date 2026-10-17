@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.36
+# fheroes2 for Nintendo 3DS — preview 0.3.37
+
+## Preview 0.3.37: native Mage Guild and system close
+
+The legacy Mage Guild was drawn into the game framebuffer beneath the persistent castle panel, which also captured input: it appeared frozen in both 2D and 3D. It now owns native upper/lower images. The upper screen shows original guild artwork and the selected spell description; the lower screen uses original scrolls, built-level pages, castle navigation and Exit. Y cycles levels, lower arrows page levels, upper arrows change castles; stylus selects/scrolls, D-pad left/right changes focus and up/down scrolls, A activates and L exits. Original spell lists/library and caller-owned book purchase/learning rules are preserved. The guild is flat and returns to the panorama.
+
+System HOME → Close now bypasses the in-game quit confirmation when aptShouldClose is set. Repeated SDL_QUIT events could otherwise recursively open confirmations. Rendering stops while modal scopes/resources unwind; ordinary in-game exit confirmation remains. The 0.3.36 photo maps PC 0x00721CD4 to _malloc_r and LR 0x0071EF90 to _memalign_r; SP 0x08000008 and the recursive code path are consistent with stack exhaustion, but the photo is not a full backtrace or proof of a unique cause.
+
+On 2026-10-17 the user confirmed the marketplace works on New 3DS XL, reported the guild freeze in both modes and the HOME-close crash. Hardware validation of 0.3.37 is pending. Check guild entry/levels/library/descriptions/navigation and return with/without a guest/book, then HOME/resume and HOME/Close from map, castle and guild. Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. Further stereo-depth development remains deferred.
 
 ## Preview 0.3.36: direct construction access and marketplace handoff
 
