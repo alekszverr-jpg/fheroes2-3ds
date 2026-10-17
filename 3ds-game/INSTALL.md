@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.35
+# fheroes2 for Nintendo 3DS — preview 0.3.36
+
+## Preview 0.3.36: direct construction access and marketplace handoff
+
+The main castle panel now has an explicit Construction button for the original new-building catalog/options/hero recruitment; towns retain the original tent-upgrade action. Buildings/Y still selects existing services. Income moves beside the guest name; both army rows and their actions remain. Existing translations are reused: only the 3dsx needs updating.
+
+Building selection no longer briefly restores stereo between closing the chooser, unwinding the parent and opening the selected service. The background stays flat until the main castle panel resumes; canceling the chooser restores stereo immediately. This removes extra display-mode transitions as a possible workaround for a hardware-only freeze before marketplace appearance. Azahar has not reproduced the user's freeze, so a physical fix is not confirmed. The log records marketplace entry, players/count preparation, controls, initial drawing and readiness.
+
+Validation: two-job ARM Release, desktop syntax for eight files and offline infrastructure (21 groups/33 components) passed. CastleScreen passed New/Old Russian and New English, including direct construction choice, actual catalog/cancel and full Castle::OpenDialog → chooser → market → return with a registered kingdom marketplace (markets=1). CastleStereo passed New/Old Russian with actual marketplace entry from stereo town; Market/New validated original trades/payments/gifts and Construction/New validated the catalog. Russian/English captures were inspected and catalog/market readiness confirmed in logs. Monolithic Full was not run. The physical freeze remains unconfirmed as fixed and needs a hardware retry.
+
+On 2026-10-17 the user positively assessed town stereo on New 3DS XL, then reported the marketplace freeze and unclear construction access; slider state during the freeze is unknown. Further stereo-depth development is deferred at the user's request. Check direct construction/purchase/cancel/options and Buildings → Marketplace with the physical slider both off/on, trading, return and restored stereo. Hardware validation is pending; physical Old hardware is unavailable.
 
 ## Preview 0.3.35: experimental stereoscopic town panorama
 

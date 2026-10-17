@@ -1433,10 +1433,10 @@ index 1600032..1b9451a 100644
 +}
 +#endif
 diff --git a/src/fheroes2/castle/castle_dialog.cpp b/src/fheroes2/castle/castle_dialog.cpp
-index 85fad68..b880540 100644
+index 85fad68..75997c8 100644
 --- a/src/fheroes2/castle/castle_dialog.cpp
 +++ b/src/fheroes2/castle/castle_dialog.cpp
-@@ -68,6 +68,11 @@
+@@ -68,6 +68,12 @@
  #include "ui_tool.h"
  #include "ui_window.h"
  #include "world.h"
@@ -1444,11 +1444,12 @@ index 85fad68..b880540 100644
 +#include "ui_3ds_dialog.h"
 +#include "image_tool.h"
 +#include "platform_3ds.h"
++#include "logging.h"
 +#endif
  
  namespace
  {
-@@ -322,7 +327,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -322,7 +328,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
          }
      }
  
@@ -1460,7 +1461,7 @@ index 85fad68..b880540 100644
  
      // Previous castle button.
      fheroes2::Point statusBarPosition( dialogRoi.x, dialogRoi.y + 480 - 19 );
-@@ -469,6 +477,19 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -469,6 +478,19 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
  
      updateStatusBar();
  
@@ -1480,7 +1481,7 @@ index 85fad68..b880540 100644
      // Fade-in castle dialog.
      if ( fade ) {
          if ( renderBackgroundDialog && !isDefaultScreenSize ) {
-@@ -493,7 +514,45 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -493,7 +515,54 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
      while ( le.HandleEvents() && result == CastleDialogReturnValue::DoNothing ) {
          bool needRedraw = false;
          bool needFadeIn = false;
@@ -1513,6 +1514,15 @@ index 85fad68..b880540 100644
 +        };
 +        nativeScreen.ready = [&]() { return fadeBuilding.isFadeDone(); };
 +        nativeBuilding = Interface3DS::showCastleArmy( *this, hero, nativeTown(), &nativeScreen );
++        if ( nativeScreen.action == Interface3DS::CastleScreen::Action::Construction ) {
++            if ( isBuild( BUILD_CASTLE ) ) {
++                result = constructionDialogHandler();
++                if ( result != CastleDialogReturnValue::DoNothing ) break;
++                continue;
++            }
++            nativeBuilding = BUILD_TENT;
++            nativeScreen.action = Interface3DS::CastleScreen::Action::Building;
++        }
 +        if ( nativeScreen.action != Interface3DS::CastleScreen::Action::Building ) {
 +            switch ( nativeScreen.action ) {
 +            case Interface3DS::CastleScreen::Action::Previous: result = CastleDialogReturnValue::PreviousCastle; break;
@@ -1527,7 +1537,7 @@ index 85fad68..b880540 100644
          // During hero purchase or building construction skip any interaction with the dialog.
          if ( alphaHero >= 255 && fadeBuilding.isFadeDone() ) {
              if ( buttonPrevCastle.isEnabled() ) {
-@@ -609,7 +668,11 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+@@ -609,7 +678,11 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
              }
  
              // Get pressed hotkey.
@@ -1540,6 +1550,20 @@ index 85fad68..b880540 100644
  
              // Interaction with buildings.
              // Animation queue starts from the lowest by Z-value buildings which means that they draw first and most likely overlap by the top buildings in the queue.
+@@ -727,7 +800,13 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
+ 
+                         case BUILD_MARKETPLACE: {
+                             const fheroes2::ButtonRestorer exitRestorer( buttonExit );
++#if defined( __3DS__ )
++                            COUT( "3DS castle: entering marketplace" )
++#endif
+                             Dialog::Marketplace( GetKingdom(), false );
++#if defined( __3DS__ )
++                            COUT( "3DS castle: marketplace returned" )
++#endif
+                             needRedraw = true;
+                             break;
+                         }
 diff --git a/src/fheroes2/castle/castle_town.cpp b/src/fheroes2/castle/castle_town.cpp
 index d142f98..580bc27 100644
 --- a/src/fheroes2/castle/castle_town.cpp
@@ -1731,32 +1755,36 @@ index c1b573a..508c9d9 100644
 +#endif
  }
 diff --git a/src/fheroes2/dialog/dialog_marketplace.cpp b/src/fheroes2/dialog/dialog_marketplace.cpp
-index 744c072..03620a6 100644
+index 744c072..9ac8561 100644
 --- a/src/fheroes2/dialog/dialog_marketplace.cpp
 +++ b/src/fheroes2/dialog/dialog_marketplace.cpp
-@@ -51,6 +51,10 @@
+@@ -51,6 +51,11 @@
  #include "ui_text.h"
  #include "ui_tool.h"
  #include "world.h"
 +#if defined( __3DS__ )
 +#include "ui_3ds_dialog.h"
++#include "logging.h"
 +#include <limits>
 +#endif
  
  namespace
  {
-@@ -343,6 +347,30 @@ namespace
+@@ -343,6 +348,33 @@ namespace
  
  void Dialog::Marketplace( Kingdom & kingdom, bool fromTradingPost )
  {
 +#if defined( __3DS__ )
 +    // The native panel selects a trade. Resource mutations stay in this game dialog.
++    COUT( "3DS marketplace: prepare players" )
 +    const auto & players = Settings::Get().GetPlayers();
 +    const bool gift = std::count_if( players.begin(), players.end(), []( const Player * player ) {
 +        return player && world.GetKingdom( player->GetColor() ).isPlay();
 +    } ) >= 2;
 +    while ( true ) {
-+        const auto choice = Interface3DS::showMarketplace( kingdom.GetFunds(), fromTradingPost ? 3 : kingdom.GetCountMarketplace(), fromTradingPost, gift );
++        const uint32_t markets = fromTradingPost ? 3 : kingdom.GetCountMarketplace();
++        COUT( "3DS marketplace: opening panel markets=" << markets )
++        const auto choice = Interface3DS::showMarketplace( kingdom.GetFunds(), markets, fromTradingPost, gift );
 +        if ( choice.action == Interface3DS::MarketChoice::Action::Close ) return;
 +        if ( choice.action == Interface3DS::MarketChoice::Action::Gift ) {
 +            if ( gift ) Dialog::MakeGiftResource( kingdom );
@@ -2451,10 +2479,10 @@ index 353da3b..58f2dba 100644
  void Settings::SetScrollSpeed( int speed )
 diff --git a/src/engine/platform_3ds.cpp b/src/engine/platform_3ds.cpp
 new file mode 100644
-index 0000000..6edc117
+index 0000000..37fb064
 --- /dev/null
 +++ b/src/engine/platform_3ds.cpp
-@@ -0,0 +1,481 @@
+@@ -0,0 +1,485 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "platform_3ds.h"
 +#include "logging.h"
@@ -2616,6 +2644,10 @@ index 0000000..6edc117
 +        // A child owning the upper screen also owns its stereo policy: ordinary dialogs are flat.
 +        for ( auto layer = modalImages.rbegin(); layer != modalImages.rend(); ++layer ) if ( layer->top ) return layer->rightTop;
 +        return nullptr;
++    }
++    void setModalRightImage( const fheroes2::Image * image )
++    {
++        for ( auto layer = modalImages.rbegin(); layer != modalImages.rend(); ++layer ) if ( layer->top ) { layer->rightTop = image; return; }
 +    }
 +    bool isPhysicalTouchHeld() { return physicalTouchHeld; }
 +    fheroes2::Point physicalTouchPosition() { return physicalTouch; }
@@ -2938,10 +2970,10 @@ index 0000000..6edc117
 +#endif
 diff --git a/src/engine/platform_3ds.h b/src/engine/platform_3ds.h
 new file mode 100644
-index 0000000..2bc6a43
+index 0000000..777bd1d
 --- /dev/null
 +++ b/src/engine/platform_3ds.h
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,73 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -2960,6 +2992,7 @@ index 0000000..2bc6a43
 +    const fheroes2::Image * modalTopImage();
 +    const fheroes2::Image * modalBottomImage();
 +    const fheroes2::Image * modalRightImage();
++    void setModalRightImage( const fheroes2::Image * image );
 +    bool supportsStereoModel( uint8_t model );
 +    int stereoStrength();
 +    void setStereoTestStrength( int strength );
@@ -4147,10 +4180,10 @@ index 0000000..55f8228
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_army.cpp b/src/fheroes2/gui/ui_3ds_castle_army.cpp
 new file mode 100644
-index 0000000..0411c74
+index 0000000..9142f38
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_army.cpp
-@@ -0,0 +1,475 @@
+@@ -0,0 +1,496 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4247,7 +4280,7 @@ index 0000000..0411c74
 +Interface3DS::CastleScreen::CastleScreen() : top( 400, 240 ), bottom( 320, 240 ), rightTop( 400, 240 )
 +{
 +    top.fill( GetColorId( 35, 29, 24 ) ); bottom.fill( GetColorId( 35, 29, 24 ) );
-+    rightTop = top; Platform3DS::pushModalImages( &top, &bottom, &rightTop );
++    rightTop = top; Platform3DS::pushModalImages( &top, &bottom );
 +}
 +Interface3DS::CastleScreen::~CastleScreen()
 +{
@@ -4276,13 +4309,13 @@ index 0000000..0411c74
 +        bar->rowY = bar == &garrison ? 28 : 112;
 +        bar->setTableSize( { 5, 1 } ); bar->setSingleItemSize( { 56, 54 } ); bar->setRenderingOffset( { 12, bar->rowY } ); bar->setInBetweenItemsOffset( { 4, 0 } );
 +    }
-+    const std::array<std::string, 8> labels{ _( "Details" ), _( "Split" ), _( "Hero" ), screen ? _( "Exit" ) : _( "Back" ), _( "castle3DS|Buildings" ), "", "", _( "construction3DS|Income" ) };
-+    const std::array<Rect, 8> controls{ Rect{ 12, 176, 96, 25 }, { 112, 176, 96, 25 }, { 212, 176, 96, 25 },
++    const std::array<std::string, 9> labels{ _( "Details" ), _( "Split" ), _( "Hero" ), screen ? _( "Exit" ) : _( "Back" ), _( "castle3DS|Buildings" ), "", "", _( "construction3DS|Construction" ), _( "construction3DS|Income" ) };
++    const std::array<Rect, 9> controls{ Rect{ 12, 176, 96, 25 }, { 112, 176, 96, 25 }, { 212, 176, 96, 25 },
 +        screen ? Rect{ 212, 208, 96, 25 } : Rect{ 164, 208, 148, 25 }, screen ? Rect{ 12, 208, 96, 25 } : Rect{ 8, 208, 148, 25 },
-+        { 8, 2, 26, 25 }, { 286, 2, 26, 25 }, { 112, 208, 96, 25 } };
-+    const int controlCount = screen ? 8 : 5;
++        { 8, 2, 26, 25 }, { 286, 2, 26, 25 }, { 112, 208, 96, 25 }, { 212, 86, 96, 25 } };
++    const int controlCount = screen ? 9 : 5;
 +    const int elementCount = 10 + controlCount;
-+    std::array<std::unique_ptr<ButtonBase>, 8> buttons;
++    std::array<std::unique_ptr<ButtonBase>, 9> buttons;
 +    for ( int i = 0; i < controlCount; ++i ) {
 +        Sprite released, pressed; makeButtonSprites( released, pressed, "", { controls[i].width - 10, controls[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
 +        const int width = controls[i].width - 8;
@@ -4319,11 +4352,22 @@ index 0000000..0411c74
 +        else if ( index == 10 ) information( index, false );
 +        else if ( index == 11 && selected() >= 0 ) splitting = !splitting;
 +        else if ( index == 12 && hero ) { clear(); hero->OpenDialog( false, true, true, true, false, false, getLanguageFromAbbreviation( Settings::Get().getGameLanguage() ) ); }
-+        else if ( index == 14 ) { clear(); const auto choice = showCastleBuildings( castle ); if ( choice && screen ) screen->action = CastleScreen::Action::Building; return choice; }
++        else if ( index == 14 ) {
++            clear();
++            // Keep the handoff flat: do not briefly resume stereo between a chooser and its service.
++            if ( screen ) Platform3DS::setModalRightImage( nullptr );
++            const auto choice = showCastleBuildings( castle );
++            if ( choice && screen ) screen->action = CastleScreen::Action::Building;
++            else if ( screen ) Platform3DS::setModalRightImage( &screen->rightTop );
++            return choice;
++        }
 +        else if ( screen && ( index == 15 || index == 16 ) && screen->navigation ) {
 +            screen->action = index == 15 ? CastleScreen::Action::Previous : CastleScreen::Action::Next;
 +        }
-+        else if ( screen && index == 17 ) { clear(); showKingdomIncome( castle.GetKingdom(), Dialog::OK ); }
++        else if ( screen && index == 17 ) {
++            clear(); Platform3DS::setModalRightImage( nullptr ); screen->action = CastleScreen::Action::Construction;
++        }
++        else if ( screen && index == 18 ) { clear(); showKingdomIncome( castle.GetKingdom(), Dialog::OK ); }
 +        return BUILD_NOTHING;
 +    };
 +    const auto draw = [&]() {
@@ -4345,7 +4389,7 @@ index 0000000..0411c74
 +        DrawLine( bottom, { 12, 171 }, { 307, 171 }, shadow );
 +        DrawLine( bottom, { 12, 172 }, { 307, 172 }, border );
 +        Text( _( "Garrison" ), FontType::normalYellow() ).draw( screen ? 40 : 12, 8, screen ? 240 : 296, bottom );
-+        Text guestName( hero ? hero->GetName() : _( "None" ), FontType::normalYellow() ); guestName.fitToOneRow( 296 ); guestName.draw( 12, 91, 296, bottom );
++        Text guestName( hero ? hero->GetName() : _( "None" ), FontType::normalYellow() ); guestName.fitToOneRow( screen ? 192 : 296 ); guestName.draw( 12, 91, screen ? 192 : 296, bottom );
 +        for ( int i = 0; i < 10; ++i ) {
 +            const auto area = slotArea( i ); StandardWindow::renderBackgroundImage( bottom, area, 0, evil );
 +            // A recessed dark portrait well and a separate count strip.
@@ -4412,7 +4456,7 @@ index 0000000..0411c74
 +                }
 +            }
 +        }
-+        if ( screen && ( screen->action == CastleScreen::Action::Previous || screen->action == CastleScreen::Action::Next ) ) { clear(); return BUILD_NOTHING; }
++        if ( screen && ( screen->action == CastleScreen::Action::Previous || screen->action == CastleScreen::Action::Next || screen->action == CastleScreen::Action::Construction ) ) { clear(); return BUILD_NOTHING; }
 +        if ( ready && down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) { const int index = pressed; information( index, true ); redraw = true; }
 +        if ( redraw ) draw();
 +    }
@@ -4506,8 +4550,13 @@ index 0000000..0411c74
 +    const auto press = [&]( std::vector<Step> & steps, int button ) { steps.emplace_back( 250, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
 +    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE );
 +    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" );
-+    metadata.builtBuildings = { BUILD_CASTLE, DWELLING_MONSTER1 }; castle.loadFromResurrectionMap( metadata );
++    metadata.builtBuildings = { BUILD_CASTLE, DWELLING_MONSTER1, BUILD_MARKETPLACE }; castle.loadFromResurrectionMap( metadata );
 +    castle.GetArmy().Clean(); castle.GetArmy().GetTroop( 0 )->Set( Monster::ARCHER, 20 ); castle.GetArmy().GetTroop( 1 )->Set( Monster::PEASANT, 150 );
++    struct CastleListScope {
++        Kingdom & kingdom; VecCastles saved;
++        CastleListScope( Kingdom & value, Castle & castle ) : kingdom( value ), saved( value.GetCastles() ) { kingdom.GetCastles().push_back( &castle ); }
++        ~CastleListScope() { kingdom.GetCastles() = saved; }
++    } castleList( castle.GetKingdom(), castle );
 +    const auto & town = Assets::getImage( ICN::TOWNBKG0, 0 );
 +    auto & display = Display::instance();
 +    const auto inventory = [&]() { std::array<std::pair<int, uint32_t>, 5> result; for ( int i = 0; i < 5; ++i ) result[i] = { castle.GetArmy().GetTroop( i )->GetID(), castle.GetArmy().GetTroop( i )->GetCount() }; return result; };
@@ -4540,7 +4589,10 @@ index 0000000..0411c74
 +             || count != inventory() || heroes != castle.GetKingdom().GetHeroes() || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Castle main changed state/context or leaked input" );
 +        return action;
 +    };
-+    std::vector<Step> steps; tap( steps, 20, 14 );
++    std::vector<Step> steps; tap( steps, 155, 220 );
++    if ( run( steps, false, false ) != CastleScreen::Action::Construction ) throw std::runtime_error( "Direct construction button failed" );
++    steps.clear(); tap( steps, 155, 220 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
++    steps.clear(); tap( steps, 20, 14 );
 +    if ( run( steps, true, false ) != CastleScreen::Action::Previous ) throw std::runtime_error( "Castle main previous failed" );
 +    steps.clear(); tap( steps, 300, 14 );
 +    if ( run( steps, true, false ) != CastleScreen::Action::Next ) throw std::runtime_error( "Castle main next failed" );
@@ -4553,11 +4605,13 @@ index 0000000..0411c74
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
 +    Settings::Get().setInterfaceType( previous );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
-+    COUT( "3DS CASTLE MAIN SMOKE: PASS actual_castle_loop dwelling_cancel construction_cancel Y_nested_return animated_panorama original_style navigation disabled_navigation evil unchanged_funds_army_heroes_frame_context release_isolation" )
++    COUT( "3DS CASTLE MAIN SMOKE: PASS actual_castle_loop direct_construction_button market_entry_cancel dwelling_cancel construction_cancel Y_nested_return animated_panorama original_style navigation disabled_navigation evil unchanged_funds_army_heroes_frame_context release_isolation" )
 +}
 +void Interface3DS::testCastleStereo()
 +{
@@ -4572,7 +4626,7 @@ index 0000000..0411c74
 +         || !Platform3DS::supportsStereoModel( 4 ) || Platform3DS::supportsStereoModel( 3 ) || Platform3DS::supportsStereoModel( 5 ) || Platform3DS::supportsStereoModel( 255 ) ) throw std::runtime_error( "Stereo model gating differs" );
 +    Image left( 400, 160 ), right( 400, 160 ); left.reset(); right.reset();
 +    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" );
-+    metadata.builtBuildings = { BUILD_CASTLE, DWELLING_MONSTER1, BUILD_MAGEGUILD1, BUILD_CAPTAIN, BUILD_STATUE, BUILD_WELL };
++    metadata.builtBuildings = { BUILD_CASTLE, DWELLING_MONSTER1, BUILD_MAGEGUILD1, BUILD_CAPTAIN, BUILD_STATUE, BUILD_WELL, BUILD_MARKETPLACE };
 +    const std::vector<uint8_t> before( display.image(), display.image() + display.width() * display.height() );
 +    for ( int race : { Race::KNGT, Race::BARB, Race::SORC, Race::WRLK, Race::WZRD, Race::NECR } ) {
 +        Castle castle( 0, 0, race ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
@@ -4610,7 +4664,7 @@ index 0000000..0411c74
 +    // Exercise the actual native main view, including a child building selector.
 +    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
 +    std::vector<SDL_Event> events;
-+    for ( int button : { SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_LEFTSHOULDER } ) {
++    for ( int button : { SDL_CONTROLLER_BUTTON_Y, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, SDL_CONTROLLER_BUTTON_LEFTSHOULDER } ) {
 +        SDL_Event event{}; event.type = SDL_CONTROLLERBUTTONDOWN; event.cbutton.button = button; event.cbutton.state = SDL_PRESSED; events.push_back( event );
 +        event.type = SDL_CONTROLLERBUTTONUP; event.cbutton.state = SDL_RELEASED; events.push_back( event );
 +    }
@@ -5403,10 +5457,10 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_construction.cpp b/src/fheroes2/gui/ui_3ds_construction.cpp
 new file mode 100644
-index 0000000..4cca1e6
+index 0000000..289287d
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_construction.cpp
-@@ -0,0 +1,238 @@
+@@ -0,0 +1,239 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -5555,6 +5609,7 @@ index 0000000..4cca1e6
 +        return {};
 +    };
 +    draw();
++    COUT( "3DS construction: catalog ready" )
 +    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/construction-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/construction-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save construction catalog" );
 +    auto & events = LocalEvent::Get();
 +    while ( events.HandleEvents() ) {
@@ -7065,7 +7120,7 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..c260b9d
+index 0000000..62a6590
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
 @@ -0,0 +1,113 @@
@@ -7104,7 +7159,7 @@ index 0000000..c260b9d
 +    class CastleScreen
 +    {
 +    public:
-+        enum class Action { Close, Building, Previous, Next };
++        enum class Action { Close, Building, Previous, Next, Construction };
 +        CastleScreen();
 +        ~CastleScreen();
 +        CastleScreen( const CastleScreen & ) = delete;
@@ -7795,10 +7850,10 @@ index 0000000..39b4b97
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp
 new file mode 100644
-index 0000000..c3f61e1
+index 0000000..127d07b
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_market.cpp
-@@ -0,0 +1,513 @@
+@@ -0,0 +1,516 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -7868,6 +7923,7 @@ index 0000000..c3f61e1
 +
 +Interface3DS::MarketChoice Interface3DS::showMarketplace( const Funds & funds, const uint32_t markets, const bool tradingPost, const bool gift )
 +{
++    COUT( "3DS marketplace: building controls" )
 +    const CursorRestorer hideCursor( false );
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
@@ -7987,7 +8043,9 @@ index 0000000..c3f61e1
 +        Fill( bottom, knobX, slider.y, 8, 12, GetColorId( 255, 225, 96 ) );
 +        Display::instance().render();
 +    };
++    COUT( "3DS marketplace: drawing panel" )
 +    draw();
++    COUT( "3DS marketplace: panel ready" )
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        Platform3DS::PanelInput input; bool redraw = false;
