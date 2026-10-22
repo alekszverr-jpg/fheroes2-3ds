@@ -1,0 +1,11 @@
+{
+  "name": "Azahar",
+  "version": "2126.2",
+  "variant": "Windows x86_64 MXE portable",
+  "release_url": "https://github.com/azahar-emu/azahar/releases/tag/2126.2",
+  "archive_url": "https://github.com/azahar-emu/azahar/releases/download/2126.2/azahar-windows-mxe-2126.2.zip",
+  "archive_sha256": "dae9f107d9141ebc0e64ba251f9796393aab651cf3437ab9e083b45354624486",
+  "executable_sha256": "c248414eb5328cb8bb720775ace6959898e2f50a0a10221c3a1e7a14190183eb",
+  "executable_path": ".toolchain/azahar/azahar.exe",
+  "profile_path": ".toolchain/azahar/user"
+}
