@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.37
+# fheroes2 for Nintendo 3DS — preview 0.3.38
+
+## Preview 0.3.38: native Well and town recruitment
+
+The Well now owns both native screen images instead of drawing beneath the persistent castle panel. The lower screen shows six original creature icons, available populations and Recruit/Max/Exit. The upper screen shows a large standing/idle portrait from original frames, normal-font statistics, growth and per-creature resource costs. Built/upgraded dwellings are respected; growth matches the original Well, including the Well and first-tier special growth building. Exact original portrait animation behavior remains a future task.
+
+D-pad selects cards/buttons, A opens selected recruitment, Y opens the original hire-all confirmation and L exits. Tap another creature to select; tap the selected creature to recruit. Dragging/long holds do not activate. Empty/unbuilt recruitment and hire-all with no creatures are disabled. Original Castle recruitment and hire-all handlers retain payment, population, army placement and confirmations; the existing native quantity dialog is reused. Counts refresh after nested dialogs. The flat, full-background window returns to the town panorama.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. Physical New 3DS XL checks remain pending: races/upgrades, individual/all recruitment and cancellation, insufficient funds/full army, flat/stereo return and save/load. The 0.3.37 physical guild and real HOME-close checks also remain pending; further stereo-depth development is deferred.
 
 ## Preview 0.3.37: native Mage Guild and system close
 

@@ -33,10 +33,10 @@ $historical=if (Test-Path -LiteralPath $historicalPath) { [IO.File]::ReadAllText
 foreach ($group in $menuTestGroups.Keys) {
  $plan=(& (Join-Path $root 'tools/test-menu-emulator.ps1') -Group $group -PlanOnly) | ConvertFrom-Json
  if (@($plan.Groups).Count -ne 1 -or $plan.Groups[0] -ne $group) { throw "Group leaked into another: $group" }
- foreach ($marker in $plan.Markers) { if ($null -ne $historical -and $group -notin @('Building','Construction','HeroRecruit','CastleOptions','CastleArmy','CastleBuildings','CastleScreen','CastleStereo','MageGuild','SystemExit') -and !$historical.Contains($marker)) { throw "Full suite marker was changed/lost: $marker" } }
+ foreach ($marker in $plan.Markers) { if ($null -ne $historical -and $group -notin @('Building','Construction','HeroRecruit','CastleOptions','CastleArmy','CastleBuildings','CastleScreen','CastleStereo','MageGuild','SystemExit','Well') -and !$historical.Contains($marker)) { throw "Full suite marker was changed/lost: $marker" } }
 }
 $full=(& (Join-Path $root 'tools/test-menu-emulator.ps1') -Group Full -PlanOnly) | ConvertFrom-Json
-if (@($full.Groups).Count -ne 23 -or @($full.Markers).Count -ne 35) { throw 'Full suite lost checks' }
+if (@($full.Groups).Count -ne 24 -or @($full.Markers).Count -ne 36) { throw 'Full suite lost checks' }
 $default=(& (Join-Path $root 'tools/test-menu-emulator.ps1') -PlanOnly) | ConvertFrom-Json
 if ($default.Group -ne 'Startup' -or $default.Groups.Count -ne 1) { throw 'Default is not a quick group' }
 $rejected=$false

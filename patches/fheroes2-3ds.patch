@@ -1684,6 +1684,46 @@ index d142f98..580bc27 100644
  
      // setup cursor
      const CursorRestorer cursorRestorer( true, Cursor::POINTER );
+diff --git a/src/fheroes2/castle/castle_well.cpp b/src/fheroes2/castle/castle_well.cpp
+index 262b612..390a7e9 100644
+--- a/src/fheroes2/castle/castle_well.cpp
++++ b/src/fheroes2/castle/castle_well.cpp
+@@ -56,6 +56,10 @@
+ #include "ui_dialog.h"
+ #include "ui_text.h"
+ 
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
++
+ namespace
+ {
+     const int32_t bottomBarOffsetY = 461;
+@@ -202,6 +206,16 @@ bool Castle::_recruitCastleMax( const Troops & currentCastleArmy )
+ 
+ void Castle::_openWell()
+ {
++#if defined( __3DS__ )
++    Interface3DS::showWell( *this, [&]( const int dwelling ) {
++        if ( dwelling < 0 ) {
++            _recruitCastleMax( GetArmy() );
++        }
++        else if ( dwelling < int( maxNumOfDwellings ) && isBuild( castleDwellings[dwelling] ) ) {
++            RecruitMonster( Dialog::RecruitMonster( Monster( _race, GetActualDwelling( castleDwellings[dwelling] ) ), _dwelling[dwelling], true, 2 ) );
++        }
++    } );
++#else
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     // setup cursor
+@@ -303,6 +317,7 @@ void Castle::_openWell()
+             fheroes2::showStandardTextMessage( _( "Max" ), _( "Hire all creatures in the town." ), Dialog::ZERO );
+         }
+     }
++#endif
+ }
+ 
+ void Castle::_wellRedrawAvailableMonsters( const uint32_t dwellingType, const bool restoreBackground, fheroes2::Image & background ) const
 diff --git a/src/fheroes2/dialog/dialog_armyinfo.cpp b/src/fheroes2/dialog/dialog_armyinfo.cpp
 index 6077ad9..9347377 100644
 --- a/src/fheroes2/dialog/dialog_armyinfo.cpp
@@ -1956,7 +1996,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..388d01e 100644
+index 69d39fb..2267966 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2007,7 +2047,7 @@ index 69d39fb..388d01e 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,112 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,113 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2017,7 +2057,7 @@ index 69d39fb..388d01e 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 23> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit" };
++        const std::array<const char *, 24> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2098,6 +2138,7 @@ index 69d39fb..388d01e 100644
 +        runGroup( "CastleScreen", []() { Interface3DS::testCastleScreen(); } );
 +        runGroup( "MageGuild", []() { Interface3DS::testMageGuild(); } );
 +        runGroup( "SystemExit", []() { Interface3DS::testSystemExit(); } );
++        runGroup( "Well", []() { Interface3DS::testWell(); } );
 +        runGroup( "CastleStereo", []() { Interface3DS::testCastleStereo(); } );
 +        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
@@ -7189,10 +7230,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..2a913e0
+index 0000000..84fd5c6
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,119 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -7245,6 +7286,9 @@ index 0000000..2a913e0
 +    void testCastleScreen();
 +    int showMageGuild( const Castle & castle, const Heroes * hero );
 +    void testMageGuild();
++    // Action -1 requests the original hire-all flow; 0..5 requests a dwelling.
++    void showWell( const Castle & castle, const std::function<void( int )> & recruit );
++    void testWell();
 +    void testSystemExit();
 +    void testCastleStereo();
 +    struct ConstructionChoice {
@@ -9281,4 +9325,317 @@ index 0000000..87f1231
 +    COUT( "3DS ADVENTURE SPELLBOOK SMOKE: PASS actual_book adventure_scroll_filter choice_touch_controller confirm_required pages_restore cancel_drag readonly_tabs_Y_touch zero_mana tired_boat_restrictions long_scroll empty evil unchanged_mana_movement_book_frame_context" )
 +}
 +
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_well.cpp b/src/fheroes2/gui/ui_3ds_well.cpp
+new file mode 100644
+index 0000000..54b07af
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_well.cpp
+@@ -0,0 +1,307 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <map>
++#include <stdexcept>
++#include <SDL.h>
++#include "army.h"
++#include "army_troop.h"
++#include "castle.h"
++#include "cursor.h"
++#include "game_assets.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "map_format_info.h"
++#include "monster.h"
++#include "monster_anim.h"
++#include "monster_info.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "speed.h"
++#include "translations.h"
++#include "tools.h"
++#include "ui_button.h"
++#include "ui_text.h"
++#include "ui_window.h"
++namespace
++{
++    using namespace fheroes2;
++    bool captureWellAnimation = false;
++    unsigned wellAnimationChanges = 0;
++    uint32_t dwellingId( int slot ) { return uint32_t( DWELLING_MONSTER1 ) << slot; }
++    Rect tileArea( int slot ) { return { 8 + slot % 3 * 104, 34 + slot / 3 * 80, 96, 74 }; }
++    class WellScope
++    {
++    public:
++        WellScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            LocalEvent::Get().resetFor3DSPanel();
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++        }
++        ~WellScope()
++        {
++            Platform3DS::popModalImages();
++            LocalEvent::Get().resetFor3DSPanel();
++            Display::instance().render();
++        }
++    };
++}
++void Interface3DS::showWell( const Castle & castle, const std::function<void( int )> & recruit )
++{
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 );
++    Image top( 400, 240 ), bottom( 320, 240 ), firstPortrait;
++    const Rect portraitArea{ 8, 43, 128, 150 };
++    const std::array<Rect, 3> controls{ Rect{ 8, 205, 96, 27 }, { 112, 205, 96, 27 }, { 216, 205, 96, 27 } };
++    std::string recruitLabel = _( "Recruit %{name}" ); StringReplace( recruitLabel, "%{name}", "" );
++    while ( !recruitLabel.empty() && recruitLabel.back() == ' ' ) recruitLabel.pop_back();
++    const std::array<std::string, 3> labels{ recruitLabel, _( "Max" ), _( "Exit" ) };
++    std::array<std::unique_ptr<ButtonBase>, 3> buttons;
++    for ( int i = 0; i < 3; ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { controls[i].width - 10, controls[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        Text text( labels[i], FontType::normalWhite() ); text.fitToOneRow( released.width() - 8 );
++        text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
++        text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, pressed.width() - 8, pressed );
++        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) );
++    }
++    int selected = 0, focus = 0, pressed = -1;
++    bool down = false, moved = false, closed = false, captureIdle = false;
++    Point start; Uint32 began = 0;
++    std::vector<int> frames;
++    Rect bounds;
++    size_t frame = 0;
++    Uint32 tick = SDL_GetTicks();
++    const auto preparePortrait = [&]() {
++        const Monster monster( castle.GetRace(), castle.GetActualDwelling( dwellingId( selected ) ) );
++        const AnimationReference reference( monster.GetID() );
++        const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
++        if ( standing.empty() ) throw std::runtime_error( "Well portrait has no standing frame" );
++        frames.assign( 12, standing.front() );
++        const auto & idle = reference.getAnimationVector( Monster_Info::IDLE );
++        frames.insert( frames.end(), idle.begin(), idle.end() );
++        const auto & first = Assets::getImage( monster.GetMonsterSprite(), frames.front() );
++        int32_t left = first.x(), upper = first.y(), right = left + first.width(), lower = upper + first.height();
++        for ( int index : frames ) {
++            const auto & sprite = Assets::getImage( monster.GetMonsterSprite(), index );
++            left = std::min( left, sprite.x() ); upper = std::min( upper, sprite.y() );
++            right = std::max( right, sprite.x() + sprite.width() ); lower = std::max( lower, sprite.y() + sprite.height() );
++        }
++        bounds = { left, upper, right - left, lower - upper }; frame = 0; tick = SDL_GetTicks();
++    };
++    const auto select = [&]( int index ) { if ( selected != index ) { selected = index; preparePortrait(); } };
++    const auto available = [&]( int index ) { return castle.isBuild( dwellingId( index ) ) && castle.getMonstersInDwelling( dwellingId( index ) ) > 0; };
++    const auto allowed = [&]( int index ) {
++        if ( index == 6 ) return available( selected );
++        if ( index == 7 ) { for ( int i = 0; i < 6; ++i ) if ( available( i ) ) return true; return false; }
++        return true;
++    };
++    const auto activate = [&]( int index ) {
++        if ( index < 6 ) { select( index ); return; }
++        if ( index == 8 ) { closed = true; return; }
++        if ( !allowed( index ) ) return;
++        // All payment, availability, army placement and confirmations remain in Castle.
++        down = false; pressed = -1;
++        recruit( index == 7 ? -1 : selected );
++        LocalEvent::Get().resetFor3DSPanel();
++        Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++        preparePortrait();
++    };
++    preparePortrait();
++    const WellScope scope( top, bottom );
++    const auto draw = [&]() {
++        top.fill( background ); bottom.fill( background );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
++        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        const Monster monster( castle.GetRace(), castle.GetActualDwelling( dwellingId( selected ) ) );
++        Text title( monster.GetMultiName(), FontType::normalYellow() ); title.fitToOneRow( 384 ); title.draw( 8, 8, 384, top );
++        Image portrait( bounds.width, bounds.height ); portrait.reset();
++        const auto & sprite = Assets::getImage( monster.GetMonsterSprite(), frames[frame] );
++        Blit( sprite, portrait, sprite.x() - bounds.x, sprite.y() - bounds.y );
++        const double scale = std::min( double( portraitArea.width ) / bounds.width, double( portraitArea.height ) / bounds.height );
++        Image scaled( std::max( 1, int( bounds.width * scale ) ), std::max( 1, int( bounds.height * scale ) ) ); scaled.reset(); Resize( portrait, scaled );
++        Blit( scaled, top, portraitArea.x + ( portraitArea.width - scaled.width() ) / 2, portraitArea.y + ( portraitArea.height - scaled.height() ) / 2 );
++        std::string stats = std::string( _( "Attack" ) ) + ": " + std::to_string( monster.GetAttack() )
++            + "\n" + _( "Defense" ) + ": " + std::to_string( monster.GetDefense() )
++            + "\n" + _( "Damage" ) + ": " + std::to_string( monster.GetDamageMin() ) + "-" + std::to_string( monster.GetDamageMax() )
++            + "\n" + _( "HP" ) + ": " + std::to_string( monster.GetHitPoints() )
++            + "\n" + _( "Speed" ) + ": " + Speed::String( monster.GetSpeed() );
++        if ( castle.isBuild( dwellingId( selected ) ) ) {
++            const uint32_t growth = monster.GetGrown() + ( castle.isBuild( BUILD_WELL ) ? Castle::GetGrownWell() : 0 )
++                + ( selected == 0 && castle.isBuild( BUILD_WEL2 ) ? Castle::GetGrownWel2() : 0 );
++            stats += "\n" + std::string( _( "Available" ) ) + ": " + std::to_string( castle.getMonstersInDwelling( dwellingId( selected ) ) )
++                + "\n" + _( "Growth" ) + ": +" + std::to_string( growth ) + " / " + _( "week" );
++        }
++        else stats += "\n" + castle.GetStringBuilding( castle.GetActualDwelling( dwellingId( selected ) ) );
++        Text( stats, FontType::normalWhite() ).draw( 144, 39, 248, top );
++        int resources = 0; const Funds cost = monster.GetCost();
++        for ( int resource = Resource::WOOD; resource <= Resource::GOLD; resource <<= 1 ) if ( cost.Get( resource ) ) ++resources;
++        int x = ( 400 - resources * 78 ) / 2;
++        for ( int resource = Resource::WOOD; resource <= Resource::GOLD; resource <<= 1 ) if ( cost.Get( resource ) ) {
++            const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( resource ) );
++            Image resourceIcon( 24, 24 ); resourceIcon.reset(); Resize( icon, resourceIcon );
++            Blit( resourceIcon, top, x, 206 ); Text( std::to_string( cost.Get( resource ) ), FontType::normalWhite() ).draw( x + 30, 212, top ); x += 78;
++        }
++        Text name( castle.GetName(), FontType::normalYellow() ); name.fitToOneRow( 304 ); name.draw( 8, 8, 304, bottom );
++        for ( int i = 0; i < 6; ++i ) {
++            const auto area = tileArea( i ); const uint32_t dwelling = dwellingId( i );
++            Fill( bottom, area.x, area.y, area.width, area.height, background );
++            DrawRect( bottom, area, i == selected ? GetColorId( 255, 220, 96 ) : GetColorId( 120, 90, 55 ) );
++            const Monster item( castle.GetRace(), castle.GetActualDwelling( dwelling ) );
++            const auto & icon = Assets::getImage( ICN::MONS32, item.GetSpriteIndex() );
++            Blit( icon, bottom, area.x + ( area.width - icon.width() ) / 2, area.y + 3 );
++            Text label( item.GetMultiName(), castle.isBuild( dwelling ) ? FontType::smallWhite() : FontType::smallYellow() );
++            label.fitToOneRow( 88 ); label.draw( area.x + 4, area.y + 40, 88, bottom );
++            Text( castle.isBuild( dwelling ) ? std::to_string( castle.getMonstersInDwelling( dwelling ) ) : "-", FontType::normalYellow() ).draw( area.x + 4, area.y + 53, 88, bottom );
++        }
++        Text hint( "A: " + recruitLabel + "   Y: " + _( "Max" ), FontType::smallWhite() ); hint.fitToOneRow( 304 ); hint.draw( 8, 192, 304, bottom );
++        for ( int i = 0; i < 3; ++i ) {
++            if ( allowed( i + 6 ) ) buttons[i]->enable(); else buttons[i]->disable();
++            if ( down && !moved && pressed == i + 6 ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
++        }
++        DrawRect( bottom, focus < 6 ? tileArea( focus ) : controls[focus - 6], GetColorId( 160, 220, 255 ) );
++        Display::instance().render();
++        if ( captureWellAnimation ) {
++            Image current( portraitArea.width, portraitArea.height ); Copy( top, portraitArea.x, portraitArea.y, current, 0, 0, current.width(), current.height() );
++            if ( firstPortrait.empty() ) {
++                firstPortrait = current;
++                if ( !Save( top, "sdmc:/3ds/fheroes2/well-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/well-bottom.bmp" ) ) throw std::runtime_error( "Cannot save well" );
++            }
++            else if ( !captureIdle && std::memcmp( firstPortrait.image(), current.image(), current.width() * current.height() ) ) {
++                captureIdle = true; ++wellAnimationChanges;
++                if ( !Save( top, "sdmc:/3ds/fheroes2/well-idle-top.bmp" ) ) throw std::runtime_error( "Cannot save well idle" );
++            }
++        }
++    };
++    draw(); COUT( "3DS well: panel ready" )
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Cancel: closed = true; break;
++                case Platform3DS::PanelKey::Left: focus = ( focus + 8 ) % 9; if ( focus < 6 ) select( focus ); break;
++                case Platform3DS::PanelKey::Right: focus = ( focus + 1 ) % 9; if ( focus < 6 ) select( focus ); break;
++                case Platform3DS::PanelKey::Up: focus = ( focus + 6 ) % 9; if ( focus < 6 ) select( focus ); break;
++                case Platform3DS::PanelKey::Down: focus = ( focus + 3 ) % 9; if ( focus < 6 ) select( focus ); break;
++                case Platform3DS::PanelKey::Confirm: activate( focus < 6 ? 6 : focus ); break;
++                case Platform3DS::PanelKey::Toggle: activate( 7 ); break;
++                default: break;
++                }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
++                start = input.position; began = SDL_GetTicks(); down = true; moved = false; pressed = -1;
++                for ( int i = 0; i < 9; ++i ) if ( ( i < 6 ? tileArea( i ) : controls[i - 6] ) & start ) { pressed = focus = i; break; }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                if ( down && !moved && SDL_GetTicks() - began < 550 && pressed >= 0 && ( ( pressed < 6 ? tileArea( pressed ) : controls[pressed - 6] ) & input.position ) ) {
++                    // First tap selects; a second tap opens the original recruitment dialog.
++                    if ( pressed < 6 && pressed == selected ) activate( 6 ); else activate( pressed );
++                }
++                down = false; pressed = -1;
++            }
++        }
++        const Uint32 now = SDL_GetTicks();
++        if ( now - tick >= 75 ) { frame = ( frame + ( now - tick ) / 75 ) % frames.size(); tick = now; redraw = true; }
++        if ( redraw && !closed ) draw();
++    }
++}
++void Interface3DS::testWell()
++{
++    struct RestoreColor { PlayerColor color; ~RestoreColor() { Settings::Get().SetCurrentColor( color ); } } restoreColor{ Settings::Get().CurrentColor() };
++    Settings::Get().SetCurrentColor( PlayerColor::BLUE );
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto press = [&]( std::vector<Step> & steps, int button, Uint32 delay = 150 ) { steps.emplace_back( delay, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" );
++    metadata.builtBuildings = { BUILD_CASTLE, BUILD_WELL, BUILD_WEL2, DWELLING_MONSTER1, DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4, DWELLING_MONSTER5, DWELLING_MONSTER6, DWELLING_UPGRADE2, DWELLING_UPGRADE3, DWELLING_UPGRADE4, DWELLING_UPGRADE5, DWELLING_UPGRADE6, DWELLING_UPGRADE7 };
++    const auto run = [&]( Castle & castle, std::vector<Step> steps, const std::function<void( int )> & action, bool actual = false, uint32_t recruited = 0 ) {
++        COUT( "3DS WELL input actual=" << actual << " expected_recruit=" << recruited )
++        auto & display = Display::instance(); const ImageRestorer restore( display );
++        const auto viewport = Platform3DS::viewport(); const auto top = Platform3DS::modalTopImage(), bottom = Platform3DS::modalBottomImage(), right = Platform3DS::modalRightImage();
++        const auto funds = castle.GetKingdom().GetFunds();
++        std::array<uint32_t, 6> populations; for ( int i = 0; i < 6; ++i ) populations[i] = castle.getMonstersInDwelling( dwellingId( i ) );
++        std::map<int, uint64_t> army; for ( int i = 0; i < 5; ++i ) if ( castle.GetArmy().GetTroop( i )->isValid() ) army[castle.GetArmy().GetTroop( i )->GetID()] += castle.GetArmy().GetTroop( i )->GetCount();
++        const Monster recruitType( castle.GetRace(), castle.GetActualDwelling( DWELLING_MONSTER1 ) );
++        if ( recruited ) army[recruitType.GetID()] += recruited;
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "well-input", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot inject well input" );
++        int status = 0;
++        try { if ( actual ) castle.OpenDialog( false, false, false, true ); else showWell( castle, action ); }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( status || viewport != Platform3DS::viewport() || top != Platform3DS::modalTopImage() || bottom != Platform3DS::modalBottomImage() || right != Platform3DS::modalRightImage()
++            || ( !recruited && std::memcmp( pixels.data(), display.image(), pixels.size() ) ) || LocalEvent::Get().MouseClickLeft() ) throw std::runtime_error( "Well changed funds/frame/context or leaked input" );
++        if ( !( funds - recruitType.GetCost() * recruited == castle.GetKingdom().GetFunds() ) ) throw std::runtime_error( "Well payment differs: before=" + std::to_string( funds.gold ) + " after=" + std::to_string( castle.GetKingdom().GetFunds().gold ) );
++        for ( int i = 0; i < 6; ++i ) if ( populations[i] - ( i == 0 ? recruited : 0 ) != castle.getMonstersInDwelling( dwellingId( i ) ) ) throw std::runtime_error( "Well changed population without recruitment" );
++        std::map<int, uint64_t> after; for ( int i = 0; i < 5; ++i ) if ( castle.GetArmy().GetTroop( i )->isValid() ) after[castle.GetArmy().GetTroop( i )->GetID()] += castle.GetArmy().GetTroop( i )->GetCount();
++        if ( army != after ) throw std::runtime_error( "Well recruitment army totals differ" );
++    };
++    for ( int race : { Race::KNGT, Race::BARB, Race::SORC, Race::WRLK, Race::WZRD, Race::NECR } ) {
++        Castle castle( 0, 0, race ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
++        int requests = 0, last = -2;
++        const auto action = [&]( int id ) { ++requests; last = id; };
++        std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++        run( castle, steps, action ); if ( requests != 2 || last != -1 ) throw std::runtime_error( "Well controller recruitment dispatch differs" );
++    }
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
++    std::vector<int> requests; const auto action = [&]( int id ) { requests.push_back( id ); };
++    std::vector<Step> steps{ { 150, touch( SDL_FINGERDOWN, 150, 70 ) }, { 90, touch( SDL_FINGERUP, 150, 70 ) }, { 150, touch( SDL_FINGERDOWN, 150, 70 ) }, { 90, touch( SDL_FINGERUP, 150, 70 ) },
++        { 150, touch( SDL_FINGERDOWN, 160, 218 ) }, { 90, touch( SDL_FINGERUP, 160, 218 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action );
++    if ( requests != std::vector<int>{ 1, -1 } ) throw std::runtime_error( "Well touch select/recruit/max differs" );
++    requests.clear(); steps = { { 150, touch( SDL_FINGERDOWN, 55, 218 ) }, { 80, touch( SDL_FINGERMOTION, 180, 50 ) }, { 80, touch( SDL_FINGERUP, 180, 50 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); if ( !requests.empty() ) throw std::runtime_error( "Well drag recruited" );
++    steps = { { 150, touch( SDL_FINGERDOWN, 50, 65 ) }, { 750, touch( SDL_FINGERUP, 50, 65 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); if ( !requests.empty() ) throw std::runtime_error( "Well hold recruited" );
++    auto unavailable = metadata; unavailable.builtBuildings = { BUILD_CASTLE, BUILD_WELL };
++    Castle empty( 0, 0, Race::KNGT ); empty.SetColor( PlayerColor::BLUE ); empty.loadFromResurrectionMap( unavailable );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( empty, steps, action );
++    if ( !requests.empty() ) throw std::runtime_error( "Unbuilt/empty well recruited" );
++    // The real castle handler must open the native well and restore the city after nested cancellation.
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( empty, steps, action, true );
++    // A built dwelling: original RecruitMonster dialog cancellation and return to the well.
++    unavailable.builtBuildings.push_back( DWELLING_MONSTER1 );
++    Castle hiring( 0, 0, Race::KNGT ); hiring.SetColor( PlayerColor::BLUE ); hiring.loadFromResurrectionMap( unavailable );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    run( hiring, steps, action, true );
++    struct RestoreFunds { Kingdom & kingdom; Funds funds; ~RestoreFunds() { kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.AddFundsResource( funds ); } } restoreFunds{ hiring.GetKingdom(), hiring.GetKingdom().GetFunds() };
++    hiring.GetKingdom().AddFundsResource( Funds( Resource::GOLD, 100000 ) );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    run( hiring, steps, action, true, hiring.getMonstersInDwelling( DWELLING_MONSTER1 ) );
++    Castle hireAll( 0, 0, Race::KNGT ); hireAll.SetColor( PlayerColor::BLUE ); hireAll.loadFromResurrectionMap( unavailable );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( hireAll, steps, action, true );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( hireAll, steps, action, true, hireAll.getMonstersInDwelling( DWELLING_MONSTER1 ) );
++    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); captureWellAnimation = false; Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
++    Platform3DS::setStereoTestStrength( 3 ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( empty, steps, action, true );
++    Settings::Get().setInterfaceType( InterfaceType::EVIL ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); Settings::Get().setInterfaceType( reset.type );
++    captureWellAnimation = true; const unsigned before = wellAnimationChanges;
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 1800 ); run( castle, steps, action );
++    if ( wellAnimationChanges != before + 1 ) throw std::runtime_error( "Well portrait did not visibly animate" );
++    COUT( "3DS WELL SMOKE: PASS six_races_upgrades original_populations touch_controller_recruit_max_dispatch disabled_empty_unbuilt drag_hold_cancel visible_idle actual_castle_well_recruit_and_hire_all_cancel_payment_population_army flat_stereo evil readonly_state_and_modal_frame_context_release" )
++}
 +#endif

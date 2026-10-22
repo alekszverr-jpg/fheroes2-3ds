@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = 'Stop'
-$version = '0.3.37'
+$version = '0.3.38'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -38,6 +38,9 @@ $manifest = [ordered]@{
     native_castle_buildings='Army panel Buildings button; six built entries/page, dwellings first, upgrades/highest guild, original race drawing IDs, upper artwork/description/availability; same Castle::OpenDialog action dispatch'
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
     emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'
+    emulated_well='Well New/Old ru and New en: six races/upgrades, original populations, touch/controller, drag/hold, actual castle individual/all recruitment YES/NO, exact payment/population/army totals, visible idle, flat/stereo, Evil and restoration; Recruit/CastleScreen New regressions passed; physical full-army/guest/funds/save checks pending'
+    native_well='Six original creature icons/populations, large standing-idle portrait, statistics/growth/unit resource costs; original Castle recruitment/payment/placement and hire-all confirmation; flat full-screen panel and return'
+    hardware_well='0.3.38 pending New 3DS XL; physical Old unavailable; 0.3.37 guild and real HOME close also pending'
     native_mage_guild='Original spell scrolls/artwork; built-level paging, library-aware spell lists, top descriptions/stylus scrolling and castle navigation; original caller book purchase/learning unchanged'
     system_close='aptShouldClose SDL_QUIT bypasses game confirmation; no rendering during shutdown/unwind; ordinary game quit hook preserved'
     hardware_guild_exit='0.3.37 pending New 3DS XL; user confirms marketplace 0.3.36 works, guild freeze in 2D/3D and HOME-close ARM11 crash; physical Old unavailable'

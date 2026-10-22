@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.37** adds a native Mage Guild and bypasses repeated in-game confirmation for system close. The 0.3.36 marketplace is confirmed working on New 3DS XL; the new build awaits hardware validation. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.38** adds a native two-screen Well with creature statistics, growth and original recruitment handlers. Hardware checks of this build, the guild and HOME close remain pending. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 
