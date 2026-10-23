@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.39: native Tavern and rumor reading
+
+The Tavern now has a dedicated two-screen layout: the upper screen shows its heading and normal-font rumor text; the lower screen shows the original animated scene and a large Exit button. The original AnimationDialogElement supplies unchanged frames and timing; the scene fits proportionally and stone backgrounds fill both screens. Long rumors show a scrollbar. Drag vertically over the scene to scroll the upper text; D-pad up/down moves by lines, left/right by pages. A/L or Exit closes; dragging off Exit does not activate it.
+
+Castle::_openTavern still obtains the current world rumor once and builds the original MultiFontText with its language. The adapter only displays that text and animation; rumor selection, weekly state, funds, army and heroes are unchanged. The window stays flat and returns to the town panorama. Thieves Guild and other remaining specialized city windows are follow-ups; further stereo-depth work remains deferred.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. Hardware checks are pending: Tavern animation, long/custom rumors, scroll and flat/stereo return. Physical guild/HOME-close/Well validation from 0.3.37–0.3.38 is also still pending; physical Old hardware is unavailable.
+
+0.3.39 (2026-10-23, Azahar 2126.2 MXE): Tavern passed New/Old Russian and New English. The original AnimationDialogElement visibly changes frames; current world rumor/source text, optional language, funds, heroes and army remain unchanged. Checks cover A/L/touch closure, close-button drag cancellation, long/empty rumors, bounded line/page/stylus scrolling, explicit English rumor text paired with the current-language introduction, Evil UI, actual Castle::OpenDialog -> Tavern -> city return in flat/forced-stereo contexts, and modal/frame/viewport/input restoration. Messages and CastleScreen New regressions passed. Two-job ARM Release, desktop syntax of three changed translation units, offline infrastructure (25 groups/37 component markers), exported patch and clean-baseline application passed. Russian/English captures inspected. Only short sequential monitored groups ran, without Full or a triggered host-load guard. The explicit-language case is synthetic text, not a loaded custom map. Real New 3DS XL animation/scroll/return and custom-map rumors remain pending; physical Old is unavailable. Earlier physical guild/HOME-close/Well checks also remain open.
+
 ## Preview 0.3.38: native Well and town recruitment
 
 The Well now owns both native screen images instead of drawing beneath the persistent castle panel. The lower screen shows six original creature icons, available populations and Recruit/Max/Exit. The upper screen shows a large standing/idle portrait from original frames, normal-font statistics, growth and per-creature resource costs. Built/upgraded dwellings are respected; growth matches the original Well, including the Well and first-tier special growth building. Exact original portrait animation behavior remains a future task.

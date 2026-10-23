@@ -1623,6 +1623,33 @@ index da5e781..0d38269 100644
      return MageGuildDialogResult::DoNothing;
 +#endif
  }
+diff --git a/src/fheroes2/castle/castle_tavern.cpp b/src/fheroes2/castle/castle_tavern.cpp
+index 0ae5549..22b4b86 100644
+--- a/src/fheroes2/castle/castle_tavern.cpp
++++ b/src/fheroes2/castle/castle_tavern.cpp
+@@ -36,6 +36,10 @@
+ #include "ui_text.h"
+ #include "world.h"
+ 
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
++
+ void Castle::_openTavern() const
+ {
+     auto rumor = world.getCurrentRumor();
+@@ -48,7 +52,11 @@ void Castle::_openTavern() const
+     text->add( fheroes2::Text{ std::move( rumor.text ), fheroes2::FontType::normalWhite(), rumor.language } );
+ 
+     const fheroes2::AnimationDialogElement imageUI( ICN::TAVWIN, { 0, 1 }, 0, Game::getAnimationDelayValue( Game::DelayType::CASTLE_TAVERN_DELAY ) );
++#if defined( __3DS__ )
++    Interface3DS::showTavern( GetStringBuilding( BUILD_TAVERN ), *text, imageUI );
++#else
+     const fheroes2::TextDialogElement textBodyUI( text );
+ 
+     fheroes2::showStandardTextMessage( GetStringBuilding( BUILD_TAVERN ), {}, Dialog::OK, { &imageUI, &textBodyUI } );
++#endif
+ }
 diff --git a/src/fheroes2/castle/castle_town.cpp b/src/fheroes2/castle/castle_town.cpp
 index d142f98..580bc27 100644
 --- a/src/fheroes2/castle/castle_town.cpp
@@ -1996,7 +2023,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..2267966 100644
+index 69d39fb..5ad81c6 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2047,7 +2074,7 @@ index 69d39fb..2267966 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,113 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,114 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2057,7 +2084,7 @@ index 69d39fb..2267966 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 24> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well" };
++        const std::array<const char *, 25> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2139,6 +2166,7 @@ index 69d39fb..2267966 100644
 +        runGroup( "MageGuild", []() { Interface3DS::testMageGuild(); } );
 +        runGroup( "SystemExit", []() { Interface3DS::testSystemExit(); } );
 +        runGroup( "Well", []() { Interface3DS::testWell(); } );
++        runGroup( "Tavern", []() { Interface3DS::testTavern(); } );
 +        runGroup( "CastleStereo", []() { Interface3DS::testCastleStereo(); } );
 +        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
@@ -7230,10 +7258,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..84fd5c6
+index 0000000..c274b20
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,119 @@
+@@ -0,0 +1,121 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -7289,6 +7317,8 @@ index 0000000..84fd5c6
 +    // Action -1 requests the original hire-all flow; 0..5 requests a dwelling.
 +    void showWell( const Castle & castle, const std::function<void( int )> & recruit );
 +    void testWell();
++    void showTavern( const std::string & title, const fheroes2::TextBase & rumor, const fheroes2::DialogElement & scene );
++    void testTavern();
 +    void testSystemExit();
 +    void testCastleStereo();
 +    struct ConstructionChoice {
@@ -9325,6 +9355,218 @@ index 0000000..87f1231
 +    COUT( "3DS ADVENTURE SPELLBOOK SMOKE: PASS actual_book adventure_scroll_filter choice_touch_controller confirm_required pages_restore cancel_drag readonly_tabs_Y_touch zero_mana tired_boat_restrictions long_scroll empty evil unchanged_mana_movement_book_frame_context" )
 +}
 +
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_tavern.cpp b/src/fheroes2/gui/ui_3ds_tavern.cpp
+new file mode 100644
+index 0000000..94b681c
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_tavern.cpp
+@@ -0,0 +1,206 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <cmath>
++#include <cstring>
++#include <stdexcept>
++#include <SDL.h>
++#include "army.h"
++#include "army_troop.h"
++#include "castle.h"
++#include "cursor.h"
++#include "game_delays.h"
++#include "game_assets.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "map_format_info.h"
++#include "platform_3ds.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_dialog.h"
++#include "ui_text.h"
++#include "ui_window.h"
++#include "world.h"
++namespace
++{
++    using namespace fheroes2;
++    bool captureTavern = false;
++    unsigned animatedTaverns = 0;
++    int lastTavernScroll = 0, maximumTavernScroll = 0;
++    class TavernScope
++    {
++    public:
++        TavernScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom );
++            LocalEvent::Get().resetFor3DSPanel();
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++        }
++        ~TavernScope()
++        {
++            Platform3DS::popModalImages();
++            LocalEvent::Get().resetFor3DSPanel();
++            Display::instance().render();
++        }
++    };
++}
++void Interface3DS::showTavern( const std::string & title, const TextBase & rumor, const DialogElement & scene )
++{
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 );
++    const Rect textArea{ 16, 40, 360, 184 }, pictureArea{ 8, 30, 304, 162 }, closeArea{ 80, 204, 160, 28 };
++    Image top( 400, 240 ), bottom( 320, 240 ), content( textArea.width, std::max<int32_t>( 1, rumor.height( textArea.width ) ) );
++    content.fill( background ); rumor.draw( 0, 0, textArea.width, content );
++    Image original( scene.area().width, scene.area().height ); original.fill( background ); scene.draw( original, { 0, 0 } );
++    if ( original.empty() ) throw std::runtime_error( "Tavern scene is empty" );
++    const double scale = std::min( double( pictureArea.width ) / original.width(), double( pictureArea.height ) / original.height() );
++    Image scaled( std::max( 1, int( original.width() * scale ) ), std::max( 1, int( original.height() * scale ) ) ); scaled.reset();
++    const int maximum = std::max<int32_t>( 0, content.height() - textArea.height );
++    int scroll = 0; bool closed = false, down = false, moved = false, pressed = false, capturedIdle = false;
++    Point start, last; Image firstScene;
++    Sprite released, pressedImage;
++    makeButtonSprites( released, pressedImage, "", { closeArea.width - 10, closeArea.height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++    Text label( _( "Exit" ), FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
++    label.draw( 4, ( released.height() - label.height() ) / 2, released.width() - 8, released );
++    label.draw( 3, ( pressedImage.height() - label.height() ) / 2 + 1, pressedImage.width() - 8, pressedImage );
++    ButtonSprite close( closeArea.x, closeArea.y, std::move( released ), std::move( pressedImage ) );
++    const TavernScope scope( top, bottom );
++    const auto draw = [&]() {
++        top.fill( background ); bottom.fill( background );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
++        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        Text heading( title, FontType::normalYellow() ); heading.fitToOneRow( 368 ); heading.draw( 16, 9, 368, top );
++        scroll = std::clamp( scroll, 0, maximum );
++        Fill( top, 12, 36, 368, 192, background );
++        Copy( content, 0, scroll, top, textArea.x, textArea.y, textArea.width, std::min<int32_t>( textArea.height, content.height() - scroll ) );
++        if ( maximum ) {
++            Fill( top, 385, 40, 4, 184, GetColorId( 90, 65, 40 ) );
++            const int32_t thumb = std::max<int32_t>( 12, textArea.height * textArea.height / content.height() );
++            Fill( top, 384, textArea.y + ( textArea.height - thumb ) * scroll / maximum, 6, thumb, GetColorId( 235, 195, 100 ) );
++        }
++        Text lowerTitle( title, FontType::normalYellow() ); lowerTitle.fitToOneRow( 304 ); lowerTitle.draw( 8, 8, 304, bottom );
++        Resize( original, scaled );
++        const Point picture{ pictureArea.x + ( pictureArea.width - scaled.width() ) / 2, pictureArea.y + ( pictureArea.height - scaled.height() ) / 2 };
++        Blit( scaled, bottom, picture.x, picture.y ); DrawRect( bottom, { picture.x - 1, picture.y - 1, scaled.width() + 2, scaled.height() + 2 }, GetColorId( 180, 140, 75 ) );
++        if ( maximum ) Text( "D-pad", FontType::smallWhite() ).draw( 8, 194, 64, bottom );
++        if ( down && !moved && pressed ) close.press(); else close.release(); close.draw( bottom );
++        lastTavernScroll = scroll; maximumTavernScroll = maximum; Display::instance().render();
++        if ( captureTavern ) {
++            if ( firstScene.empty() ) {
++                firstScene = original;
++                if ( !Save( top, "sdmc:/3ds/fheroes2/tavern-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/tavern-bottom.bmp" ) ) throw std::runtime_error( "Cannot save tavern" );
++            }
++            else if ( !capturedIdle && std::memcmp( firstScene.image(), original.image(), original.width() * original.height() ) ) {
++                capturedIdle = true; ++animatedTaverns;
++                if ( !Save( bottom, "sdmc:/3ds/fheroes2/tavern-idle-bottom.bmp" ) ) throw std::runtime_error( "Cannot save tavern animation" );
++            }
++            if ( scroll && !Save( top, "sdmc:/3ds/fheroes2/tavern-scrolled-top.bmp" ) ) throw std::runtime_error( "Cannot save tavern scroll" );
++        }
++    };
++    draw(); COUT( "3DS tavern: panel ready scroll_max=" << maximum )
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = scene.update( original, { 0, 0 } ); Platform3DS::PanelInput input;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Confirm: case Platform3DS::PanelKey::Cancel: closed = true; break;
++                case Platform3DS::PanelKey::Up: scroll -= 16; break;
++                case Platform3DS::PanelKey::Down: scroll += 16; break;
++                case Platform3DS::PanelKey::Left: scroll -= textArea.height; break;
++                case Platform3DS::PanelKey::Right: scroll += textArea.height; break;
++                default: break;
++                }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) { start = last = input.position; down = true; moved = false; pressed = closeArea & start; }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && !pressed ) scroll += last.y - input.position.y;
++                last = input.position;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed && ( closeArea & input.position ) ) closed = true;
++                down = false; pressed = false;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++}
++void Interface3DS::testTavern()
++{
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto press = [&]( std::vector<Step> & steps, int button, Uint32 delay = 160 ) { steps.emplace_back( delay, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" ); metadata.builtBuildings = { BUILD_CASTLE, BUILD_TAVERN };
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
++    const auto run = [&]( const TextBase & body, std::vector<Step> steps, bool actual = false ) {
++        auto & display = Display::instance(); const ImageRestorer restore( display );
++        const auto viewport = Platform3DS::viewport(); const auto top = Platform3DS::modalTopImage(), bottom = Platform3DS::modalBottomImage(), right = Platform3DS::modalRightImage();
++        const auto funds = castle.GetKingdom().GetFunds(); const auto heroes = castle.GetKingdom().GetHeroes(); const auto rumor = world.getCurrentRumor();
++        const auto source = body.text();
++        std::vector<std::pair<int, uint32_t>> army; for ( int i = 0; i < 5; ++i ) army.emplace_back( castle.GetArmy().GetTroop( i )->GetID(), castle.GetArmy().GetTroop( i )->GetCount() );
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "tavern-input", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot inject tavern input" );
++        int status = 0;
++        try {
++            if ( actual ) castle.OpenDialog( false, false, false, true );
++            else {
++                const AnimationDialogElement animation( ICN::TAVWIN, { 0, 1 }, 0, Game::getAnimationDelayValue( Game::DelayType::CASTLE_TAVERN_DELAY ) );
++                showTavern( Castle::GetStringBuilding( BUILD_TAVERN, castle.GetRace() ), body, animation );
++            }
++        }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        const auto afterRumor = world.getCurrentRumor();
++        if ( status || viewport != Platform3DS::viewport() || top != Platform3DS::modalTopImage() || bottom != Platform3DS::modalBottomImage() || right != Platform3DS::modalRightImage()
++            || !( funds == castle.GetKingdom().GetFunds() ) || heroes != castle.GetKingdom().GetHeroes() || source != body.text() || rumor.text != afterRumor.text || rumor.language != afterRumor.language
++            || std::memcmp( pixels.data(), display.image(), pixels.size() ) || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Tavern changed rumor/funds/heroes/frame/context or leaked input" );
++        for ( int i = 0; i < 5; ++i ) if ( army[i] != std::make_pair( int( castle.GetArmy().GetTroop( i )->GetID() ), castle.GetArmy().GetTroop( i )->GetCount() ) ) throw std::runtime_error( "Tavern changed army" );
++    };
++    MultiFontText body;
++    body.add( Text( std::string( _( "A generous tip for the barkeep yields the following rumor:" ) ) + "\n\n", FontType::normalWhite() ) );
++    const auto rumor = world.getCurrentRumor(); body.add( Text( rumor.text, FontType::normalWhite(), rumor.language ) );
++    std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_A, 1500 ); run( body, steps );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( body, steps );
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 218 ) }, { 100, touch( SDL_FINGERUP, 150, 218 ) } }; run( body, steps );
++    MultiFontText longBody;
++    longBody.add( Text( std::string( _( "A generous tip for the barkeep yields the following rumor:" ) ) + "\n\n", FontType::normalWhite() ) );
++    std::string longRumor; for ( int i = 0; i < 16; ++i ) longRumor += rumor.text + "\n\n";
++    longBody.add( Text( longRumor, FontType::normalWhite(), rumor.language ) );
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 218 ) }, { 100, touch( SDL_FINGERMOTION, 150, 50 ) }, { 100, touch( SDL_FINGERUP, 150, 50 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
++    if ( lastTavernScroll != 16 || maximumTavernScroll <= 184 ) throw std::runtime_error( "Tavern close-button drag activated or scroll failed" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 160 ) }, { 100, touch( SDL_FINGERMOTION, 150, 40 ) }, { 100, touch( SDL_FINGERUP, 150, 40 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps ); if ( lastTavernScroll != 120 ) throw std::runtime_error( "Tavern stylus did not scroll" );
++    steps.clear(); for ( int i = 0; i < 20; ++i ) press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, 60 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
++    if ( lastTavernScroll != maximumTavernScroll ) throw std::runtime_error( "Tavern scroll did not clamp at end" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_UP ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
++    if ( lastTavernScroll ) throw std::runtime_error( "Tavern scroll did not clamp at start" );
++    Text empty( "", FontType::normalWhite() ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_A ); run( empty, steps );
++    MultiFontText mixedLanguage;
++    mixedLanguage.add( Text( std::string( _( "A generous tip for the barkeep yields the following rumor:" ) ) + "\n\n", FontType::normalWhite() ) );
++    mixedLanguage.add( Text( "A custom map rumor in English keeps its own language while the tavern introduction follows the interface language.", FontType::normalWhite(), SupportedLanguage::English ) );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_A ); run( mixedLanguage, steps );
++    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); captureTavern = false; Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
++    for ( int stereo : { 0, 3 } ) {
++        Platform3DS::setStereoTestStrength( stereo ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++        press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 1200 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( body, steps, true );
++    }
++    Settings::Get().setInterfaceType( InterfaceType::EVIL ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_A ); run( body, steps ); Settings::Get().setInterfaceType( reset.type );
++    captureTavern = true; const unsigned animatedBefore = animatedTaverns;
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN, 1500 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
++    if ( animatedTaverns != animatedBefore + 1 || !lastTavernScroll ) throw std::runtime_error( "Tavern animation/scroll capture did not change" );
++    COUT( "3DS TAVERN SMOKE: PASS original_animation_and_rumor mixed_language_text touch_controller_close drag_cancel bounded_stylus_dpad_scroll empty evil actual_castle_flat_stereo readonly_state_frame_context_release" )
++}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_well.cpp b/src/fheroes2/gui/ui_3ds_well.cpp
 new file mode 100644

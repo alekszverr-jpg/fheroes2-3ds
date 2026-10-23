@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.38
+# fheroes2 for Nintendo 3DS — preview 0.3.39
+
+## Preview 0.3.39: native Tavern and rumor reading
+
+The Tavern now has a dedicated two-screen layout: the upper screen shows its heading and normal-font rumor text; the lower screen shows the original animated scene and a large Exit button. The original AnimationDialogElement supplies unchanged frames and timing; the scene fits proportionally and stone backgrounds fill both screens. Long rumors show a scrollbar. Drag vertically over the scene to scroll the upper text; D-pad up/down moves by lines, left/right by pages. A/L or Exit closes; dragging off Exit does not activate it.
+
+Castle::_openTavern still obtains the current world rumor once and builds the original MultiFontText with its language. The adapter only displays that text and animation; rumor selection, weekly state, funds, army and heroes are unchanged. The window stays flat and returns to the town panorama. Thieves Guild and other remaining specialized city windows are follow-ups; further stereo-depth work remains deferred.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. Hardware checks are pending: Tavern animation, long/custom rumors, scroll and flat/stereo return. Physical guild/HOME-close/Well validation from 0.3.37–0.3.38 is also still pending; physical Old hardware is unavailable.
 
 ## Preview 0.3.38: native Well and town recruitment
 

@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = 'Stop'
-$version = '0.3.38'
+$version = '0.3.39'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -39,6 +39,9 @@ $manifest = [ordered]@{
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
     emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'
     emulated_well='Well New/Old ru and New en: six races/upgrades, original populations, touch/controller, drag/hold, actual castle individual/all recruitment YES/NO, exact payment/population/army totals, visible idle, flat/stereo, Evil and restoration; Recruit/CastleScreen New regressions passed; physical full-army/guest/funds/save checks pending'
+    emulated_tavern='Azahar 2126.2: Tavern New/Old ru and New en, original visible animation, rumor/language/source/funds/army/heroes readonly, explicit mixed-language fixture, bounded scroll/touch/controller/drag, actual flat/stereo castle return, Evil and restoration; Messages/CastleScreen New regressions; actual custom-map and hardware checks pending'
+    native_tavern='Original caller rumor/language and AnimationDialogElement frames/timing; upper normal-font text with bounded stylus/D-pad scroll, lower original scene and Exit; flat modal restores city'
+    hardware_tavern='0.3.39 pending New 3DS XL; 0.3.37 guild/HOME close and 0.3.38 Well also pending; no physical Old'
     native_well='Six original creature icons/populations, large standing-idle portrait, statistics/growth/unit resource costs; original Castle recruitment/payment/placement and hire-all confirmation; flat full-screen panel and return'
     hardware_well='0.3.38 pending New 3DS XL; physical Old unavailable; 0.3.37 guild and real HOME close also pending'
     native_mage_guild='Original spell scrolls/artwork; built-level paging, library-aware spell lists, top descriptions/stylus scrolling and castle navigation; original caller book purchase/learning unchanged'
