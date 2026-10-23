@@ -1981,6 +1981,83 @@ index 8c15e1b..717ec38 100644
  
      fheroes2::Display & display = fheroes2::Display::instance();
  
+diff --git a/src/fheroes2/dialog/dialog_thievesguild.cpp b/src/fheroes2/dialog/dialog_thievesguild.cpp
+index d6d7749..482943b 100644
+--- a/src/fheroes2/dialog/dialog_thievesguild.cpp
++++ b/src/fheroes2/dialog/dialog_thievesguild.cpp
+@@ -59,6 +59,10 @@
+ #include "ui_window.h"
+ #include "world.h"
+ 
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
++
+ namespace
+ {
+     struct ValueColors : std::pair<int, PlayerColorsSet>
+@@ -239,8 +243,55 @@ namespace
+     }
+ }
+ 
++#if defined( __3DS__ )
++Interface3DS::ThievesReport Interface3DS::makeThievesReport( const bool oracle, const uint32_t guilds, const PlayerColorsVector & colors )
++{
++    ThievesReport report; report.oracle = oracle; report.guilds = oracle ? 0xFF : guilds;
++    const auto append = [&]( const char * title, uint32_t required, const std::function<int( PlayerColor )> & value ) {
++        ThievesRank row; row.title = title; row.requiredGuilds = required;
++        if ( report.guilds >= required ) {
++            std::vector<ValueColors> values; getInfo( values, colors, value );
++            for ( const auto & entry : values ) row.groups.push_back( entry.second );
++        }
++        report.ranks.push_back( std::move( row ) );
++    };
++    append( _( "Number of Towns:" ), 0, []( PlayerColor color ) { return int( world.GetKingdom( color ).GetCountTown() ); } );
++    append( _( "Number of Castles:" ), 0, []( PlayerColor color ) { return int( world.GetKingdom( color ).GetCountCastle() ); } );
++    append( _( "Number of Heroes:" ), 0, []( PlayerColor color ) { return int( world.GetKingdom( color ).GetHeroes().size() ); } );
++    append( _( "Gold in Treasury:" ), 2, []( PlayerColor color ) { return world.GetKingdom( color ).GetFunds().Get( Resource::GOLD ); } );
++    append( _( "Wood & Ore:" ), 2, getWoodOreValue );
++    append( _( "Gems, Cr, Slf & Mer:" ), 3, getGemsCrSlfMerValue );
++    append( _( "Obelisks Found:" ), 3, []( PlayerColor color ) { return int( world.GetKingdom( color ).CountVisitedObjects( MP2::OBJ_OBELISK ) ); } );
++    append( _( "Artifacts:" ), 4, []( PlayerColor color ) { return int( world.GetKingdom( color ).GetCountArtifacts() ); } );
++    append( _( "Total Army Strength:" ), 4, []( PlayerColor color ) { return int( world.GetKingdom( color ).GetArmiesStrength() ); } );
++    append( _( "Income:" ), 5, []( PlayerColor color ) { return world.GetKingdom( color ).GetIncome().gold; } );
++    for ( PlayerColor color : colors ) {
++        ThievesPlayer player; player.color = color;
++        const auto & kingdom = world.GetKingdom( color );
++        if ( const Heroes * hero = kingdom.GetBestHero() ) {
++            player.heroPortrait = hero->GetPortrait( PORT_SMALL );
++            if ( report.guilds > 1 ) player.heroStats = { hero->GetAttack(), hero->GetDefense(), hero->GetPower(), hero->GetKnowledge() };
++        }
++        if ( report.guilds > 2 ) {
++            const Player * source = Players::Get( color );
++            player.personality = source ? ( source->isControlHuman() ? _( "Human" ) : source->GetPersonalityString() ) : _( "Unknown" );
++        }
++        if ( report.guilds > 3 ) {
++            const Monster monster = kingdom.GetStrongestMonster();
++            if ( monster.isValid() ) player.monsterIcon = Assets::getImage( ICN::MONS32, monster.GetSpriteIndex() );
++        }
++        report.players.push_back( std::move( player ) );
++    }
++    return report;
++}
++#endif
++
+ void Dialog::ThievesGuild( const bool oracle )
+ {
++#if defined( __3DS__ )
++    const uint32_t count = oracle ? 0 : world.GetKingdom( Settings::Get().CurrentColor() ).GetCountBuilding( BUILD_THIEVESGUILD );
++    Interface3DS::showThievesGuild( Interface3DS::makeThievesReport( oracle, count, PlayerColorsVector( Game::GetActualKingdomColors() ) ) );
++#else
+     // Set the cursor image.This dialog does not require a cursor restorer. It is called from other dialogs that have the same cursor
+     // or from the Game Area that will set the appropriate cursor after this dialog is closed.
+     Cursor::Get().SetThemes( Cursor::POINTER );
+@@ -483,4 +534,5 @@ void Dialog::ThievesGuild( const bool oracle )
+         restorer->restore();
+         fheroes2::fadeInDisplay( dialogRoi, !isDefaultScreenSize );
+     }
++#endif
+ }
 diff --git a/src/fheroes2/game/fheroes2.cpp b/src/fheroes2/game/fheroes2.cpp
 index ce25e88..a5efbc9 100644
 --- a/src/fheroes2/game/fheroes2.cpp
@@ -2023,7 +2100,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..5ad81c6 100644
+index 69d39fb..85e58bc 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2074,7 +2151,7 @@ index 69d39fb..5ad81c6 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,114 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,115 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2084,7 +2161,7 @@ index 69d39fb..5ad81c6 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 25> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern" };
++        const std::array<const char *, 26> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2167,6 +2244,7 @@ index 69d39fb..5ad81c6 100644
 +        runGroup( "SystemExit", []() { Interface3DS::testSystemExit(); } );
 +        runGroup( "Well", []() { Interface3DS::testWell(); } );
 +        runGroup( "Tavern", []() { Interface3DS::testTavern(); } );
++        runGroup( "ThievesGuild", []() { Interface3DS::testThievesGuild(); } );
 +        runGroup( "CastleStereo", []() { Interface3DS::testCastleStereo(); } );
 +        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
@@ -7258,14 +7336,15 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..c274b20
+index 0000000..9020d30
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,143 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
 +#include <vector>
++#include <array>
 +#include <functional>
 +#include <cstddef>
 +#include <cstdint>
@@ -7319,6 +7398,27 @@ index 0000000..c274b20
 +    void testWell();
 +    void showTavern( const std::string & title, const fheroes2::TextBase & rumor, const fheroes2::DialogElement & scene );
 +    void testTavern();
++    struct ThievesRank {
++        std::string title;
++        uint32_t requiredGuilds = 0;
++        std::vector<PlayerColorsSet> groups;
++    };
++    struct ThievesPlayer {
++        PlayerColor color = PlayerColor::NONE;
++        fheroes2::Image heroPortrait, monsterIcon;
++        std::array<int32_t, 4> heroStats{};
++        std::string personality;
++    };
++    struct ThievesReport {
++        bool oracle = false;
++        uint32_t guilds = 0;
++        std::vector<ThievesRank> ranks;
++        std::vector<ThievesPlayer> players;
++    };
++    // Caller supplies actual active colors/count; unavailable information is omitted from the model.
++    ThievesReport makeThievesReport( bool oracle, uint32_t guilds, const PlayerColorsVector & colors );
++    void showThievesGuild( const ThievesReport & report );
++    void testThievesGuild();
 +    void testSystemExit();
 +    void testCastleStereo();
 +    struct ConstructionChoice {
@@ -9566,6 +9666,324 @@ index 0000000..94b681c
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN, 1500 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
 +    if ( animatedTaverns != animatedBefore + 1 || !lastTavernScroll ) throw std::runtime_error( "Tavern animation/scroll capture did not change" );
 +    COUT( "3DS TAVERN SMOKE: PASS original_animation_and_rumor mixed_language_text touch_controller_close drag_cancel bounded_stylus_dpad_scroll empty evil actual_castle_flat_stereo readonly_state_frame_context_release" )
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_thieves.cpp b/src/fheroes2/gui/ui_3ds_thieves.cpp
+new file mode 100644
+index 0000000..bdca867
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_thieves.cpp
+@@ -0,0 +1,312 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_dialog.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <cmath>
++#include <cstring>
++#include <memory>
++#include <stdexcept>
++#include <SDL.h>
++#include "army.h"
++#include "army_troop.h"
++#include "castle.h"
++#include "cursor.h"
++#include "dialog.h"
++#include "game_assets.h"
++#include "heroes.h"
++#include "icn.h"
++#include "image_tool.h"
++#include "kingdom.h"
++#include "localevent.h"
++#include "logging.h"
++#include "map_format_info.h"
++#include "platform_3ds.h"
++#include "players.h"
++#include "race.h"
++#include "screen.h"
++#include "settings.h"
++#include "translations.h"
++#include "ui_button.h"
++#include "ui_text.h"
++#include "ui_window.h"
++#include "world.h"
++namespace
++{
++    using namespace fheroes2;
++    int lastThievesCategory = 0, lastThievesPage = 0;
++    bool captureThieves = false;
++    Rect entryArea( int index ) { return { 8, 35 + index % 4 * 38, 304, 34 }; }
++    class ThievesScope
++    {
++    public:
++        ThievesScope( const Image & top, const Image & bottom )
++        {
++            Platform3DS::pushModalImages( &top, &bottom ); LocalEvent::Get().resetFor3DSPanel();
++            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
++        }
++        ~ThievesScope() { Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel(); Display::instance().render(); }
++    };
++    const char * ordinal( int place )
++    {
++        switch ( place ) {
++        case 0: return _( "1st" ); case 1: return _( "2nd" ); case 2: return _( "3rd" );
++        case 3: return _( "4th" ); case 4: return _( "5th" ); default: return _( "6th" );
++        }
++    }
++    std::string categoryName( const Interface3DS::ThievesReport & report, int index )
++    {
++        if ( index < 10 ) return report.ranks[index].title;
++        return index == 10 ? _( "Best Hero:" ) : index == 11 ? _( "Personality:" ) : _( "Best Monster:" );
++    }
++    uint32_t requiredGuilds( const Interface3DS::ThievesReport & report, int index )
++    {
++        return index < 10 ? report.ranks[index].requiredGuilds : index == 11 ? 3 : index == 12 ? 4 : 0;
++    }
++}
++void Interface3DS::showThievesGuild( const ThievesReport & report )
++{
++    if ( report.ranks.size() != 10 || report.players.size() > 6 ) throw std::runtime_error( "Invalid thieves report shape" );
++    const CursorRestorer hideCursor( false );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 170, 130, 70 );
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const std::array<Rect, 3> controls{ Rect{ 8, 204, 64, 28 }, { 80, 204, 64, 28 }, { 152, 204, 160, 28 } };
++    std::array<std::unique_ptr<ButtonBase>, 3> buttons;
++    for ( int i = 0; i < 3; ++i ) {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { controls[i].width - 10, controls[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        if ( i == 2 ) {
++            Text label( _( "Exit" ), FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
++            label.draw( 4, ( released.height() - label.height() ) / 2, released.width() - 8, released );
++            label.draw( 3, ( pressed.height() - label.height() ) / 2 + 1, pressed.width() - 8, pressed );
++        }
++        else for ( int row = -6; row <= 6; ++row ) {
++            const int width = 7 - std::abs( row ), x = released.width() / 2 - 3 + ( i == 0 ? std::abs( row ) : 0 );
++            Fill( released, x, released.height() / 2 + row, width, 1, GetColorId( 255, 230, 170 ) );
++            Fill( pressed, x - 1, pressed.height() / 2 + row + 1, width, 1, GetColorId( 255, 230, 170 ) );
++        }
++        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) );
++    }
++    int selected = 0, page = 0, focus = 0, pressed = -1;
++    bool down = false, moved = false, closed = false; Point start;
++    const auto area = [&]( int index ) { return index < 13 ? entryArea( index ) : controls[index - 13]; };
++    const auto changePage = [&]( int target ) { target = std::clamp( target, 0, 3 ); if ( target != page ) { page = target; selected = focus = page * 4; } };
++    const auto moveFocus = [&]( int direction ) {
++        std::vector<int> indices; for ( int i = page * 4; i < std::min( 13, page * 4 + 4 ); ++i ) indices.push_back( i );
++        indices.insert( indices.end(), { 13, 14, 15 } );
++        const auto found = std::find( indices.begin(), indices.end(), focus );
++        const int current = found == indices.end() ? 0 : int( found - indices.begin() );
++        focus = indices[( current + int( indices.size() ) + direction ) % indices.size()];
++        if ( focus < 13 ) selected = focus;
++    };
++    const auto activate = [&]( int index ) {
++        if ( index < 13 ) { selected = focus = index; page = selected / 4; }
++        else if ( index == 13 ) changePage( page - 1 );
++        else if ( index == 14 ) changePage( page + 1 );
++        else closed = true;
++    };
++    const ThievesScope scope( top, bottom );
++    const auto draw = [&]() {
++        top.fill( background ); bottom.fill( background );
++        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
++        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        Text title( categoryName( report, selected ), FontType::normalYellow() ); title.fitToOneRow( 384 ); title.draw( 8, 8, 384, top );
++        const auto required = requiredGuilds( report, selected );
++        if ( report.guilds < required ) {
++            Text( _( "Unknown" ), FontType::normalWhite() ).draw( 8, 90, 384, top );
++            Text name( Castle::GetStringBuilding( BUILD_THIEVESGUILD, Race::KNGT ), FontType::normalWhite() ); name.fitToOneRow( 384 ); name.draw( 8, 130, 384, top );
++            Text( std::to_string( report.guilds ) + " / " + std::to_string( required ), FontType::normalYellow() ).draw( 8, 156, 384, top );
++        }
++        else if ( selected < 10 ) {
++            const auto & ranks = report.ranks[selected].groups;
++            int y = 40;
++            for ( size_t i = 0; i < ranks.size(); ++i ) {
++                Text( ordinal( int( i ) ), FontType::normalYellow() ).draw( 8, y + 4, top );
++                const PlayerColorsVector colors( ranks[i] );
++                for ( size_t j = 0; j < colors.size(); ++j ) {
++                    const int x = 70 + int( j % 3 ) * 106, lineY = y + int( j / 3 ) * 29;
++                    const auto & original = Assets::getImage( ICN::TOWNWIND, 22 + Color::GetIndex( colors[j] ) );
++                    const double scale = std::min( 24.0 / original.width(), 18.0 / original.height() );
++                    Image flag( std::max( 1, int( original.width() * scale ) ), std::max( 1, int( original.height() * scale ) ) ); flag.reset(); Resize( original, flag );
++                    Blit( flag, top, x, lineY + 3 );
++                    Text name( Color::String( colors[j] ), FontType::smallWhite() ); name.fitToOneRow( 76 ); name.draw( x + 28, lineY + 6, 76, top );
++                }
++                y += 29 * std::max( 1, int( colors.size() + 2 ) / 3 );
++            }
++            if ( ranks.empty() ) Text( _( "None" ), FontType::normalWhite() ).draw( 8, 90, 384, top );
++        }
++        else for ( size_t i = 0; i < report.players.size(); ++i ) {
++            const auto & player = report.players[i];
++            const Rect cell{ 8 + int( i % 2 ) * 196, 36 + int( i / 2 ) * 64, 188, 60 };
++            Fill( top, cell.x, cell.y, cell.width, cell.height, background ); DrawRect( top, cell, border );
++            Text color( Color::String( player.color ), FontType::smallYellow() ); color.draw( cell.x + 4, cell.y + 3, cell.width - 8, top );
++            if ( selected == 10 ) {
++                if ( !player.heroPortrait.empty() ) {
++                    const double scale = std::min( 32.0 / player.heroPortrait.width(), 36.0 / player.heroPortrait.height() );
++                    Image portrait( std::max( 1, int( player.heroPortrait.width() * scale ) ), std::max( 1, int( player.heroPortrait.height() * scale ) ) ); portrait.reset(); Resize( player.heroPortrait, portrait );
++                    Blit( portrait, top, cell.x + 5, cell.y + 20 );
++                }
++                if ( player.heroPortrait.empty() ) Text( _( "None" ), FontType::normalWhite() ).draw( cell.x + 44, cell.y + 26, 140, top );
++                if ( report.guilds > 1 && !player.heroPortrait.empty() ) {
++                    const auto & stats = player.heroStats;
++                    Text( std::string( _( "Att." ) ) + " " + std::to_string( stats[0] ) + "  " + _( "Def." ) + " " + std::to_string( stats[1] ), FontType::smallWhite() ).draw( cell.x + 44, cell.y + 23, 140, top );
++                    Text( std::string( _( "Power" ) ) + " " + std::to_string( stats[2] ) + "  " + _( "Knowl" ) + " " + std::to_string( stats[3] ), FontType::smallWhite() ).draw( cell.x + 44, cell.y + 37, 140, top );
++                }
++            }
++            else if ( selected == 11 ) {
++                Text text( player.personality, FontType::normalWhite() ); text.fitToOneRow( 176 ); text.draw( cell.x + 6, cell.y + 28, 176, top );
++            }
++            else if ( !player.monsterIcon.empty() ) {
++                const double scale = std::min( 120.0 / player.monsterIcon.width(), 38.0 / player.monsterIcon.height() );
++                Image icon( std::max( 1, int( player.monsterIcon.width() * scale ) ), std::max( 1, int( player.monsterIcon.height() * scale ) ) ); icon.reset(); Resize( player.monsterIcon, icon );
++                Blit( icon, top, cell.x + ( cell.width - icon.width() ) / 2, cell.y + 19 );
++            }
++        }
++        if ( selected == 10 && report.guilds < 2 ) {
++            Text( std::string( _( "Best Hero Stats:" ) ) + " " + std::to_string( report.guilds ) + " / 2", FontType::smallWhite() ).draw( 8, 228, 384, top );
++        }
++        Text heading( report.oracle ? _( "Oracle: Player Rankings" ) : _( "Thieves' Guild: Player Rankings" ), FontType::normalYellow() ); heading.fitToOneRow( 304 ); heading.draw( 8, 8, 304, bottom );
++        for ( int index = page * 4; index < std::min( 13, page * 4 + 4 ); ++index ) {
++            const auto cell = entryArea( index ); StandardWindow::renderBackgroundImage( bottom, cell, 0, evil );
++            DrawLine( bottom, { cell.x + 1, cell.y + 1 }, { cell.x + cell.width - 2, cell.y + 1 }, GetColorId( 210, 175, 110 ) );
++            DrawLine( bottom, { cell.x + 1, cell.y + cell.height - 2 }, { cell.x + cell.width - 2, cell.y + cell.height - 2 }, GetColorId( 80, 55, 30 ) );
++            DrawRect( bottom, cell, index == selected ? GetColorId( 255, 220, 96 ) : border );
++            Text name( categoryName( report, index ), FontType::normalWhite() ); name.fitToOneRow( 282 ); name.draw( cell.x + 8, cell.y + 9, 282, bottom );
++        }
++        Text( "Y: " + std::to_string( page + 1 ) + " / 4", FontType::smallWhite() ).draw( 8, 190, 304, bottom );
++        if ( page > 0 ) buttons[0]->enable(); else buttons[0]->disable(); if ( page < 3 ) buttons[1]->enable(); else buttons[1]->disable();
++        for ( int i = 0; i < 3; ++i ) { if ( down && !moved && pressed == i + 13 ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom ); }
++        DrawRect( bottom, area( focus ), GetColorId( 155, 220, 255 ) );
++        lastThievesCategory = selected; lastThievesPage = page; Display::instance().render();
++        if ( captureThieves ) {
++            const std::string prefix = report.oracle ? "oracle" : report.guilds < required ? "thieves-locked" : selected == 10 ? "thieves-heroes" : "thieves";
++            if ( !Save( top, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) ) throw std::runtime_error( "Cannot save thieves top" );
++            if ( prefix == "thieves" && !Save( bottom, "sdmc:/3ds/fheroes2/thieves-bottom.bmp" ) ) throw std::runtime_error( "Cannot save thieves bottom" );
++        }
++    };
++    draw(); COUT( "3DS thieves guild: panel ready oracle=" << report.oracle << " count=" << report.guilds << " players=" << report.players.size() )
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = false; Platform3DS::PanelInput input;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == Platform3DS::PanelInputType::Key ) {
++                switch ( input.key ) {
++                case Platform3DS::PanelKey::Cancel: closed = true; break;
++                case Platform3DS::PanelKey::Up: moveFocus( -1 ); break;
++                case Platform3DS::PanelKey::Down: moveFocus( 1 ); break;
++                case Platform3DS::PanelKey::Left: changePage( page - 1 ); break;
++                case Platform3DS::PanelKey::Right: changePage( page + 1 ); break;
++                case Platform3DS::PanelKey::Toggle: changePage( ( page + 1 ) % 4 ); break;
++                case Platform3DS::PanelKey::Confirm: activate( focus ); break;
++                default: break;
++                }
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
++                start = input.position; down = true; moved = false; pressed = -1;
++                for ( int i = page * 4; i < std::min( 13, page * 4 + 4 ); ++i ) if ( entryArea( i ) & start ) pressed = i;
++                for ( int i = 13; i < 16; ++i ) if ( controls[i - 13] & start ) pressed = i;
++                if ( pressed >= 0 ) focus = pressed;
++            }
++            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( area( pressed ) & input.position ) ) activate( pressed );
++                down = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++}
++void Interface3DS::testThievesGuild()
++{
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto press = [&]( std::vector<Step> & steps, int button ) { steps.emplace_back( 150, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    struct RestorePlayers {
++        std::vector<Player *> saved; PlayerColor current;
++        RestorePlayers() : current( Settings::Get().CurrentColor() ) {
++            saved.swap( Settings::Get().GetPlayers() ); Settings::Get().GetPlayers().Init( Color::allPlayerColors() );
++            for ( auto * player : Settings::Get().GetPlayers() ) { player->SetPlay( true ); player->SetControl( player->GetColor() == PlayerColor::BLUE ? CONTROL_HUMAN : CONTROL_AI ); }
++            Settings::Get().SetCurrentColor( PlayerColor::BLUE );
++        }
++        ~RestorePlayers() {
++            Settings::Get().GetPlayers().clear(); Settings::Get().GetPlayers().swap( saved );
++            for ( auto * player : Settings::Get().GetPlayers() ) Players::Set( player->GetColor(), player );
++            Settings::Get().SetCurrentColor( current );
++        }
++    } restorePlayers;
++    const PlayerColorsVector colors( Color::allPlayerColors() );
++    struct RestoreKingdoms {
++        PlayerColorsVector colors; std::vector<Funds> funds; std::vector<VecHeroes> heroes; std::vector<VecCastles> castles;
++        explicit RestoreKingdoms( const PlayerColorsVector & values ) : colors( values ) {
++            for ( auto color : colors ) { const auto & kingdom = world.GetKingdom( color ); funds.push_back( kingdom.GetFunds() ); heroes.push_back( kingdom.GetHeroes() ); castles.push_back( kingdom.GetCastles() ); }
++        }
++        ~RestoreKingdoms() {
++            for ( size_t i = 0; i < colors.size(); ++i ) { auto & kingdom = world.GetKingdom( colors[i] ); kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.AddFundsResource( funds[i] ); kingdom.GetHeroes() = heroes[i]; kingdom.GetCastles() = castles[i]; }
++        }
++    } restoreKingdoms( colors );
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT ); hero.SetColor( PlayerColor::BLUE ); hero.GetArmy().Clean(); hero.GetArmy().GetTroop( 0 )->Set( Monster::ARCHER, 9 );
++    for ( auto color : colors ) { auto & kingdom = world.GetKingdom( color ); kingdom.OddFundsResource( kingdom.GetFunds() ); kingdom.GetHeroes().clear(); kingdom.GetCastles().clear(); }
++    world.GetKingdom( PlayerColor::BLUE ).GetHeroes().push_back( &hero );
++    world.GetKingdom( PlayerColor::BLUE ).AddFundsResource( Funds( Resource::GOLD, 100 ) );
++    world.GetKingdom( PlayerColor::GREEN ).AddFundsResource( Funds( Resource::GOLD, 100 ) );
++    world.GetKingdom( PlayerColor::RED ).AddFundsResource( Funds( Resource::GOLD, 50 ) );
++    const std::array<uint32_t, 10> requirements{ 0, 0, 0, 2, 2, 3, 3, 4, 4, 5 };
++    for ( uint32_t count = 0; count <= 5; ++count ) {
++        const auto report = makeThievesReport( false, count, colors );
++        if ( report.ranks.size() != 10 || report.players.size() != 6 ) throw std::runtime_error( "Thieves source report lost categories/players" );
++        for ( int i = 0; i < 10; ++i ) if ( report.ranks[i].requiredGuilds != requirements[i] || report.ranks[i].groups.empty() != ( count < requirements[i] ) ) throw std::runtime_error( "Thieves rank visibility differs from original thresholds" );
++        if ( report.players[0].heroPortrait.empty() || ( count < 2 && report.players[0].heroStats != std::array<int32_t, 4>{} ) || ( count >= 2 && report.players[0].heroStats[0] != hero.GetAttack() )
++            || report.players[0].personality.empty() != ( count < 3 ) || report.players[0].monsterIcon.empty() != ( count < 4 ) ) throw std::runtime_error( "Thieves hero/personality/monster visibility differs" );
++    }
++    const auto report = makeThievesReport( false, 5, colors );
++    const auto & gold = report.ranks[3].groups;
++    if ( gold.size() != 3 || gold[0] != ( PlayerColor::BLUE | PlayerColor::GREEN ) || gold[1] != static_cast<PlayerColorsSet>( PlayerColor::RED ) ) throw std::runtime_error( "Thieves rankings lost descending order or ties" );
++    if ( !makeThievesReport( false, 5, PlayerColorsVector( 0 ) ).players.empty() || makeThievesReport( false, 5, PlayerColorsVector( static_cast<PlayerColorsSet>( PlayerColor::BLUE ) ) ).players.size() != 1 ) throw std::runtime_error( "Thieves active-color filter differs" );
++    const auto oracleReport = makeThievesReport( true, 0, colors );
++    if ( oracleReport.guilds != 0xFF || std::any_of( oracleReport.ranks.begin(), oracleReport.ranks.end(), []( const auto & row ) { return row.groups.empty(); } )
++        || oracleReport.players[0].heroStats != report.players[0].heroStats || oracleReport.players[0].personality.empty() || oracleReport.players[0].monsterIcon.empty() ) throw std::runtime_error( "Oracle did not reveal the full original report" );
++    Maps::Map_Format::CastleMetadata metadata; metadata.customBuildings = true; metadata.customName = _( "construction3DS|Castle" ); metadata.builtBuildings = { BUILD_CASTLE, BUILD_THIEVESGUILD };
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata ); world.GetKingdom( PlayerColor::BLUE ).GetCastles().push_back( &castle );
++    const auto run = [&]( const ThievesReport & data, std::vector<Step> steps, int mode = 0 ) {
++        auto & display = Display::instance(); const ImageRestorer restore( display ); const auto viewport = Platform3DS::viewport();
++        const auto top = Platform3DS::modalTopImage(), bottom = Platform3DS::modalBottomImage(), right = Platform3DS::modalRightImage();
++        std::vector<Funds> funds; std::vector<VecHeroes> heroes; std::vector<VecCastles> castles;
++        for ( auto color : colors ) { const auto & kingdom = world.GetKingdom( color ); funds.push_back( kingdom.GetFunds() ); heroes.push_back( kingdom.GetHeroes() ); castles.push_back( kingdom.GetCastles() ); }
++        const auto army = hero.GetArmy().GetTroop( 0 )->GetCount(); const auto current = Settings::Get().CurrentColor();
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "thieves-input", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot inject thieves input" ); int status = 0;
++        try { if ( mode == 1 ) castle.OpenDialog( false, false, false, true ); else if ( mode == 2 ) Dialog::ThievesGuild( true ); else showThievesGuild( data ); }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( status || viewport != Platform3DS::viewport() || top != Platform3DS::modalTopImage() || bottom != Platform3DS::modalBottomImage() || right != Platform3DS::modalRightImage()
++            || current != Settings::Get().CurrentColor() || army != hero.GetArmy().GetTroop( 0 )->GetCount() || std::memcmp( pixels.data(), display.image(), pixels.size() ) || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Thieves changed army/frame/context or leaked input" );
++        for ( size_t i = 0; i < colors.size(); ++i ) { const auto & kingdom = world.GetKingdom( colors[i] ); if ( !( funds[i] == kingdom.GetFunds() ) || heroes[i] != kingdom.GetHeroes() || castles[i] != kingdom.GetCastles() ) throw std::runtime_error( "Thieves changed kingdom state" ); }
++    };
++    std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps ); if ( lastThievesCategory != 1 ) throw std::runtime_error( "Thieves controller did not select" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_UP ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( report, steps );
++    steps = { { 150, touch( SDL_FINGERDOWN, 150, 80 ) }, { 90, touch( SDL_FINGERUP, 150, 80 ) }, { 150, touch( SDL_FINGERDOWN, 30, 218 ) }, { 90, touch( SDL_FINGERUP, 30, 218 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps ); if ( lastThievesCategory != 1 || lastThievesPage ) throw std::runtime_error( "Disabled previous page changed selection" );
++    steps.clear(); for ( int i = 0; i < 3; ++i ) press( steps, SDL_CONTROLLER_BUTTON_Y );
++    steps.emplace_back( 150, touch( SDL_FINGERDOWN, 100, 218 ) ); steps.emplace_back( 90, touch( SDL_FINGERUP, 100, 218 ) );
++    press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps ); if ( lastThievesCategory != 12 || lastThievesPage != 3 ) throw std::runtime_error( "Disabled next page changed selection" );
++    steps.clear(); for ( int i = 0; i < 4; ++i ) press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps ); if ( lastThievesPage ) throw std::runtime_error( "Thieves paging did not wrap" );
++    steps = { { 150, touch( SDL_FINGERDOWN, 160, 80 ) }, { 90, touch( SDL_FINGERUP, 160, 80 ) }, { 150, touch( SDL_FINGERDOWN, 220, 218 ) }, { 90, touch( SDL_FINGERUP, 220, 218 ) } }; run( report, steps ); if ( lastThievesCategory != 1 ) throw std::runtime_error( "Thieves touch selection differs" );
++    steps = { { 150, touch( SDL_FINGERDOWN, 220, 218 ) }, { 90, touch( SDL_FINGERMOTION, 160, 60 ) }, { 90, touch( SDL_FINGERUP, 160, 60 ) } }; press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps ); if ( lastThievesPage != 1 || lastThievesCategory != 4 ) throw std::runtime_error( "Thieves drag closed panel" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( makeThievesReport( false, 0, PlayerColorsVector( 0 ) ), steps );
++    struct Reset { InterfaceType type; ~Reset() { captureThieves = false; Settings::Get().setInterfaceType( type ); Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
++    for ( int stereo : { 0, 3 } ) {
++        Platform3DS::setStereoTestStrength( stereo ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps, 1 );
++    }
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps, 2 );
++    Settings::Get().setInterfaceType( InterfaceType::EVIL ); run( report, steps ); Settings::Get().setInterfaceType( reset.type );
++    captureThieves = true;
++    steps.clear(); for ( int i = 0; i < 3; ++i ) press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( makeThievesReport( false, 1, colors ), steps );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps );
++    steps.clear(); for ( int i = 0; i < 3; ++i ) press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( oracleReport, steps );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( report, steps );
++    COUT( "3DS THIEVES GUILD SMOKE: PASS original_rank_sources ties_active_colors counts_0_to_5 gated_hero_stats_personality_monster oracle_full touch_controller_pages drag_cancel actual_castle_flat_stereo oracle_entry evil readonly_kingdoms_frame_context_release" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_well.cpp b/src/fheroes2/gui/ui_3ds_well.cpp

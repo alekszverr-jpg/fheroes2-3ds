@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.39
+# fheroes2 for Nintendo 3DS — preview 0.3.40
+
+## Preview 0.3.40: native Thieves Guild and Oracle
+
+The lower screen presents 13 categories over four pages with arrows and Exit. The upper screen shows the selected ranking with original flags, best-hero portraits/statistics, personalities or strongest-creature icons. Tied players share one rank; flags wrap at three players so color names remain readable. Original artwork, stone textures and localized labels are retained with full opaque backgrounds. D-pad up/down moves focus, left/right changes pages, Y cycles pages, A activates a choice/control and L exits. Stylus selects; dragging off Exit does not activate it.
+
+Original information thresholds remain: towns/castles/heroes and hero portraits always; gold, wood/ore and hero statistics at two guilds; rare resources, obelisks and personalities at three; artifacts, army strength and strongest monsters at four; income at five. Locked values are omitted from the UI model, and no original-hidden numeric totals or extra hero details are added. Ranking order and ties reuse the original helpers; actual active players and owned guild count use the original sources. Oracle uses the same flat layout with the full original report. Closing returns to the panorama/map.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. Physical New 3DS XL checks remain pending: categories/pages, ties/multiple players, actual 1–5 owned guilds, hero portraits, flat/stereo return and Oracle map entry. Physical guild/HOME-close, Well and Tavern checks from 0.3.37–0.3.39 also remain open; no physical Old console is available. Further stereo experiments remain deferred.
 
 ## Preview 0.3.39: native Tavern and rumor reading
 

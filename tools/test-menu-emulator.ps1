@@ -1,7 +1,7 @@
 ﻿param([ValidateSet('New','Old')][string]$Model = 'New', [int]$TimeoutSeconds = 0,
       [ValidateSet('ru','en')][string]$Language = 'ru',
       [ValidateSet('Default','Off')][string]$DisplayMode = 'Default',
-      [ValidateSet('Startup','Messages','Chest','LevelUp','Recruit','Market','Gift','Hero','Army','Spellbook','BattleLog','BattleDialogs','BattleIntegration','Building','Construction','HeroRecruit','CastleOptions','CastleArmy','CastleBuildings','CastleScreen','CastleStereo','MageGuild','SystemExit','Well','Tavern','Full')][string]$Group = 'Startup',
+      [ValidateSet('Startup','Messages','Chest','LevelUp','Recruit','Market','Gift','Hero','Army','Spellbook','BattleLog','BattleDialogs','BattleIntegration','Building','Construction','HeroRecruit','CastleOptions','CastleArmy','CastleBuildings','CastleScreen','CastleStereo','MageGuild','SystemExit','Well','Tavern','ThievesGuild','Full')][string]$Group = 'Startup',
       [switch]$PlanOnly)
 $ErrorActionPreference = 'Stop'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))

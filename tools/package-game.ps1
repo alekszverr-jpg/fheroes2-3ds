@@ -1,5 +1,5 @@
 ﻿$ErrorActionPreference = 'Stop'
-$version = '0.3.39'
+$version = '0.3.40'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -40,6 +40,9 @@ $manifest = [ordered]@{
     emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'
     emulated_well='Well New/Old ru and New en: six races/upgrades, original populations, touch/controller, drag/hold, actual castle individual/all recruitment YES/NO, exact payment/population/army totals, visible idle, flat/stereo, Evil and restoration; Recruit/CastleScreen New regressions passed; physical full-army/guest/funds/save checks pending'
     emulated_tavern='Azahar 2126.2: Tavern New/Old ru and New en, original visible animation, rumor/language/source/funds/army/heroes readonly, explicit mixed-language fixture, bounded scroll/touch/controller/drag, actual flat/stereo castle return, Evil and restoration; Messages/CastleScreen New regressions; actual custom-map and hardware checks pending'
+    emulated_thieves_guild='Azahar 2126.2: New/Old ru and New en; source counts 0-5, ties/order/active colors, hidden groups/stats/personality/monster omission, Oracle full, pages/disabled arrows/A/L/touch/drag, actual one-guild castle flat/stereo and Oracle dialog entry, Evil, readonly kingdoms/army/frame/context; CastleScreen New regression; real map/multiple guilds/hardware pending'
+    native_thieves_guild='13 categories, original rank helpers/ties and active-player sources; original 0-5 guild disclosure gates, hidden data omitted, full Oracle report, original flags/portraits/icons, flat modal and city/map return'
+    hardware_thieves_guild='0.3.40 pending New 3DS XL; previous 0.3.37-0.3.39 checks also open; no physical Old console'
     native_tavern='Original caller rumor/language and AnimationDialogElement frames/timing; upper normal-font text with bounded stylus/D-pad scroll, lower original scene and Exit; flat modal restores city'
     hardware_tavern='0.3.39 pending New 3DS XL; 0.3.37 guild/HOME close and 0.3.38 Well also pending; no physical Old'
     native_well='Six original creature icons/populations, large standing-idle portrait, statistics/growth/unit resource costs; original Castle recruitment/payment/placement and hire-all confirmation; flat full-screen panel and return'
