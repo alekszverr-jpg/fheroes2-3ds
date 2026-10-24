@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.45** restyles the treasure chest across both screens using original artwork and the accepted game frame, now shared with shipyard and building purchase. Hardware reward checks remain pending. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.46** moves the chest reward buttons inward for more space beside the frame, including their shadows/focus/touch targets. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 

@@ -1,5 +1,11 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.46: inset chest buttons
+
+Both reward buttons move 8 pixels toward the centre, adding space between their faces and the side frame. Shadows, focus and touch targets follow the buttons. Touch targets remain 128×48 pixels with a 16-pixel gap between them.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`. Chest passed short monitored Azahar checks on New/Old Russian and New English; captures were inspected. ARM build, desktop syntax and clean-baseline patch application passed. Full was not run. Console appearance/touch and actual reward application remain manual checks.
+
 ## Preview 0.3.45: original-style dual-screen treasure chest
 
 The chest description now occupies the upper screen in the accepted flat game frame. The lower screen keeps original gold/experience icons, large reward amounts, current treasury/experience-needed details and clearly labelled Gold/Experience buttons. Both backgrounds are opaque. Icon scaling is bounded to leave separate space for values, details and buttons. Large touch targets, focused selection, held-icon information, D-pad selection and stylus/D-pad text scrolling remain available. The original caller still awards rewards: L keeps the existing experience branch, and A/Start confirms the focused choice.

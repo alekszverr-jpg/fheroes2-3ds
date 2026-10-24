@@ -6118,10 +6118,10 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..bb347b7
+index 0000000..df0f061
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1453 @@
+@@ -0,0 +1,1454 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -6262,6 +6262,7 @@ index 0000000..bb347b7
 +    using namespace fheroes2;
 +    const bool information = buttons == Dialog::ZERO;
 +    const bool classicChest = choice && choice->classicChest;
++    const auto chestButtonCentre = []( const size_t i ) { return i ? 232 : 88; };
 +    const CursorRestorer cursorRestorer( false );
 +    Image window( information ? 400 : 320, 240 );
 +    const int width = classicChest ? 352 : window.width() - 24;
@@ -6324,12 +6325,12 @@ index 0000000..bb347b7
 +        const Text label( choice->labels[i], FontType::normalWhite() );
 +        label.draw( 4, ( released.height() - label.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
 +        label.draw( 3, ( pressed.height() - label.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
-+        if ( classicChest ) addGradientShadow( released, chestBackground, { int( i ) * 160 + 80 - released.width() / 2, 168 + ( 32 - released.height() ) / 2 }, { -3, 3 } );
++        if ( classicChest ) addGradientShadow( released, chestBackground, { chestButtonCentre( i ) - released.width() / 2, 168 + ( 32 - released.height() ) / 2 }, { -3, 3 } );
 +        answers[i].button = std::make_unique<ButtonSprite>( 0, 204, std::move( released ), std::move( pressed ) );
 +    }
 +    for ( size_t i = 0; i < answers.size(); ++i ) {
 +        const auto & button = answers[i].button;
-+        button->setPosition( ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) - button->area().width / 2,
++        button->setPosition( ( classicChest ? chestButtonCentre( i ) : ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) ) - button->area().width / 2,
 +                             ( classicChest ? 168 : 202 ) + ( 32 - button->area().height ) / 2 );
 +    }
 +
@@ -6390,7 +6391,7 @@ index 0000000..bb347b7
 +        Display::instance().render();
 +    };
 +    const auto buttonAt = [&]( const Point point ) {
-+        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicChest ? Rect{ 16 + int( i ) * 160, 158, 128, 48 } : answers[i].button->area() ) & point ) return int( i );
++        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicChest ? Rect{ chestButtonCentre( i ) - 64, 158, 128, 48 } : answers[i].button->area() ) & point ) return int( i );
 +        return -1;
 +    };
 +    const auto elementAt = [&]( const Point point ) {

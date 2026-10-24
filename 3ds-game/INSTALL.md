@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.45
+# fheroes2 for Nintendo 3DS — preview 0.3.46
+
+## Preview 0.3.46: inset chest buttons
+
+Both reward buttons move 8 pixels toward the centre, adding space between their faces and the side frame. Shadows, focus and touch targets follow the buttons. Touch targets remain 128×48 pixels with a 16-pixel gap between them.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`. Chest passed short monitored Azahar checks on New/Old Russian and New English; captures were inspected. ARM build, desktop syntax and clean-baseline patch application passed. Full was not run. Console appearance/touch and actual reward application remain manual checks.
 
 ## Preview 0.3.45: original-style dual-screen treasure chest
 
