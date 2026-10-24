@@ -4214,10 +4214,10 @@ index 0000000..8d46d57
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..ab99f43
+index 0000000..da624d3
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
-@@ -0,0 +1,268 @@
+@@ -0,0 +1,406 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4255,6 +4255,55 @@ index 0000000..ab99f43
 +    using namespace fheroes2;
 +    int lastBuildingScroll = 0;
 +    unsigned shipyardEntries = 0;
++
++    Image makeShipyardFrame( const int32_t width, const bool evil )
++    {
++        // BUYBUILD is the frame used by Dialog::BuyBoat. Keep its main border,
++        // preserving its flourishes and trimming only the side/bottom shadow.
++        const int icn = evil ? ICN::BUYBUILE : ICN::BUYBUILD;
++        Image source( 288, 240 ); source._disableTransformLayer();
++        const auto & paper = Assets::getImage( icn, 5 );
++        const int32_t topHeight = Assets::getImage( icn, 4 ).height();
++        const auto bottomArea = GetActiveROI( Assets::getImage( icn, 6 ) );
++        const int32_t bottomStart = 240 - bottomArea.y - bottomArea.height;
++        const uint8_t paperColor = paper.image()[20 * paper.width() + 64];
++        source.fill( paperColor );
++        for ( int32_t y = 0; y < 240; y += 25 )
++            for ( int32_t x = 0; x < 288; x += 96 )
++                Blit( paper, 48, 10, source, x, y, std::min<int32_t>( 96, 288 - x ), std::min<int32_t>( 25, 240 - y ) );
++        for ( const uint32_t index : { 0U, 4U } ) {
++            const auto & sprite = Assets::getImage( icn, index );
++            Blit( sprite, source, index == 0 ? 144 : 144 - sprite.width(), 0 );
++        }
++        for ( int32_t y = topHeight; y < bottomStart; y += 35 )
++            for ( const uint32_t index : { 1U, 5U } ) {
++                const auto & sprite = Assets::getImage( icn, index );
++                Blit( sprite, 0, 10, source, index == 1 ? 144 : 144 - sprite.width(), y, sprite.width(), std::min<int32_t>( 35, bottomStart - y ) );
++            }
++        for ( const uint32_t index : { 2U, 6U } ) {
++            const auto & sprite = Assets::getImage( icn, index );
++            Blit( sprite, source, index == 2 ? 144 : 144 - sprite.width(), bottomStart );
++        }
++        // Extend only short border/paper sections on either side of the central
++        // ornament. Corners, centre jewels and their pixel proportions stay intact.
++        Image output( width, 240 ); output._disableTransformLayer(); output.fill( paperColor );
++        const int32_t extraLeft = ( width - 288 ) / 2, extraRight = width - 288 - extraLeft;
++        for ( int32_t y = 0; y < 240; y += 25 )
++            for ( int32_t x = 0; x < width; x += 96 )
++                Blit( paper, 48, 10, output, x, y, std::min<int32_t>( 96, width - x ), std::min<int32_t>( 25, 240 - y ) );
++        Copy( source, 0, 0, output, 0, 0, 50, 240 );
++        Copy( source, 50, 0, output, 50 + extraLeft, 0, 188, 240 );
++        Copy( source, 238, 0, output, width - 50, 0, 50, 240 );
++        for ( const auto & gap : { std::pair<int32_t, int32_t>{ 50, extraLeft }, std::pair<int32_t, int32_t>{ 238 + extraLeft, extraRight } } )
++            for ( int32_t x = 0; x < gap.second; x += 2 ) {
++                const int32_t fromX = gap.first == 50 ? 48 : 238;
++                const int32_t count = std::min<int32_t>( 2, gap.second - x );
++                Copy( source, fromX, topHeight - 59, output, gap.first + x, topHeight - 59, count, 15 );
++                Copy( source, fromX, bottomStart + 35, output, gap.first + x, bottomStart + 35, count, 240 - bottomStart - 35 );
++            }
++        return output;
++    }
++
 +    class BuildingScope
 +    {
 +    public:
@@ -4299,6 +4348,12 @@ index 0000000..ab99f43
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    std::array<std::unique_ptr<ButtonBase>, 2> buttons;
 +    for ( size_t i = 0; i < buttons.size(); ++i ) {
++        if ( boatArtwork ) {
++            const int icn = i ? ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON )
++                              : ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON );
++            buttons[i] = std::make_unique<Button>( i ? 184 : 40, 176, icn, 0, 1 );
++            continue;
++        }
 +        Sprite released, pressed;
 +        makeButtonSprites( released, pressed, "", { 142, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
 +        Text label( i ? _( "Cancel" ) : _( "building3DS|Build" ), FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
@@ -4306,10 +4361,35 @@ index 0000000..ab99f43
 +        label.draw( 3, ( pressed.height() - label.height() ) / 2 + 1, pressed.width() - 8, pressed );
 +        buttons[i] = std::make_unique<ButtonSprite>( i ? 166 : 6, 206, std::move( released ), std::move( pressed ) );
 +    }
++    const auto touchArea = [&]( const size_t i ) { return boatArtwork ? Rect{ i ? 168 : 24, 166, 128, 44 } : buttons[i]->area(); };
++    Image boatTop, boatBottom;
++    if ( boatArtwork ) {
++        boatTop = makeShipyardFrame( 400, evil ); boatBottom = makeShipyardFrame( 320, evil );
++        if ( Platform3DS::smokeTest() && ( !boatTop.singleLayer() || !boatBottom.singleLayer() ) )
++            throw std::runtime_error( "Shipyard modal backgrounds must be opaque" );
++        Text title( name, FontType::normalWhite() ); title.fitToOneRow( 348 ); title.draw( 26, 66, 348, boatTop );
++        Blit( portrait, boatTop, ( 400 - portrait.width() ) / 2, 94 );
++        Text( _( "Resource cost:" ), FontType::normalWhite() ).draw( 28, 66, 264, boatBottom );
++        const std::array<std::pair<int, int32_t>, 2> price{ { { Resource::WOOD, cost.wood }, { Resource::GOLD, cost.gold } } };
++        for ( size_t i = 0; i < price.size(); ++i ) {
++            const int32_t centre = i ? 224 : 96;
++            const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( price[i].first ) );
++            Blit( icon, boatBottom, centre - icon.width() / 2, 126 - icon.height() );
++            const Text amount( std::to_string( price[i].second ), FontType::normalWhite() );
++            amount.draw( centre - amount.width() / 2, 138, boatBottom );
++        }
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            const int icn = i ? ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON )
++                              : ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON );
++            addGradientShadow( Assets::getImage( icn, 0 ), boatBottom, buttons[i]->area().getPosition(), { -3, 3 } );
++        }
++    }
 +    const BuildingScope scope( top, bottom );
 +    int scroll = 0, selected = 1, pressed = -1; bool down = false, moved = false;
 +    Point start, last; Uint32 began = 0;
 +    const auto draw = [&]() {
++        if ( boatArtwork ) { top = boatTop; bottom = boatBottom; }
++        else {
 +        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawRect( top, { 0, 0, 400, 240 }, border );
 +        Text title( name, FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
@@ -4324,16 +4404,23 @@ index 0000000..ab99f43
 +            const auto & resource = resources[i];
 +            resource.draw( bottom, { 4 + int( i % columns ) * columnWidth + ( columnWidth - resource.area().width ) / 2, 32 + int( i / columns ) * rowHeight } );
 +        }
++        }
 +        if ( canBuild() ) buttons[0]->enable(); else buttons[0]->disable();
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
 +            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
-+            if ( selected == int( i ) ) DrawRect( bottom, buttons[i]->area(), border );
++            if ( selected == int( i ) ) {
++                const auto area = buttons[i]->area();
++                DrawRect( bottom, boatArtwork ? Rect{ area.x - 2, area.y - 2, area.width + 4, area.height + 4 } : area,
++                          boatArtwork ? GetColorId( 255, 220, 70 ) : border );
++            }
 +        }
++        if ( boatArtwork && Platform3DS::smokeTest() && !evil && down && !moved && pressed == 0 )
++            if ( !Save( bottom, "sdmc:/3ds/fheroes2/shipyard-pressed-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture pressed shipyard button" );
 +        lastBuildingScroll = scroll;
 +        Display::instance().render();
 +    };
 +    draw();
-+    const std::string capture = boatArtwork ? ( canBuild() ? "shipyard" : "shipyard-disabled" ) : "building";
++    const std::string capture = boatArtwork ? ( evil ? "shipyard-evil" : ( canBuild() ? "shipyard" : "shipyard-disabled" ) ) : "building";
 +    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/" + capture + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + capture + "-bottom.bmp" ) ) )
 +        throw std::runtime_error( "Cannot save building dialog" );
 +    auto & events = LocalEvent::Get();
@@ -4355,7 +4442,7 @@ index 0000000..ab99f43
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
 +                down = true; moved = false; pressed = -1; start = last = input.position; began = SDL_GetTicks();
-+                for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) selected = pressed = int( i );
++                for ( size_t i = 0; i < buttons.size(); ++i ) if ( touchArea( i ) & start ) selected = pressed = int( i );
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
 +                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
@@ -4363,7 +4450,7 @@ index 0000000..ab99f43
 +                last = input.position;
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
-+                if ( down && !moved && pressed >= 0 && ( buttons[pressed]->area() & last ) ) { if ( pressed ) return false; if ( canBuild() ) return true; }
++                if ( down && !moved && pressed >= 0 && ( touchArea( pressed ) & input.position ) ) { if ( pressed ) return false; if ( canBuild() ) return true; }
 +                down = false; pressed = -1;
 +            }
 +            scroll = std::clamp<int32_t>( scroll, 0, content.height() - 188 );
@@ -4435,8 +4522,53 @@ index 0000000..ab99f43
 +    if ( run( dialog, cancel ) ) throw std::runtime_error( "Building preview cancel accepted" );
 +    COUT( "3DS BUILDING SMOKE: PASS actual_entry_cancel allowed_touch disabled_touch_controller default_cancel drag_cancel nested_info long_scroll readonly seven_resources evil unchanged_frame_context release_isolation" )
 +}
++
++static void captureOriginalShipyard()
++{
++    fheroes2::Display & display = fheroes2::Display::instance();
++    const fheroes2::ImageRestorer restore( display );
++
++    // setup cursor
++    const CursorRestorer cursorRestorer( true, ::Cursor::POINTER );
++
++    Resource::BoxSprite rbs( PaymentConditions::BuyBoat(), fheroes2::boxAreaWidthPx );
++
++    const fheroes2::Sprite & sprite = Assets::getImage( ICN::BOATWIND, 0 );
++    fheroes2::Text text{ _( "Build a new ship:" ), fheroes2::FontType::normalWhite() };
++    const int spacer = 10;
++
++    Dialog::FrameBox box( text.height() + spacer + sprite.height() + spacer + text.height() + spacer + rbs.GetArea().height - 20, true );
++
++    const fheroes2::Rect & box_rt = box.GetArea();
++    fheroes2::Point dst_pt( box_rt.x + ( box_rt.width - text.width() ) / 2, box_rt.y );
++    text.draw( dst_pt.x, dst_pt.y + 2, display );
++
++    dst_pt.x = box_rt.x + ( box_rt.width - sprite.width() ) / 2;
++    dst_pt.y = box_rt.y + text.height() + spacer;
++    fheroes2::Blit( sprite, display, dst_pt.x, dst_pt.y );
++
++    text.set( _( "Resource cost:" ), fheroes2::FontType::normalWhite() );
++    dst_pt.x = box_rt.x + ( box_rt.width - text.width() ) / 2;
++    dst_pt.y = dst_pt.y + sprite.height() + spacer;
++    text.draw( dst_pt.x, dst_pt.y + 2, display );
++
++    rbs.SetPos( box_rt.x, dst_pt.y + spacer );
++    rbs.Redraw();
++
++    // buttons
++    fheroes2::ButtonGroup buttonGroup( box_rt, Dialog::OK | Dialog::CANCEL );
++    buttonGroup.draw();
++    const int topMargin = Assets::getImage( ICN::BUYBUILD, 4 ).height() - 35;
++    const auto bottomArea = fheroes2::GetActiveROI( Assets::getImage( ICN::BUYBUILD, 6 ) );
++    const int bottomMargin = bottomArea.y + bottomArea.height - 35;
++    if ( !fheroes2::Save( fheroes2::Crop( display, box_rt.x - 22, box_rt.y - topMargin, box_rt.width + 44, box_rt.height + topMargin + bottomMargin ), "sdmc:/3ds/fheroes2/shipyard-original.bmp" ) )
++        throw std::runtime_error( "Cannot capture original shipyard" );
++}
++
 +void Interface3DS::testShipyard()
 +{
++    captureOriginalShipyard();
++
 +    using Step = std::pair<Uint32, SDL_Event>;
 +    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
 +    const auto press = [&]( std::vector<Step> & steps, int button, Uint32 delay = 160 ) { steps.emplace_back( delay, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
@@ -4464,15 +4596,21 @@ index 0000000..ab99f43
 +    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard default action was not cancel" );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_A );
 +    if ( run( true, steps ) != Dialog::OK ) throw std::runtime_error( "Shipyard controller purchase rejected" );
-+    steps = { { 160, touch( SDL_FINGERDOWN, 80, 220 ) }, { 90, touch( SDL_FINGERUP, 80, 220 ) } };
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 190 ) }, { 90, touch( SDL_FINGERUP, 80, 190 ) } };
 +    if ( run( true, steps ) != Dialog::OK ) throw std::runtime_error( "Shipyard touch purchase rejected" );
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
 +    if ( run( false, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard disabled touch accepted" );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
 +    if ( run( false, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard disabled controller accepted" );
-+    steps = { { 160, touch( SDL_FINGERDOWN, 240, 220 ) }, { 90, touch( SDL_FINGERUP, 240, 220 ) } };
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 168 ) }, { 90, touch( SDL_FINGERUP, 80, 168 ) } };
++    if ( run( true, steps ) != Dialog::OK ) throw std::runtime_error( "Shipyard enlarged hit target rejected" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 190 ) }, { 90, touch( SDL_FINGERUP, 80, 220 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard release outside target accepted" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 220 ) }, { 90, touch( SDL_FINGERUP, 80, 220 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard decorative footer accepted a purchase" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 240, 190 ) }, { 90, touch( SDL_FINGERUP, 240, 190 ) } };
 +    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard touch cancel failed" );
-+    steps = { { 160, touch( SDL_FINGERDOWN, 80, 220 ) }, { 90, touch( SDL_FINGERMOTION, 80, 170 ) }, { 90, touch( SDL_FINGERUP, 80, 170 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 190 ) }, { 90, touch( SDL_FINGERMOTION, 80, 140 ) }, { 90, touch( SDL_FINGERUP, 80, 140 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
 +    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard drag purchased boat" );
 +    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
 +    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 15 ); parentBottom.fill( 25 );
@@ -4482,7 +4620,7 @@ index 0000000..ab99f43
 +    Platform3DS::popModalImages();
 +    Settings::Get().setInterfaceType( InterfaceType::EVIL ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( true, steps ); Settings::Get().setInterfaceType( reset.type );
 +    run( false, steps ); run( true, steps );
-+    COUT( "3DS SHIPYARD SMOKE: PASS original_entry nested_modal controller_touch_confirm default_cancel disabled_touch_controller drag_cancel evil unchanged_funds_frame_context release_isolation" )
++    COUT( "3DS SHIPYARD SMOKE: PASS original_frame_reference themed_states enlarged_hit_targets footer_release_outside_cancel original_entry nested_modal controller_touch_confirm default_cancel disabled_touch_controller drag_cancel evil unchanged_funds_frame_context release_isolation" )
 +}
 +
 +#endif

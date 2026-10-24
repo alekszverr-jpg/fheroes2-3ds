@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.41
+# fheroes2 for Nintendo 3DS — preview 0.3.42
+
+## Preview 0.3.42: original-style shipyard prototype
+
+The shipyard now uses the original BUYBUILD/BUYBUILE frame and parchment/grey background instead of a stone sheet and a plain outline. Decorative corners, central flourishes and jewels retain their pixel proportions; small plain border/background sections extend to each screen. The original boat is displayed at 2× scale with transparency preserved. The lower screen groups the original wood/gold cost, larger quantity labels and localized game OK/Cancel buttons with their shadows and pressed/disabled states. Gold focus marks the controller selection; invisible 128×44 touch targets surround the smaller visible buttons. The backgrounds are fully opaque and composed once per dialog. Other panels retain their previous styling while this prototype awaits feedback.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. A selects the focused button, left/right changes focus, L cancels; Cancel remains the default. Taps confirm, dragging or releasing outside a target does not, and the decorative footer is inactive. Original eligibility, payment and map placement remain in the castle caller. On New 3DS XL check visual quality/readability, touch/controller actions, actual boat purchase/payment, unavailable purchase and return to the town in 2D/3D. Hardware checks for 0.3.37–0.3.42 remain pending.
+
+Validation: Shipyard New/Old Russian and New English, plus Building and CastleScreen New Russian, passed short monitored Azahar 2126.2 MXE runs. Original-dialog reference, before/after, Good/Evil, pressed/disabled and localized captures were inspected. Added checks cover enlarged targets, release outside without a motion event, inactive footer and opaque backgrounds. Existing confirmation/cancellation, nested modal, frame/funds/context and input-release checks remain. ARM build, three-file desktop syntax, 27-group/39-marker infrastructure and clean-baseline patch application passed. Full was not run. Actual coastal purchase/map placement and physical readability still need console testing. The legacy reference is a read-only reconstruction using the original dialog drawing calls/resources, not an emulator interaction with its old event loop.
 
 ## Preview 0.3.41: native shipyard
 
