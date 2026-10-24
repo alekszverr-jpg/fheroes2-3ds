@@ -6118,10 +6118,10 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..c660167
+index 0000000..62c356a
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1454 @@
+@@ -0,0 +1,1475 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -6218,6 +6218,7 @@ index 0000000..c660167
 +        bool allowCancel = true;
 +        bool classicChest = false;
 +        std::array<std::string, 2> quantities;
++        bool classicSkill = false;
 +    };
 +    using TimedEvent = std::pair<Uint32, SDL_Event>;
 +    int runInjectedInput( const std::function<int()> & dialog, std::vector<TimedEvent> sequence )
@@ -6261,13 +6262,14 @@ index 0000000..c660167
 +{
 +    using namespace fheroes2;
 +    const bool information = buttons == Dialog::ZERO;
-+    const bool classicChest = choice && choice->classicChest;
-+    const auto chestChoiceCentre = []( const size_t i ) { return i ? 232 : 88; };
++    const bool classicChoice = choice && ( choice->classicChest || choice->classicSkill );
++    const auto choiceCentre = [&]( const size_t i ) { return elements.size() == 1 ? 160 : i ? 232 : 88; };
 +    const CursorRestorer cursorRestorer( false );
 +    Image window( information ? 400 : 320, 240 );
-+    const int width = classicChest ? 352 : window.width() - 24;
-+    const int rewardHeight = choice ? std::max( elements[0]->area().height, elements[1]->area().height ) : 0;
-+    const int viewHeight = classicChest ? 176 : choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
++    const int width = classicChoice ? 352 : window.width() - 24;
++    int rewardHeight = 0;
++    if ( choice ) for ( const auto * element : elements ) rewardHeight = std::max<int32_t>( rewardHeight, element->area().height );
++    const int viewHeight = classicChoice ? 176 : choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
 +    const uint8_t background = GetColorId( 35, 29, 24 );
 +    const uint8_t border = GetColorId( 150, 115, 63 );
 +    const int headerHeight = header.empty() ? 0 : header.height( width ) + 8;
@@ -6292,27 +6294,33 @@ index 0000000..c660167
 +        first = last;
 +    }
 +    Image content( width, std::max( height, viewHeight ) );
-+    if ( classicChest ) Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++    if ( classicChoice ) Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
 +    else content.fill( background );
 +    header.draw( 0, 0, width, content );
 +    body.draw( 0, headerHeight, width, content );
 +    if ( !choice ) for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->draw( content, offsets[i] );
 +    else for ( size_t i = 0; i < elements.size(); ++i )
-+        offsets[i] = { ( classicChest ? chestChoiceCentre( i ) : 80 + int( i ) * 160 ) - elements[i]->area().width / 2, classicChest ? 50 : 8 + viewHeight + 12 };
++        offsets[i] = { ( classicChoice ? choiceCentre( i ) : 80 + int( i ) * 160 ) - elements[i]->area().width / 2, classicChoice ? 50 : 8 + viewHeight + 12 };
 +
 +    std::vector<Answer> answers;
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    Image upperWindow, chestBackground;
-+    if ( classicChest ) {
++    if ( classicChoice ) {
 +        upperWindow = Interface3DS::makeClassicPanelBackground( 400, evil );
 +        chestBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    }
 +    std::array<Image, 2> rewardImages;
-+    if ( classicChest ) for ( size_t i = 0; i < 2; ++i ) {
-+        const auto & original = Assets::getImage( i ? ICN::EXPMRL : ICN::RESOURCE, i ? 4 : 6 );
-+        const double scale = std::min( 1.5, std::min( 76.0 / original.height(), 112.0 / original.width() ) );
-+        rewardImages[i].resize( int( original.width() * scale ), int( original.height() * scale ) );
-+        rewardImages[i].reset(); Resize( original, rewardImages[i] );
++    if ( classicChoice ) for ( size_t i = 0; i < elements.size(); ++i ) {
++        Image skillImage;
++        const Image * original = nullptr;
++        if ( choice->classicSkill ) {
++            skillImage.resize( elements[i]->area().width, elements[i]->area().height ); skillImage.reset();
++            elements[i]->draw( skillImage, { 0, 0 } ); original = &skillImage;
++        }
++        else original = &Assets::getImage( i ? ICN::EXPMRL : ICN::RESOURCE, i ? 4 : 6 );
++        const double scale = std::min( 1.5, std::min( 76.0 / original->height(), 112.0 / original->width() ) );
++        rewardImages[i].resize( int( original->width() * scale ), int( original->height() * scale ) );
++        rewardImages[i].reset(); Resize( *original, rewardImages[i] );
 +    }
 +    if ( buttons & Dialog::YES ) answers.push_back( { Dialog::YES, std::make_unique<Button>( 0, 204, evil ? ICN::BUTTON_SMALL_YES_EVIL : ICN::BUTTON_SMALL_YES_GOOD, 0, 1 ) } );
 +    if ( buttons & Dialog::OK ) answers.push_back( { Dialog::OK, std::make_unique<Button>( 0, 204, evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON, 0, 1 ) } );
@@ -6320,18 +6328,18 @@ index 0000000..c660167
 +    if ( buttons & Dialog::CANCEL ) answers.push_back( { Dialog::CANCEL, std::make_unique<Button>( 0, 204, evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON, 0, 1 ) } );
 +    if ( choice ) for ( size_t i = 0; i < answers.size(); ++i ) {
 +        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", classicChest ? Size{ 116, 24 } : Size{ 136, 30 }, evil, classicChest ? ( evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD ) : ( evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK ) );
++        makeButtonSprites( released, pressed, "", classicChoice ? Size{ 116, 24 } : Size{ 136, 30 }, evil, classicChoice ? ( evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD ) : ( evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK ) );
 +        // Use the normal game font: the upstream button font does not contain all translated glyphs on this build.
 +        const Text label( choice->labels[i], FontType::normalWhite() );
 +        label.draw( 4, ( released.height() - label.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
 +        label.draw( 3, ( pressed.height() - label.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
-+        if ( classicChest ) addGradientShadow( released, chestBackground, { chestChoiceCentre( i ) - released.width() / 2, 168 + ( 32 - released.height() ) / 2 }, { -3, 3 } );
++        if ( classicChoice ) addGradientShadow( released, chestBackground, { choiceCentre( i ) - released.width() / 2, 168 + ( 32 - released.height() ) / 2 }, { -3, 3 } );
 +        answers[i].button = std::make_unique<ButtonSprite>( 0, 204, std::move( released ), std::move( pressed ) );
 +    }
 +    for ( size_t i = 0; i < answers.size(); ++i ) {
 +        const auto & button = answers[i].button;
-+        button->setPosition( ( classicChest ? chestChoiceCentre( i ) : ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) ) - button->area().width / 2,
-+                             ( classicChest ? 168 : 202 ) + ( 32 - button->area().height ) / 2 );
++        button->setPosition( ( classicChoice ? choiceCentre( i ) : ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) ) - button->area().width / 2,
++                             ( classicChoice ? 168 : 202 ) + ( 32 - button->area().height ) / 2 );
 +    }
 +
 +    int scroll = 0, selected = 0, pressed = -1;
@@ -6342,11 +6350,11 @@ index 0000000..c660167
 +    if ( heldPosition ) start = last = *heldPosition;
 +    int result = Dialog::ZERO;
 +    bool closed = false;
-+    const ModalScope scope( window, information, classicChest ? &upperWindow : nullptr );
++    const ModalScope scope( window, information, classicChoice ? &upperWindow : nullptr );
 +    COUT( "3DS MESSAGE screen=" << ( information ? "top" : "bottom" ) << " content_height=" << height << " buttons=" << buttons << " choice=" << ( choice != nullptr ) )
 +    int capturedChestScroll = -1;
 +    const auto draw = [&]() {
-+        if ( classicChest ) {
++        if ( classicChoice ) {
 +            window = chestBackground;
 +            Copy( content, 0, scroll, upperWindow, 24, 24, width, viewHeight );
 +            if ( height > viewHeight ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 202, width, upperWindow );
@@ -6365,13 +6373,19 @@ index 0000000..c660167
 +        }
 +        }
 +        if ( choice ) for ( size_t i = 0; i < elements.size(); ++i ) {
-+            if ( classicChest ) {
-+                Blit( rewardImages[i], window, chestChoiceCentre( i ) - rewardImages[i].width() / 2, 110 - rewardImages[i].height() );
-+                Text amount( choice->quantities[i], FontType::normalWhite() ); amount.fitToOneRow( 128 );
-+                amount.draw( chestChoiceCentre( i ) - 64, 118, 128, window );
++            if ( classicChoice ) {
++                Blit( rewardImages[i], window, choiceCentre( i ) - rewardImages[i].width() / 2, ( choice->classicSkill ? 98 : 110 ) - rewardImages[i].height() );
++                if ( !choice->classicSkill ) {
++                    Text amount( choice->quantities[i], FontType::normalWhite() ); amount.fitToOneRow( 128 );
++                    amount.draw( choiceCentre( i ) - 64, 118, 128, window );
++                }
 +            }
 +            else elements[i]->draw( window, offsets[i] );
-+            Text( choice->details[i], FontType::smallWhite() ).draw( classicChest ? chestChoiceCentre( i ) - 68 : 12 + int( i ) * 160, classicChest ? 144 : 184, 136, window );
++            const int detailWidth = classicChoice && elements.size() == 1 ? 264 : 136;
++            Text detail( choice->details[i], choice->classicSkill ? FontType::normalWhite() : FontType::smallWhite() );
++            if ( choice->classicSkill && detail.height( detailWidth ) > 51 ) detail.fitToOneRow( detailWidth );
++            detail.draw( classicChoice ? choiceCentre( i ) - detailWidth / 2 : 12 + int( i ) * 160,
++                         classicChoice ? ( choice->classicSkill ? 104 : 144 ) : 184, detailWidth, window );
 +        }
 +        for ( size_t i = 0; i < answers.size(); ++i ) {
 +            auto & button = answers[i].button;
@@ -6379,25 +6393,27 @@ index 0000000..c660167
 +            button->draw( window );
 +            if ( int( i ) == selected ) {
 +                const auto roi = button->area();
-+                if ( classicChest ) DrawRect( window, { roi.x - 2, roi.y - 2, roi.width + 4, roi.height + 4 }, GetColorId( 255, 220, 70 ) );
++                if ( classicChoice ) DrawRect( window, { roi.x - 2, roi.y - 2, roi.width + 4, roi.height + 4 }, GetColorId( 255, 220, 70 ) );
 +                else Fill( window, roi.x, roi.y + roi.height + 1, roi.width, 2, border );
 +            }
 +        }
-+        if ( classicChest && Platform3DS::smokeTest() && capturedChestScroll != scroll ) {
++        if ( classicChoice && Platform3DS::smokeTest() && capturedChestScroll != scroll ) {
 +            capturedChestScroll = scroll;
-+            const std::string prefix = evil ? "chest-evil" : height > viewHeight ? "chest-long" : "chest";
++            std::string prefix = choice->classicSkill ? ( elements.size() == 2 ? "level-choice" : dynamic_cast<const PrimarySkillDialogElement *>( elements[0] ) ? "level-primary" : "level-single" ) : "chest";
++            if ( evil ) prefix += "-evil";
++            if ( height > viewHeight ) prefix += "-long";
 +            if ( !Save( upperWindow, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) || !Save( window, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture chest panels" );
 +        }
 +        Display::instance().render();
 +    };
 +    const auto buttonAt = [&]( const Point point ) {
-+        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicChest ? Rect{ chestChoiceCentre( i ) - 64, 158, 128, 48 } : answers[i].button->area() ) & point ) return int( i );
++        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicChoice ? Rect{ choiceCentre( i ) - 64, 158, 128, 48 } : answers[i].button->area() ) & point ) return int( i );
 +        return -1;
 +    };
 +    const auto elementAt = [&]( const Point point ) {
 +        if ( choice ) {
 +            for ( size_t i = 0; i < elements.size(); ++i ) {
-+                const Rect roi = classicChest ? Rect{ chestChoiceCentre( i ) - 64, 42, 128, 88 } : Rect{ offsets[i].x, offsets[i].y, elements[i]->area().width, elements[i]->area().height };
++                const Rect roi = classicChoice ? Rect{ choiceCentre( i ) - 64, 42, 128, choice->classicSkill ? 116 : 88 } : Rect{ offsets[i].x, offsets[i].y, elements[i]->area().width, elements[i]->area().height };
 +                if ( roi & point ) return int( i );
 +            }
 +            return -1;
@@ -6461,7 +6477,7 @@ index 0000000..c660167
 +            }
 +            else if ( input.type == PanelInputType::TouchUp ) {
 +                if ( information && ( heldPosition || !moved ) ) closed = true;
-+                else if ( down && !moved && pressed >= 0 && buttonAt( classicChest ? input.position : last ) == pressed ) { result = answers[pressed].value; closed = true; }
++                else if ( down && !moved && pressed >= 0 && buttonAt( classicChoice ? input.position : last ) == pressed ) { result = answers[pressed].value; closed = true; }
 +                down = false; pressed = -1;
 +            }
 +            scroll = std::clamp( scroll, 0, std::max( 0, height - viewHeight ) );
@@ -6629,7 +6645,8 @@ index 0000000..c660167
 +    StringReplace( header, "%{skill}", Skill::Primary::String( primarySkill ) );
 +    if ( !first.isValid() && !second.isValid() ) {
 +        const PrimarySkillDialogElement primary( primarySkill, "+1" );
-+        showStandardTextMessage( {}, std::move( header ), Dialog::OK, { &primary } );
++        const FixedChoice choice{ { _( "OK" ), "" }, { Skill::Primary::String( primarySkill ), "" }, true, false, {}, true };
++        showNativeMessage( Text{}, Text( header, FontType::normalYellow() ), Dialog::OK, { &primary }, &choice );
 +        return Skill::Secondary::UNKNOWN;
 +    }
 +    if ( !first.isValid() || !second.isValid() ) {
@@ -6637,13 +6654,14 @@ index 0000000..c660167
 +        std::string body = _( "You have learned %{skill}." );
 +        StringReplace( body, "%{skill}", skill.GetNameWithBonus( hero ) );
 +        const SecondarySkillDialogElement element( skill, hero );
-+        showStandardTextMessage( std::move( header ), std::move( body ), Dialog::OK, { &element } );
++        const FixedChoice choice{ { _( "OK" ), "" }, { skill.GetNameWithBonus( hero ), "" }, true, false, {}, true };
++        showNativeMessage( Text( header, FontType::normalYellow() ), Text( body, FontType::normalWhite() ), Dialog::OK, { &element }, &choice );
 +        return skill.Skill();
 +    }
 +    const SecondarySkillDialogElement left( first, hero ), right( second, hero );
 +    std::string learn = _( "Learn %{secondary-skill}" );
 +    StringReplace( learn, "%{secondary-skill}", "" );
-+    const FixedChoice choice{ { learn, learn }, { first.GetNameWithBonus( hero ), second.GetNameWithBonus( hero ) }, false };
++    const FixedChoice choice{ { learn, learn }, { first.GetNameWithBonus( hero ), second.GetNameWithBonus( hero ) }, false, false, {}, true };
 +    const int result = showNativeMessage( Text( header, FontType::normalYellow() ),
 +        Text( std::to_string( hero.GetSecondarySkills().Count() ) + "/" + std::to_string( Heroes::maxNumOfSecSkills ), FontType::smallWhite() ),
 +        Dialog::YES | Dialog::NO, { &left, &right }, &choice );
@@ -7527,8 +7545,11 @@ index 0000000..c660167
 +    if ( run( first, none, { { 300, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) } } ) != first.Skill()
 +         || run( none, second, { { 300, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != second.Skill() )
 +        throw std::runtime_error( "Single-secondary level-up returned the wrong skill" );
-+    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != first.Skill()
-+         || run( first, second, { { 300, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != second.Skill() )
++    if ( run( first, none, { { 300, touch( SDL_FINGERDOWN, 160, 180 ) }, { 100, touch( SDL_FINGERUP, 160, 180 ) } } ) != first.Skill() ) throw std::runtime_error( "Single-skill centred touch confirmation failed" );
++    if ( run( none, none, { { 300, touch( SDL_FINGERDOWN, 160, 180 ) }, { 100, touch( SDL_FINGERUP, 160, 180 ) } } ) != Skill::Secondary::UNKNOWN ) throw std::runtime_error( "Primary-only centred confirmation returned a skill" );
++    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERUP, 80, 220 ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != second.Skill() ) throw std::runtime_error( "Level-up release outside learnt a skill" );
++    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERUP, 80, 180 ) } } ) != first.Skill()
++         || run( first, second, { { 300, touch( SDL_FINGERDOWN, 240, 180 ) }, { 100, touch( SDL_FINGERUP, 240, 180 ) } } ) != second.Skill() )
 +        throw std::runtime_error( "Level-up touchscreen chose wrong skill identifier" );
 +    if ( run( first, second, { { 300, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
 +             { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != second.Skill() )
@@ -7536,10 +7557,10 @@ index 0000000..c660167
 +    if ( run( first, second, { { 300, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) },
 +             { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != first.Skill() )
 +        throw std::runtime_error( "Level-up Escape selected an unrequested skill" );
-+    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERMOTION, 160, 190 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
-+             { 100, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != second.Skill() )
++    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERMOTION, 160, 190 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
++             { 100, touch( SDL_FINGERDOWN, 240, 180 ) }, { 100, touch( SDL_FINGERUP, 240, 180 ) } } ) != second.Skill() )
 +        throw std::runtime_error( "Level-up drag learned a skill" );
-+    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 240, 132 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
++    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 240, 86 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
 +             { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != second.Skill() )
 +        throw std::runtime_error( "Level-up card touch did not select the skill" );
 +    const auto singleInfo = nestedInformationReturns;
@@ -7547,8 +7568,8 @@ index 0000000..c660167
 +             { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != first.Skill()
 +         || nestedInformationReturns != singleInfo + 1 ) throw std::runtime_error( "Single-skill information failed" );
 +    const auto nested = nestedInformationReturns;
-+    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 132 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
-+             { 200, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != second.Skill()
++    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 80, 86 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
++             { 200, touch( SDL_FINGERDOWN, 240, 180 ) }, { 100, touch( SDL_FINGERUP, 240, 180 ) } } ) != second.Skill()
 +         || nestedInformationReturns != nested + 1 ) throw std::runtime_error( "Level-up stylus information selected a skill" );
 +    const auto nestedController = nestedInformationReturns;
 +    if ( run( first, second, { { 300, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
@@ -7556,7 +7577,7 @@ index 0000000..c660167
 +             { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != second.Skill()
 +         || nestedInformationReturns != nestedController + 1 ) throw std::runtime_error( "Level-up information lost selection" );
 +    std::string longName;
-+    for ( int i = 0; i < 12; ++i ) longName += "Lord Kilburn ";
++    for ( int i = 0; i < 32; ++i ) longName += "Lord Kilburn ";
 +    if ( run( first, second, { { 300, touch( SDL_FINGERDOWN, 160, 60 ) }, { 100, touch( SDL_FINGERMOTION, 160, 10 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
 +             { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } }, longName ) != first.Skill() || lastMessageScroll <= 0 )
 +        throw std::runtime_error( "Long hero name hid level-up choice" );
@@ -7572,7 +7593,7 @@ index 0000000..c660167
 +        throw std::runtime_error( "Level-up dialog granted skills outside the original caller" );
 +    if ( Platform3DS::viewport() != crop || std::memcmp( frame.image(), Display::instance().image(), frame.width() * frame.height() ) != 0 )
 +        throw std::runtime_error( "Level-up changed game context" );
-+    COUT( "3DS LEVEL UP SMOKE: PASS primary_only one_skill both_taps dpad escape drag_cancel nested_info long_name evil caller_grants context_restore" )
++    COUT( "3DS LEVEL UP SMOKE: PASS classic_two_screen original_skill_cards aligned_targets primary_only one_skill both_taps dpad escape drag_cancel nested_info long_name evil caller_grants context_restore" )
 +}
 +
 +#endif

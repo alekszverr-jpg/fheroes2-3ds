@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.48: original-style level-up panels
+
+Level-up now uses the accepted dual-screen game frame for all three cases: two secondary skills, one available secondary skill, or primary-stat growth alone. Hero/growth information appears above; original skill cards, readable normal-font names and Learn/OK controls appear below. Cards, names, buttons and held-information targets share aligned centres. A sole card and its confirmation are centred. Long text scrolls while the controls remain fixed; held cards/B open the original descriptions.
+
+The original caller still grants attributes and skills. Two-option selection cannot be cancelled with L; a single informational confirmation keeps its previous acknowledgement behaviour. Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL check skill choice/upgrade, held information, actual post-confirmation learning/stat growth and single/primary-only notices when available. This is visual/input work; earlier outstanding hardware checks remain separate.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed LevelUp New/Old Russian and New English, plus Chest and Messages New Russian. Tests cover all three cases, centred single/primary touch confirmation, both choice buttons, D-pad, ignored L in two-choice mode, drag/release-outside rejection, nested information, forced long-name scrolling, Evil UI, unchanged hero stats/skills/experience and restored frame/context. The long-name fixture was expanded because its previous length now fits the larger upper viewport. Captures were inspected; chest snapshots match 0.3.47 pixel-for-pixel. ARM build, four-file desktop syntax, 27-group/39-marker infrastructure and clean-baseline patch application passed; Full was not run. Real caller-side learning/growth and console readability still require hardware testing.
+
 ## Preview 0.3.47: aligned chest reward columns
 
 Gold/experience icons, reward amounts, treasury/level details and held-information targets now share the same centre coordinates as their inset buttons. Each reward is a single aligned column; visual elements and input regions use one shared position function.

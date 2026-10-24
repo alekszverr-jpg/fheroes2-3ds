@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.47** aligns chest icons, amounts, details and held-information targets with the inset reward buttons. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.48** adapts all three level-up cases to the accepted dual-screen game style, with original skill cards and aligned readable controls. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 

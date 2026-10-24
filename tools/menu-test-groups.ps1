@@ -2,7 +2,7 @@
     Startup = @{ Markers = @('3DS RENDERER BRIDGE SMOKE: PASS','3DS COMMAND STRIP SMOKE: PASS','3DS MAP SCROLL SMOKE: PASS','3DS HIGH RESOLUTION SMOKE: PASS'); Captures = @('menu-top.bmp','menu-bottom.bmp','wide-menu-top.bmp','wide-menu-bottom.bmp','wide-panel-top.bmp','wide-panel-bottom.bmp') }
     Messages = @{ Markers = @('3DS NATIVE MESSAGES SMOKE: PASS'); Captures = @('wide-info-top.bmp','wide-info-bottom.bmp','wide-dialog-top.bmp','wide-dialog-bottom.bmp') }
     Chest = @{ Markers = @('3DS CHEST SMOKE: PASS'); Captures = @('chest-top.bmp','chest-bottom.bmp','chest-evil-top.bmp','chest-evil-bottom.bmp','chest-long-top.bmp') }
-    LevelUp = @{ Markers = @('3DS LEVEL UP SMOKE: PASS'); Captures = @() }
+    LevelUp = @{ Markers = @('3DS LEVEL UP SMOKE: PASS'); Captures = @('level-choice-top.bmp','level-choice-bottom.bmp','level-single-top.bmp','level-single-bottom.bmp','level-primary-top.bmp','level-primary-bottom.bmp','level-choice-evil-top.bmp','level-choice-evil-bottom.bmp','level-choice-long-top.bmp') }
     Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp') }
     Market = @{ Markers = @('3DS MARKET SMOKE: PASS'); Captures = @('market-top.bmp','market-bottom.bmp') }
     Gift = @{ Markers = @('3DS GIFT SMOKE: PASS'); Captures = @('gift-top.bmp','gift-bottom.bmp') }
