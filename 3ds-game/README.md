@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.41: native shipyard
+
+Ship purchase now uses both screens: original ship artwork above, the original resource cost and Build/Cancel controls below, with opaque stone backgrounds. D-pad left/right selects a button, A activates it, L cancels; stylus taps work and dragging does not confirm a purchase. Cancel is selected by default. The existing castle caller still decides whether purchasing is allowed and performs the payment and boat placement; the native window only returns the original confirmation/cancellation result. Desktop layout is unchanged.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL check castle → Buildings → Shipyard, purchase with sufficient resources, cancellation, insufficient resources, an occupied landing area, the resulting boat/payment, and return to the town in 2D/3D. Hardware validation of 0.3.37–0.3.41 remains pending; further stereo experiments remain deferred.
+
+Validation (2026-10-24, Azahar 2126.2 MXE): Shipyard passed New/Old Russian and New English; Building and CastleScreen New Russian regressions passed in short monitored runs. Checks cover the original Dialog::BuyBoat entry, enabled/disabled touch and controller confirmation, default/touch/L cancellation, drag cancellation, Evil UI, nested modal restoration, unchanged funds/frame/context and input release. Captures were inspected. ARM build, desktop syntax for three affected files, 27-group/39-marker infrastructure and clean-baseline patch application passed. Full was not run. The synthetic castle has no sea access and automatically removes its shipyard, so these checks do not exercise a real coastal castle purchase or map placement; those remain manual hardware checks.
+
 ## Preview 0.3.40: native Thieves Guild and Oracle
 
 The lower screen presents 13 categories over four pages with arrows and Exit. The upper screen shows the selected ranking with original flags, best-hero portraits/statistics, personalities or strongest-creature icons. Tied players share one rank; flags wrap at three players so color names remain readable. Original artwork, stone textures and localized labels are retained with full opaque backgrounds. D-pad up/down moves focus, left/right changes pages, Y cycles pages, A activates a choice/control and L exits. Stylus selects; dragging off Exit does not activate it.

@@ -1776,6 +1776,32 @@ index 6077ad9..9347377 100644
      // The active size of the window is 520 by 256 pixels
      fheroes2::Display & display = fheroes2::Display::instance();
      const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
+diff --git a/src/fheroes2/dialog/dialog_buyboat.cpp b/src/fheroes2/dialog/dialog_buyboat.cpp
+index 5ef42ea..dbd41a9 100644
+--- a/src/fheroes2/dialog/dialog_buyboat.cpp
++++ b/src/fheroes2/dialog/dialog_buyboat.cpp
+@@ -35,8 +35,15 @@
+ #include "ui_button.h"
+ #include "ui_text.h"
+ 
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
++
+ int Dialog::BuyBoat( bool enable )
+ {
++#if defined( __3DS__ )
++    return Interface3DS::showBoatPurchase( enable ) ? Dialog::OK : Dialog::CANCEL;
++#else
+     fheroes2::Display & display = fheroes2::Display::instance();
+ 
+     // setup cursor
+@@ -89,4 +96,5 @@ int Dialog::BuyBoat( bool enable )
+     }
+ 
+     return Dialog::ZERO;
++#endif
+ }
 diff --git a/src/fheroes2/dialog/dialog_chest.cpp b/src/fheroes2/dialog/dialog_chest.cpp
 index 6164235..3a9560d 100644
 --- a/src/fheroes2/dialog/dialog_chest.cpp
@@ -2100,7 +2126,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..85e58bc 100644
+index 69d39fb..76931af 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2151,7 +2177,7 @@ index 69d39fb..85e58bc 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,115 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,116 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2161,7 +2187,7 @@ index 69d39fb..85e58bc 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 26> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild" };
++        const std::array<const char *, 27> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2245,6 +2271,7 @@ index 69d39fb..85e58bc 100644
 +        runGroup( "Well", []() { Interface3DS::testWell(); } );
 +        runGroup( "Tavern", []() { Interface3DS::testTavern(); } );
 +        runGroup( "ThievesGuild", []() { Interface3DS::testThievesGuild(); } );
++        runGroup( "Shipyard", []() { Interface3DS::testShipyard(); } );
 +        runGroup( "CastleStereo", []() { Interface3DS::testCastleStereo(); } );
 +        runGroup( "CastleOptions", []() { Interface3DS::testCastleOptions(); } );
 +        runGroup( "HeroRecruit", []() { Interface3DS::testHeroRecruit(); } );
@@ -4187,10 +4214,10 @@ index 0000000..8d46d57
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..55f8228
+index 0000000..ab99f43
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,268 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4208,6 +4235,8 @@ index 0000000..55f8228
 +#include "castle_building_info.h"
 +#include "game_assets.h"
 +#include "logging.h"
++#include "payment.h"
++#include "kingdom.h"
 +#include "race.h"
 +#include "dialog.h"
 +#include "icn.h"
@@ -4225,6 +4254,7 @@ index 0000000..55f8228
 +{
 +    using namespace fheroes2;
 +    int lastBuildingScroll = 0;
++    unsigned shipyardEntries = 0;
 +    class BuildingScope
 +    {
 +    public:
@@ -4241,8 +4271,8 @@ index 0000000..55f8228
 +        }
 +    };
 +}
-+bool Interface3DS::showBuildingPurchase( const std::string & name, const std::string & description, const std::string & requirements,
-+                                       const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild )
++static bool showNativePurchase( const std::string & name, const std::string & description, const std::string & requirements,
++                                       const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild, const bool boatArtwork )
 +{
 +    using namespace fheroes2;
 +    std::string body = description;
@@ -4260,12 +4290,12 @@ index 0000000..55f8228
 +    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
 +    const Text text( body, FontType::normalWhite() );
 +    // Preserve the original building artwork and proportions at a readable size.
-+    const double scale = std::min( 2.0, std::min( 360.0 / building.width(), 116.0 / building.height() ) );
++    const double scale = std::min( 2.0, std::min( 360.0 / building.width(), ( boatArtwork ? 180.0 : 116.0 ) / building.height() ) );
 +    Image portrait( std::max( 1, int( building.width() * scale ) ), std::max( 1, int( building.height() * scale ) ) );
 +    portrait.reset(); Resize( building, portrait );
-+    const int textY = portrait.height() + 8;
-+    Image content( 376, std::max<int32_t>( 188, textY + text.height( 376 ) ) ); content.fill( background );
-+    Blit( portrait, content, ( content.width() - portrait.width() ) / 2, 0 ); text.draw( 0, textY, 376, content );
++    const int textY = portrait.height() + ( body.empty() ? 0 : 8 );
++    Image content( 376, std::max<int32_t>( 188, textY + ( body.empty() ? 0 : text.height( 376 ) ) ) ); content.fill( background );
++    Blit( portrait, content, ( content.width() - portrait.width() ) / 2, 0 ); if ( !body.empty() ) text.draw( 0, textY, 376, content );
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    std::array<std::unique_ptr<ButtonBase>, 2> buttons;
 +    for ( size_t i = 0; i < buttons.size(); ++i ) {
@@ -4288,7 +4318,7 @@ index 0000000..55f8228
 +        Text( _( "building3DS|Cost" ), FontType::normalYellow() ).draw( 8, 8, 304, bottom );
 +        int rowHeight = 0;
 +        for ( const auto & resource : resources ) rowHeight = std::max<int32_t>( rowHeight, resource.area().height + 4 );
-+        const int columns = resources.size() > 6 ? 4 : 3;
++        const int columns = boatArtwork ? std::clamp<int>( resources.size(), 1, 4 ) : ( resources.size() > 6 ? 4 : 3 );
 +        const int columnWidth = 312 / columns;
 +        for ( size_t i = 0; i < resources.size(); ++i ) {
 +            const auto & resource = resources[i];
@@ -4303,7 +4333,8 @@ index 0000000..55f8228
 +        Display::instance().render();
 +    };
 +    draw();
-+    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/building-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/building-bottom.bmp" ) ) )
++    const std::string capture = boatArtwork ? ( canBuild() ? "shipyard" : "shipyard-disabled" ) : "building";
++    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/" + capture + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + capture + "-bottom.bmp" ) ) )
 +        throw std::runtime_error( "Cannot save building dialog" );
 +    auto & events = LocalEvent::Get();
 +    while ( events.HandleEvents() ) {
@@ -4345,6 +4376,17 @@ index 0000000..55f8228
 +        if ( redraw ) draw();
 +    }
 +    return false;
++}
++bool Interface3DS::showBuildingPurchase( const std::string & name, const std::string & description, const std::string & requirements,
++                                       const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild )
++{
++    return showNativePurchase( name, description, requirements, building, cost, interactive, canBuild, false );
++}
++bool Interface3DS::showBoatPurchase( const bool enabled )
++{
++    if ( Platform3DS::smokeTest() ) ++shipyardEntries;
++    return showNativePurchase( _( "Build a new ship:" ), "", "", Assets::getImage( ICN::BOATWIND, 0 ), PaymentConditions::BuyBoat(), true,
++                               [enabled]() { return enabled; }, true );
 +}
 +void Interface3DS::testBuildingPurchase()
 +{
@@ -4393,6 +4435,56 @@ index 0000000..55f8228
 +    if ( run( dialog, cancel ) ) throw std::runtime_error( "Building preview cancel accepted" );
 +    COUT( "3DS BUILDING SMOKE: PASS actual_entry_cancel allowed_touch disabled_touch_controller default_cancel drag_cancel nested_info long_scroll readonly seven_resources evil unchanged_frame_context release_isolation" )
 +}
++void Interface3DS::testShipyard()
++{
++    using Step = std::pair<Uint32, SDL_Event>;
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto press = [&]( std::vector<Step> & steps, int button, Uint32 delay = 160 ) { steps.emplace_back( delay, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE );
++    const auto run = [&]( bool enabled, std::vector<Step> steps ) {
++        auto & display = Display::instance(); const ImageRestorer restore( display );
++        const auto viewport = Platform3DS::viewport(); const auto top = Platform3DS::modalTopImage(), bottom = Platform3DS::modalBottomImage(), right = Platform3DS::modalRightImage();
++        const auto funds = castle.GetKingdom().GetFunds();
++        const unsigned previousEntries = shipyardEntries;
++        const std::vector<uint8_t> pixels( display.image(), display.image() + display.width() * display.height() );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "shipyard-input", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot inject shipyard input" );
++        int status = 0, result = Dialog::CANCEL;
++        try { result = Dialog::BuyBoat( enabled ); }
++        catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); LocalEvent::Get().HandleEvents( false, true );
++        if ( shipyardEntries != previousEntries + 1 ) throw std::runtime_error( "Original shipyard entry did not reach native dialog" );
++        if ( status || viewport != Platform3DS::viewport() || top != Platform3DS::modalTopImage() || bottom != Platform3DS::modalBottomImage() || right != Platform3DS::modalRightImage()
++             || !( funds == castle.GetKingdom().GetFunds() ) || std::memcmp( pixels.data(), display.image(), pixels.size() )
++             || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Shipyard changed funds/frame/context or leaked input" );
++        return result;
++    };
++    std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_A );
++    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard default action was not cancel" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_A );
++    if ( run( true, steps ) != Dialog::OK ) throw std::runtime_error( "Shipyard controller purchase rejected" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 220 ) }, { 90, touch( SDL_FINGERUP, 80, 220 ) } };
++    if ( run( true, steps ) != Dialog::OK ) throw std::runtime_error( "Shipyard touch purchase rejected" );
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    if ( run( false, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard disabled touch accepted" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    if ( run( false, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard disabled controller accepted" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 240, 220 ) }, { 90, touch( SDL_FINGERUP, 240, 220 ) } };
++    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard touch cancel failed" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 80, 220 ) }, { 90, touch( SDL_FINGERMOTION, 80, 170 ) }, { 90, touch( SDL_FINGERUP, 80, 170 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    if ( run( true, steps ) != Dialog::CANCEL ) throw std::runtime_error( "Shipyard drag purchased boat" );
++    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
++    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 15 ); parentBottom.fill( 25 );
++    Platform3DS::pushModalImages( &parentTop, &parentBottom );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    try { run( false, steps ); } catch ( ... ) { Platform3DS::popModalImages(); throw; }
++    Platform3DS::popModalImages();
++    Settings::Get().setInterfaceType( InterfaceType::EVIL ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( true, steps ); Settings::Get().setInterfaceType( reset.type );
++    run( false, steps ); run( true, steps );
++    COUT( "3DS SHIPYARD SMOKE: PASS original_entry nested_modal controller_touch_confirm default_cancel disabled_touch_controller drag_cancel evil unchanged_funds_frame_context release_isolation" )
++}
++
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_army.cpp b/src/fheroes2/gui/ui_3ds_castle_army.cpp
 new file mode 100644
@@ -7336,10 +7428,10 @@ index 0000000..520e03c
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..9020d30
+index 0000000..3275f40
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,143 @@
+@@ -0,0 +1,145 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -7439,6 +7531,8 @@ index 0000000..9020d30
 +    bool showBuildingPurchase( const std::string & name, const std::string & description, const std::string & requirements,
 +                               const fheroes2::Image & building, const Funds & cost, bool interactive, const std::function<bool()> & canBuild );
 +    void testBuildingPurchase();
++    bool showBoatPurchase( bool enabled );
++    void testShipyard();
 +    void testNativeMessages();
 +    Spell showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page, const std::function<void( const std::string & )> & status );
 +    Spell showSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page,
