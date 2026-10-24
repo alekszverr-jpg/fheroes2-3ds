@@ -4214,12 +4214,13 @@ index 0000000..8d46d57
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..d33db32
+index 0000000..6556377
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
-@@ -0,0 +1,427 @@
+@@ -0,0 +1,376 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -4256,58 +4257,6 @@ index 0000000..d33db32
 +    int lastBuildingScroll = 0;
 +    int maximumBuildingScroll = 0;
 +    unsigned shipyardEntries = 0;
-+
-+    Image makePurchaseFrame( const int32_t width, const bool evil )
-+    {
-+        // BUYBUILD is the frame used by building and ship purchases. Keep its main border,
-+        // with a flush upper rail in place of the protruding crest.
-+        const int icn = evil ? ICN::BUYBUILE : ICN::BUYBUILD;
-+        Image source( 288, 240 ); source._disableTransformLayer();
-+        const auto & paper = Assets::getImage( icn, 5 );
-+        const int32_t topHeight = Assets::getImage( icn, 4 ).height();
-+        const auto bottomArea = GetActiveROI( Assets::getImage( icn, 6 ) );
-+        const int32_t bottomStart = 240 - bottomArea.y - bottomArea.height;
-+        const uint8_t paperColor = paper.image()[20 * paper.width() + 64];
-+        source.fill( paperColor );
-+        for ( int32_t y = 0; y < 240; y += 25 )
-+            for ( int32_t x = 0; x < 288; x += 96 )
-+                Blit( paper, 48, 10, source, x, y, std::min<int32_t>( 96, 288 - x ), std::min<int32_t>( 25, 240 - y ) );
-+        for ( int32_t y = 0; y < bottomStart; y += 35 )
-+            for ( const uint32_t index : { 1U, 5U } ) {
-+                const auto & sprite = Assets::getImage( icn, index );
-+                Blit( sprite, 0, 10, source, index == 1 ? 144 : 144 - sprite.width(), y, sprite.width(), std::min<int32_t>( 35, bottomStart - y ) );
-+            }
-+        for ( const uint32_t index : { 2U, 6U } ) {
-+            const auto & sprite = Assets::getImage( icn, index );
-+            Blit( sprite, source, index == 2 ? 144 : 144 - sprite.width(), bottomStart );
-+        }
-+        // Extend only short border/paper sections on either side of the central
-+        // ornament. Corners, centre jewels and their pixel proportions stay intact.
-+        Image output( width, 240 ); output._disableTransformLayer(); output.fill( paperColor );
-+        const int32_t extraLeft = ( width - 288 ) / 2, extraRight = width - 288 - extraLeft;
-+        for ( int32_t y = 0; y < 240; y += 25 )
-+            for ( int32_t x = 0; x < width; x += 96 )
-+                Blit( paper, 48, 10, output, x, y, std::min<int32_t>( 96, width - x ), std::min<int32_t>( 25, 240 - y ) );
-+        Copy( source, 0, 0, output, 0, 0, 50, 240 );
-+        Copy( source, 50, 0, output, 50 + extraLeft, 0, 188, 240 );
-+        Copy( source, 238, 0, output, width - 50, 0, 50, 240 );
-+        for ( const auto & gap : { std::pair<int32_t, int32_t>{ 50, extraLeft }, std::pair<int32_t, int32_t>{ 238 + extraLeft, extraRight } } )
-+            for ( int32_t x = 0; x < gap.second; x += 2 ) {
-+                const int32_t fromX = gap.first == 50 ? 48 : 238;
-+                const int32_t count = std::min<int32_t>( 2, gap.second - x );
-+                Copy( source, fromX, bottomStart + 35, output, gap.first + x, bottomStart + 35, count, 240 - bottomStart - 35 );
-+            }
-+        // Reuse the flat rail and corners of BUYBUILD at their native pixel size.
-+        // Tile its plain section instead of cropping through the central crest.
-+        const auto & topLeft = Assets::getImage( icn, 4 );
-+        const auto & topRight = Assets::getImage( icn, 0 );
-+        const int32_t railY = topHeight - 59;
-+        Blit( topLeft, 16, railY, output, 0, 0, 32, 15 );
-+        for ( int32_t x = 32; x < width - 32; x += 2 )
-+            Blit( topLeft, 64, railY, output, x, 0, std::min<int32_t>( 2, width - 32 - x ), 15 );
-+        Blit( topRight, topRight.width() - 33, railY, output, width - 32, 0, 32, 15 );
-+        return output;
-+    }
 +
 +    class BuildingScope
 +    {
@@ -4376,7 +4325,7 @@ index 0000000..d33db32
 +    };
 +    for ( size_t i = 0; i < buttons.size(); ++i ) buttons[i] = std::make_unique<Button>( i ? 184 : 40, 176, buttonIcn( i ), 0, 1 );
 +    const auto touchArea = []( const size_t i ) { return Rect{ i ? 168 : 24, 166, 128, 44 }; };
-+    Image topBackground = makePurchaseFrame( 400, evil ), bottomBackground = makePurchaseFrame( 320, evil );
++    Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil ), bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    if ( Platform3DS::smokeTest() && ( !topBackground.singleLayer() || !bottomBackground.singleLayer() ) )
 +        throw std::runtime_error( "Purchase modal backgrounds must be opaque" );
 +    Text title( boatArtwork ? name : _( "building3DS|Build" ), FontType::normalWhite() ); title.fitToOneRow( 348 );
@@ -6169,12 +6118,13 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..520e03c
+index 0000000..bb347b7
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1412 @@
+@@ -0,0 +1,1453 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <cmath>
@@ -6238,10 +6188,10 @@ index 0000000..520e03c
 +    class ModalScope
 +    {
 +    public:
-+        ModalScope( const Image & image, const bool information )
++        ModalScope( const Image & image, const bool information, const Image * upper = nullptr )
 +        {
 +            // Register before resetting input so an opening pen hold remains captured.
-+            Platform3DS::pushModalImages( information ? &image : nullptr, information ? nullptr : &image );
++            Platform3DS::pushModalImages( information ? &image : upper, information ? nullptr : &image );
 +            Platform3DS::freezeViewportFollow( LocalEvent::Get().getMouseCursorPos(), SDL_GetTicks() );
 +            LocalEvent::Get().resetFor3DSPanel();
 +        }
@@ -6266,6 +6216,8 @@ index 0000000..520e03c
 +        std::array<std::string, 2> labels;
 +        std::array<std::string, 2> details;
 +        bool allowCancel = true;
++        bool classicChest = false;
++        std::array<std::string, 2> quantities;
 +    };
 +    using TimedEvent = std::pair<Uint32, SDL_Event>;
 +    int runInjectedInput( const std::function<int()> & dialog, std::vector<TimedEvent> sequence )
@@ -6309,11 +6261,12 @@ index 0000000..520e03c
 +{
 +    using namespace fheroes2;
 +    const bool information = buttons == Dialog::ZERO;
++    const bool classicChest = choice && choice->classicChest;
 +    const CursorRestorer cursorRestorer( false );
 +    Image window( information ? 400 : 320, 240 );
-+    const int width = window.width() - 24;
++    const int width = classicChest ? 352 : window.width() - 24;
 +    const int rewardHeight = choice ? std::max( elements[0]->area().height, elements[1]->area().height ) : 0;
-+    const int viewHeight = choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
++    const int viewHeight = classicChest ? 176 : choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
 +    const uint8_t background = GetColorId( 35, 29, 24 );
 +    const uint8_t border = GetColorId( 150, 115, 63 );
 +    const int headerHeight = header.empty() ? 0 : header.height( width ) + 8;
@@ -6338,32 +6291,46 @@ index 0000000..520e03c
 +        first = last;
 +    }
 +    Image content( width, std::max( height, viewHeight ) );
-+    content.fill( background );
++    if ( classicChest ) Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++    else content.fill( background );
 +    header.draw( 0, 0, width, content );
 +    body.draw( 0, headerHeight, width, content );
 +    if ( !choice ) for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->draw( content, offsets[i] );
 +    else for ( size_t i = 0; i < elements.size(); ++i )
-+        offsets[i] = { 80 + int( i ) * 160 - elements[i]->area().width / 2, 8 + viewHeight + 12 };
++        offsets[i] = { 80 + int( i ) * 160 - elements[i]->area().width / 2, classicChest ? 50 : 8 + viewHeight + 12 };
 +
 +    std::vector<Answer> answers;
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    Image upperWindow, chestBackground;
++    if ( classicChest ) {
++        upperWindow = Interface3DS::makeClassicPanelBackground( 400, evil );
++        chestBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
++    }
++    std::array<Image, 2> rewardImages;
++    if ( classicChest ) for ( size_t i = 0; i < 2; ++i ) {
++        const auto & original = Assets::getImage( i ? ICN::EXPMRL : ICN::RESOURCE, i ? 4 : 6 );
++        const double scale = std::min( 1.5, std::min( 76.0 / original.height(), 112.0 / original.width() ) );
++        rewardImages[i].resize( int( original.width() * scale ), int( original.height() * scale ) );
++        rewardImages[i].reset(); Resize( original, rewardImages[i] );
++    }
 +    if ( buttons & Dialog::YES ) answers.push_back( { Dialog::YES, std::make_unique<Button>( 0, 204, evil ? ICN::BUTTON_SMALL_YES_EVIL : ICN::BUTTON_SMALL_YES_GOOD, 0, 1 ) } );
 +    if ( buttons & Dialog::OK ) answers.push_back( { Dialog::OK, std::make_unique<Button>( 0, 204, evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON, 0, 1 ) } );
 +    if ( buttons & Dialog::NO ) answers.push_back( { Dialog::NO, std::make_unique<Button>( 0, 204, evil ? ICN::BUTTON_SMALL_NO_EVIL : ICN::BUTTON_SMALL_NO_GOOD, 0, 1 ) } );
 +    if ( buttons & Dialog::CANCEL ) answers.push_back( { Dialog::CANCEL, std::make_unique<Button>( 0, 204, evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON, 0, 1 ) } );
 +    if ( choice ) for ( size_t i = 0; i < answers.size(); ++i ) {
 +        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", { 136, 30 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        makeButtonSprites( released, pressed, "", classicChest ? Size{ 116, 24 } : Size{ 136, 30 }, evil, classicChest ? ( evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD ) : ( evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK ) );
 +        // Use the normal game font: the upstream button font does not contain all translated glyphs on this build.
 +        const Text label( choice->labels[i], FontType::normalWhite() );
 +        label.draw( 4, ( released.height() - label.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
 +        label.draw( 3, ( pressed.height() - label.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
++        if ( classicChest ) addGradientShadow( released, chestBackground, { int( i ) * 160 + 80 - released.width() / 2, 168 + ( 32 - released.height() ) / 2 }, { -3, 3 } );
 +        answers[i].button = std::make_unique<ButtonSprite>( 0, 204, std::move( released ), std::move( pressed ) );
 +    }
 +    for ( size_t i = 0; i < answers.size(); ++i ) {
 +        const auto & button = answers[i].button;
 +        button->setPosition( ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) - button->area().width / 2,
-+                             202 + ( 32 - button->area().height ) / 2 );
++                             ( classicChest ? 168 : 202 ) + ( 32 - button->area().height ) / 2 );
 +    }
 +
 +    int scroll = 0, selected = 0, pressed = -1;
@@ -6374,9 +6341,16 @@ index 0000000..520e03c
 +    if ( heldPosition ) start = last = *heldPosition;
 +    int result = Dialog::ZERO;
 +    bool closed = false;
-+    const ModalScope scope( window, information );
++    const ModalScope scope( window, information, classicChest ? &upperWindow : nullptr );
 +    COUT( "3DS MESSAGE screen=" << ( information ? "top" : "bottom" ) << " content_height=" << height << " buttons=" << buttons << " choice=" << ( choice != nullptr ) )
++    int capturedChestScroll = -1;
 +    const auto draw = [&]() {
++        if ( classicChest ) {
++            window = chestBackground;
++            Copy( content, 0, scroll, upperWindow, 24, 24, width, viewHeight );
++            if ( height > viewHeight ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 202, width, upperWindow );
++        }
++        else {
 +        window.fill( background );
 +        StandardWindow::renderBackgroundImage( window, { 0, 0, window.width(), 240 }, 0, evil );
 +        DrawBorder( window, border );
@@ -6388,9 +6362,15 @@ index 0000000..520e03c
 +        if ( information ) {
 +            if ( height <= viewHeight ) Text( "A / L", FontType::smallWhite() ).draw( 0, 224, window.width(), window );
 +        }
++        }
 +        if ( choice ) for ( size_t i = 0; i < elements.size(); ++i ) {
-+            elements[i]->draw( window, offsets[i] );
-+            Text( choice->details[i], FontType::smallWhite() ).draw( 12 + int( i ) * 160, 184, 136, window );
++            if ( classicChest ) {
++                Blit( rewardImages[i], window, 80 + int( i ) * 160 - rewardImages[i].width() / 2, 110 - rewardImages[i].height() );
++                Text amount( choice->quantities[i], FontType::normalWhite() ); amount.fitToOneRow( 128 );
++                amount.draw( 16 + int( i ) * 160, 118, 128, window );
++            }
++            else elements[i]->draw( window, offsets[i] );
++            Text( choice->details[i], FontType::smallWhite() ).draw( 12 + int( i ) * 160, classicChest ? 144 : 184, 136, window );
 +        }
 +        for ( size_t i = 0; i < answers.size(); ++i ) {
 +            auto & button = answers[i].button;
@@ -6398,19 +6378,25 @@ index 0000000..520e03c
 +            button->draw( window );
 +            if ( int( i ) == selected ) {
 +                const auto roi = button->area();
-+                Fill( window, roi.x, roi.y + roi.height + 1, roi.width, 2, border );
++                if ( classicChest ) DrawRect( window, { roi.x - 2, roi.y - 2, roi.width + 4, roi.height + 4 }, GetColorId( 255, 220, 70 ) );
++                else Fill( window, roi.x, roi.y + roi.height + 1, roi.width, 2, border );
 +            }
++        }
++        if ( classicChest && Platform3DS::smokeTest() && capturedChestScroll != scroll ) {
++            capturedChestScroll = scroll;
++            const std::string prefix = evil ? "chest-evil" : height > viewHeight ? "chest-long" : "chest";
++            if ( !Save( upperWindow, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) || !Save( window, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture chest panels" );
 +        }
 +        Display::instance().render();
 +    };
 +    const auto buttonAt = [&]( const Point point ) {
-+        for ( size_t i = 0; i < answers.size(); ++i ) if ( answers[i].button->area() & point ) return int( i );
++        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicChest ? Rect{ 16 + int( i ) * 160, 158, 128, 48 } : answers[i].button->area() ) & point ) return int( i );
 +        return -1;
 +    };
 +    const auto elementAt = [&]( const Point point ) {
 +        if ( choice ) {
 +            for ( size_t i = 0; i < elements.size(); ++i ) {
-+                const Rect roi{ offsets[i].x, offsets[i].y, elements[i]->area().width, elements[i]->area().height };
++                const Rect roi = classicChest ? Rect{ 16 + int( i ) * 160, 42, 128, 88 } : Rect{ offsets[i].x, offsets[i].y, elements[i]->area().width, elements[i]->area().height };
 +                if ( roi & point ) return int( i );
 +            }
 +            return -1;
@@ -6474,7 +6460,7 @@ index 0000000..520e03c
 +            }
 +            else if ( input.type == PanelInputType::TouchUp ) {
 +                if ( information && ( heldPosition || !moved ) ) closed = true;
-+                else if ( down && !moved && pressed >= 0 && buttonAt( last ) == pressed ) { result = answers[pressed].value; closed = true; }
++                else if ( down && !moved && pressed >= 0 && buttonAt( classicChest ? input.position : last ) == pressed ) { result = answers[pressed].value; closed = true; }
 +                down = false; pressed = -1;
 +            }
 +            scroll = std::clamp( scroll, 0, std::max( 0, height - viewHeight ) );
@@ -6626,7 +6612,7 @@ index 0000000..520e03c
 +    const ResourceDialogElement goldElement( Resource::GOLD, std::to_string( gold ) );
 +    const ExperienceDialogElement experienceElement( experience );
 +    const FixedChoice chest{ { _( "Gold" ), _( "Experience" ) },
-+                             { _( "Total: " ) + std::to_string( totalGold ), _( "Need: " ) + std::to_string( experienceNeeded ) } };
++                             { _( "Total: " ) + std::to_string( totalGold ), _( "Need: " ) + std::to_string( experienceNeeded ) }, true, true, { std::to_string( gold ), std::to_string( experience ) } };
 +    const int result = showNativeMessage( Text( header, FontType::normalYellow() ), Text( body, FontType::normalWhite() ),
 +                                         Dialog::YES | Dialog::NO, { &goldElement, &experienceElement }, &chest );
 +    // The caller grants rewards: true keeps the gold; false gives the peasants the gold for experience.
@@ -7467,21 +7453,21 @@ index 0000000..520e03c
 +        return runInjectedInput( [&]() { return Dialog::SelectGoldOrExp( header, text, gold, experience, hero ) ? 1 : 0; }, std::move( sequence ) );
 +    };
 +    Platform3DS::requestCapture();
-+    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 1 )
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERUP, 80, 180 ) } } ) != 1 )
 +        throw std::runtime_error( "Chest gold tap changed the upstream reward branch" );
-+    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 0 )
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 240, 180 ) }, { 100, touch( SDL_FINGERUP, 240, 180 ) } } ) != 0 )
 +        throw std::runtime_error( "Chest experience tap changed the upstream reward branch" );
 +    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
 +                     { 100, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 0 )
 +        throw std::runtime_error( "Chest D-pad selection differs" );
 +    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 )
 +        throw std::runtime_error( "Chest Escape no longer chooses experience" );
-+    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERMOTION, 160, 190 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
-+                     { 100, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 0 )
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERMOTION, 160, 190 ) }, { 100, touch( SDL_FINGERUP, 80, 180 ) },
++                     { 100, touch( SDL_FINGERDOWN, 240, 180 ) }, { 100, touch( SDL_FINGERUP, 240, 180 ) } } ) != 0 )
 +        throw std::runtime_error( "Chest drag chose gold" );
 +    const auto nestedBefore = nestedInformationReturns;
-+    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 132 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
-+                     { 300, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 0
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 86 ) }, { 900, touch( SDL_FINGERUP, 80, 86 ) },
++                     { 300, touch( SDL_FINGERDOWN, 240, 180 ) }, { 100, touch( SDL_FINGERUP, 240, 180 ) } } ) != 0
 +         || nestedInformationReturns != nestedBefore + 1 ) throw std::runtime_error( "Chest gold information chose a reward or lost the dialog" );
 +    const auto experienceInfoBefore = nestedInformationReturns;
 +    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
@@ -7490,9 +7476,12 @@ index 0000000..520e03c
 +         || nestedInformationReturns != experienceInfoBefore + 1 ) throw std::runtime_error( "Chest experience information lost selection" );
 +    std::string longText;
 +    for ( int i = 0; i < 6; ++i ) longText += body + "\n";
-+    if ( run( longText, { { 300, touch( SDL_FINGERDOWN, 160, 80 ) }, { 100, touch( SDL_FINGERMOTION, 160, 25 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
-+                         { 100, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != 1 || lastMessageScroll <= 0 )
++    if ( run( longText, { { 300, touch( SDL_FINGERDOWN, 160, 80 ) }, { 100, touch( SDL_FINGERMOTION, 160, 25 ) }, { 100, touch( SDL_FINGERUP, 80, 180 ) },
++                         { 100, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERUP, 80, 180 ) } } ) != 1 || lastMessageScroll <= 0 )
 +        throw std::runtime_error( "Long chest text hid the gold choice" );
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 180 ) }, { 100, touch( SDL_FINGERUP, 80, 220 ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 ) throw std::runtime_error( "Chest release outside target chose gold" );
++    if ( run( body, { { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERUP, 80, 218 ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 ) throw std::runtime_error( "Chest decorative footer chose gold" );
++    if ( runInjectedInput( [&]() { return showChestChoice( header, body, 4294967295U, 4294967295U, 4294967295U, 4294967295U ) ? 1 : 0; }, { { 300, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 1 ) throw std::runtime_error( "Chest large rewards changed selection" );
 +    if ( hero.GetExperience() != experienceBefore || world.GetKingdom( hero.GetColor() ).GetFunds().Get( Resource::GOLD ) != goldBefore )
 +        throw std::runtime_error( "Chest dialog granted a reward instead of leaving it to the caller" );
 +    auto & settings = Settings::Get();
@@ -7503,7 +7492,8 @@ index 0000000..520e03c
 +    settings.setInterfaceType( originalInterface );
 +    if ( Platform3DS::viewport() != cropBefore || std::memcmp( frameBefore.image(), Display::instance().image(), frameBefore.width() * frameBefore.height() ) != 0 )
 +        throw std::runtime_error( "Chest changed the game context" );
-+    COUT( "3DS CHEST SMOKE: PASS gold experience dpad escape drag_cancel nested_gold nested_experience long_text evil caller_rewards context_restore" )
++    if ( run( body, { { 300, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 ) throw std::runtime_error( "Chest final preview changed escape branch" );
++    COUT( "3DS CHEST SMOKE: PASS classic_two_screen original_reward_icons large_values footer_outside_cancel gold experience dpad escape drag_cancel nested_gold nested_experience long_text evil caller_rewards context_restore" )
 +}
 +void Interface3DS::testLevelUp()
 +{
@@ -9708,6 +9698,101 @@ index 0000000..87f1231
 +    COUT( "3DS ADVENTURE SPELLBOOK SMOKE: PASS actual_book adventure_scroll_filter choice_touch_controller confirm_required pages_restore cancel_drag readonly_tabs_Y_touch zero_mana tired_boat_restrictions long_scroll empty evil unchanged_mana_movement_book_frame_context" )
 +}
 +
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_style.cpp b/src/fheroes2/gui/ui_3ds_style.cpp
+new file mode 100644
+index 0000000..2dba41a
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_style.cpp
+@@ -0,0 +1,71 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_style.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <utility>
++#include "game_assets.h"
++#include "icn.h"
++fheroes2::Image Interface3DS::makeClassicPanelBackground( const int32_t width, const bool evil )
++{
++    using namespace fheroes2;
++    // BUYBUILD is the frame used by building and ship purchases. Keep its main border,
++    // with a flush upper rail in place of the protruding crest.
++    const int icn = evil ? ICN::BUYBUILE : ICN::BUYBUILD;
++    Image source( 288, 240 ); source._disableTransformLayer();
++    const auto & paper = Assets::getImage( icn, 5 );
++    const int32_t topHeight = Assets::getImage( icn, 4 ).height();
++    const auto bottomArea = GetActiveROI( Assets::getImage( icn, 6 ) );
++    const int32_t bottomStart = 240 - bottomArea.y - bottomArea.height;
++    const uint8_t paperColor = paper.image()[20 * paper.width() + 64];
++    source.fill( paperColor );
++    for ( int32_t y = 0; y < 240; y += 25 )
++        for ( int32_t x = 0; x < 288; x += 96 )
++            Blit( paper, 48, 10, source, x, y, std::min<int32_t>( 96, 288 - x ), std::min<int32_t>( 25, 240 - y ) );
++    for ( int32_t y = 0; y < bottomStart; y += 35 )
++        for ( const uint32_t index : { 1U, 5U } ) {
++            const auto & sprite = Assets::getImage( icn, index );
++            Blit( sprite, 0, 10, source, index == 1 ? 144 : 144 - sprite.width(), y, sprite.width(), std::min<int32_t>( 35, bottomStart - y ) );
++        }
++    for ( const uint32_t index : { 2U, 6U } ) {
++        const auto & sprite = Assets::getImage( icn, index );
++        Blit( sprite, source, index == 2 ? 144 : 144 - sprite.width(), bottomStart );
++    }
++    // Extend only short border/paper sections on either side of the central
++    // ornament. Corners, centre jewels and their pixel proportions stay intact.
++    Image output( width, 240 ); output._disableTransformLayer(); output.fill( paperColor );
++    const int32_t extraLeft = ( width - 288 ) / 2, extraRight = width - 288 - extraLeft;
++    for ( int32_t y = 0; y < 240; y += 25 )
++        for ( int32_t x = 0; x < width; x += 96 )
++            Blit( paper, 48, 10, output, x, y, std::min<int32_t>( 96, width - x ), std::min<int32_t>( 25, 240 - y ) );
++    Copy( source, 0, 0, output, 0, 0, 50, 240 );
++    Copy( source, 50, 0, output, 50 + extraLeft, 0, 188, 240 );
++    Copy( source, 238, 0, output, width - 50, 0, 50, 240 );
++    for ( const auto & gap : { std::pair<int32_t, int32_t>{ 50, extraLeft }, std::pair<int32_t, int32_t>{ 238 + extraLeft, extraRight } } )
++        for ( int32_t x = 0; x < gap.second; x += 2 ) {
++            const int32_t fromX = gap.first == 50 ? 48 : 238;
++            const int32_t count = std::min<int32_t>( 2, gap.second - x );
++            Copy( source, fromX, bottomStart + 35, output, gap.first + x, bottomStart + 35, count, 240 - bottomStart - 35 );
++        }
++    // Reuse the flat rail and corners of BUYBUILD at their native pixel size.
++    // Tile its plain section instead of cropping through the central crest.
++    const auto & topLeft = Assets::getImage( icn, 4 );
++    const auto & topRight = Assets::getImage( icn, 0 );
++    const int32_t railY = topHeight - 59;
++    Blit( topLeft, 16, railY, output, 0, 0, 32, 15 );
++    for ( int32_t x = 32; x < width - 32; x += 2 )
++        Blit( topLeft, 64, railY, output, x, 0, std::min<int32_t>( 2, width - 32 - x ), 15 );
++    Blit( topRight, topRight.width() - 33, railY, output, width - 32, 0, 32, 15 );
++    return output;
++}
++
++
++void Interface3DS::fillClassicPanelPaper( fheroes2::Image & output, const bool evil )
++{
++    using namespace fheroes2;
++    const auto & paper = Assets::getImage( evil ? ICN::BUYBUILE : ICN::BUYBUILD, 5 );
++    output._disableTransformLayer(); output.fill( paper.image()[20 * paper.width() + 64] );
++    for ( int32_t y = 0; y < output.height(); y += 25 )
++        for ( int32_t x = 0; x < output.width(); x += 96 )
++            Blit( paper, 48, 10, output, x, y, std::min<int32_t>( 96, output.width() - x ), std::min<int32_t>( 25, output.height() - y ) );
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_style.h b/src/fheroes2/gui/ui_3ds_style.h
+new file mode 100644
+index 0000000..6035da3
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_style.h
+@@ -0,0 +1,12 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#if defined( __3DS__ )
++#include <cstdint>
++#include "image.h"
++namespace Interface3DS
++{
++    // Opaque 240px-high game panel for the 320px/400px native screens.
++    fheroes2::Image makeClassicPanelBackground( int32_t width, bool evil );
++    void fillClassicPanelPaper( fheroes2::Image & output, bool evil );
++}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_tavern.cpp b/src/fheroes2/gui/ui_3ds_tavern.cpp
 new file mode 100644

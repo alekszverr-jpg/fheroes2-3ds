@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.45: original-style dual-screen treasure chest
+
+The chest description now occupies the upper screen in the accepted flat game frame. The lower screen keeps original gold/experience icons, large reward amounts, current treasury/experience-needed details and clearly labelled Gold/Experience buttons. Both backgrounds are opaque. Icon scaling is bounded to leave separate space for values, details and buttons. Large touch targets, focused selection, held-icon information, D-pad selection and stylus/D-pad text scrolling remain available. The original caller still awards rewards: L keeps the existing experience branch, and A/Start confirms the focused choice.
+
+Frame/paper rendering was moved into a shared 3DS style module, reused by chest, shipyard and building purchase. Other message and level-up layouts retain their current paths. Updating requires only `3ds/fheroes2/fheroes2.3dsx`; no translation change. On New 3DS XL check both rewards and their actual application, held information, long descriptions, large amounts, controller/stylus selection and return to the adventure map. Visual approval of 0.3.44 building purchase is recorded separately from functional hardware checks.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Chest New/Old Russian and New English, plus LevelUp, Messages, Building and Shipyard New Russian. Checks preserve reward branch selection, nested information, scrolling, drag rejection, release outside targets, inactive footer, uint32 maximum amounts, Evil UI and unchanged hero experience/treasury/frame/context. Chest captures were inspected. Shipyard and building captures match their accepted appearances pixel-for-pixel. ARM build, desktop syntax for four files, 27-group/39-marker infrastructure and clean-baseline patch application passed; Full was not run. Physical reward application/readability and earlier outstanding hardware scenarios remain manual checks.
+
 ## Preview 0.3.44: original-style building purchase
 
 Building confirmation now shares the accepted flush BUYBUILD/BUYBUILE frame, opaque themed paper/grey background, original OK/Cancel buttons, shadows, gold focus and enlarged touch targets with the shipyard. The upper screen shows the original BLDGXTRA card with the supplied building artwork/name at 1.25× scale and normal-font description/requirements. Long content scrolls with stylus or D-pad and shows its position. The lower screen centres the original resource order in one or two rows, including all seven resources, with larger amounts. Frame/background composition is cached for the dialog. Information-only windows retain the existing common message path.
