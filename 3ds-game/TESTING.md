@@ -1,5 +1,11 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.47: aligned chest reward columns
+
+Gold/experience icons, reward amounts, treasury/level details and held-information targets now share the same centre coordinates as their inset buttons. Each reward is a single aligned column; visual elements and input regions use one shared position function.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`. Chest passed short monitored Azahar checks on New/Old Russian and New English, including held information and both reward branches. Captures, ARM build, desktop syntax and clean-baseline patch application passed. Full was not run; physical appearance/input and actual reward application remain console checks.
+
 ## Preview 0.3.46: inset chest buttons
 
 Both reward buttons move 8 pixels toward the centre, adding space between their faces and the side frame. Shadows, focus and touch targets follow the buttons. Touch targets remain 128×48 pixels with a 16-pixel gap between them.
