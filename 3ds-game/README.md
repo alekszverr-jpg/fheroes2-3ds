@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.49: original-style plain confirmations
+
+Plain response dialogs without illustration elements now use the accepted flat BUYBUILD/BUYBUILE frame, opaque themed paper/grey background and original localized game buttons. OK, Cancel, OK/Cancel and Yes/No are supported. Short text blocks are vertically centred in the content area; long text scrolls with fixed controls and a visible position indicator. Single buttons are centred; paired buttons share the inset centres and separated large touch targets. Shadows and focus follow the visible buttons. Text and actions stay on the lower screen; the upper game view keeps its existing behaviour. Information-only and illustrated-message layouts retain their current paths.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. A/Start, left/right, L, stylus and display-mode chords retain their response semantics. Dragging, releasing outside the target or tapping the lower ornament does not confirm. On New 3DS XL check acknowledgement, both response choices, cancellation from the in-game quit prompt and long descriptions. Real HOME-close behaviour remains a separate outstanding hardware check.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Messages New/Old Russian and New English, plus Chest, LevelUp, BattleDialogs and SystemExit New Russian. Tests cover button sets, centred single controls, touch/controller selection, negative responses, outside/footer/drag rejection, text scrolling, Evil UI, display chords, illustrated nested-information regression and restored frame/context. Captures were inspected. ARM build, four-file desktop syntax, 27-group/39-marker infrastructure and clean-baseline patch application passed; Full was not run. The first final Messages attempt reached game PASS/normal exit but failed the runner's 5-second emulator-stop wait. The monitor then encountered an already-exited PID during cleanup. Its ignored local cleanup was made tolerant of that race; an isolated retry and the subsequent bounded sequence passed. The cause of the initial stop delay is not established; no game pass markers or shutdown assertions were suppressed.
+
 ## Preview 0.3.48: original-style level-up panels
 
 Level-up now uses the accepted dual-screen game frame for all three cases: two secondary skills, one available secondary skill, or primary-stat growth alone. Hero/growth information appears above; original skill cards, readable normal-font names and Learn/OK controls appear below. Cards, names, buttons and held-information targets share aligned centres. A sole card and its confirmation are centred. Long text scrolls while the controls remain fixed; held cards/B open the original descriptions.

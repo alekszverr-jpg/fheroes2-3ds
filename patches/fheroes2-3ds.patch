@@ -6118,10 +6118,10 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..62c356a
+index 0000000..3ed00c6
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1475 @@
+@@ -0,0 +1,1509 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -6263,13 +6263,17 @@ index 0000000..62c356a
 +    using namespace fheroes2;
 +    const bool information = buttons == Dialog::ZERO;
 +    const bool classicChoice = choice && ( choice->classicChest || choice->classicSkill );
-+    const auto choiceCentre = [&]( const size_t i ) { return elements.size() == 1 ? 160 : i ? 232 : 88; };
++    const bool classicConfirmation = !information && !choice && elements.empty();
++    const bool classicFrame = classicChoice || classicConfirmation;
++    const bool confirmationPair = buttons == ( Dialog::YES | Dialog::NO ) || buttons == ( Dialog::OK | Dialog::CANCEL );
++    const auto choiceCentre = [&]( const size_t i ) { return ( classicConfirmation ? !confirmationPair : elements.size() == 1 ) ? 160 : i ? 232 : 88; };
++    const int buttonRow = classicChoice ? 168 : classicConfirmation ? 176 : 202;
 +    const CursorRestorer cursorRestorer( false );
 +    Image window( information ? 400 : 320, 240 );
-+    const int width = classicChoice ? 352 : window.width() - 24;
++    const int width = classicChoice ? 352 : classicConfirmation ? 272 : window.width() - 24;
 +    int rewardHeight = 0;
 +    if ( choice ) for ( const auto * element : elements ) rewardHeight = std::max<int32_t>( rewardHeight, element->area().height );
-+    const int viewHeight = classicChoice ? 176 : choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
++    const int viewHeight = classicChoice ? 176 : classicConfirmation ? 128 : choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
 +    const uint8_t background = GetColorId( 35, 29, 24 );
 +    const uint8_t border = GetColorId( 150, 115, 63 );
 +    const int headerHeight = header.empty() ? 0 : header.height( width ) + 8;
@@ -6294,10 +6298,11 @@ index 0000000..62c356a
 +        first = last;
 +    }
 +    Image content( width, std::max( height, viewHeight ) );
-+    if ( classicChoice ) Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++    if ( classicFrame ) Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
 +    else content.fill( background );
-+    header.draw( 0, 0, width, content );
-+    body.draw( 0, headerHeight, width, content );
++    const int textTop = classicConfirmation ? std::max( 0, ( viewHeight - height ) / 2 ) : 0;
++    header.draw( 0, textTop, width, content );
++    body.draw( 0, textTop + headerHeight, width, content );
 +    if ( !choice ) for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->draw( content, offsets[i] );
 +    else for ( size_t i = 0; i < elements.size(); ++i )
 +        offsets[i] = { ( classicChoice ? choiceCentre( i ) : 80 + int( i ) * 160 ) - elements[i]->area().width / 2, classicChoice ? 50 : 8 + viewHeight + 12 };
@@ -6305,8 +6310,8 @@ index 0000000..62c356a
 +    std::vector<Answer> answers;
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    Image upperWindow, chestBackground;
-+    if ( classicChoice ) {
-+        upperWindow = Interface3DS::makeClassicPanelBackground( 400, evil );
++    if ( classicFrame ) {
++        if ( classicChoice ) upperWindow = Interface3DS::makeClassicPanelBackground( 400, evil );
 +        chestBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    }
 +    std::array<Image, 2> rewardImages;
@@ -6338,10 +6343,17 @@ index 0000000..62c356a
 +    }
 +    for ( size_t i = 0; i < answers.size(); ++i ) {
 +        const auto & button = answers[i].button;
-+        button->setPosition( ( classicChoice ? choiceCentre( i ) : ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) ) - button->area().width / 2,
-+                             ( classicChoice ? 168 : 202 ) + ( 32 - button->area().height ) / 2 );
++        button->setPosition( ( classicFrame ? choiceCentre( i ) : ( window.width() * ( 2 * int( i ) + 1 ) / ( 2 * int( answers.size() ) ) ) ) - button->area().width / 2,
++                             buttonRow + ( 32 - button->area().height ) / 2 );
 +    }
 +
++    if ( classicConfirmation ) for ( const auto & answer : answers ) {
++        const int icn = answer.value == Dialog::YES ? ( evil ? ICN::BUTTON_SMALL_YES_EVIL : ICN::BUTTON_SMALL_YES_GOOD )
++                      : answer.value == Dialog::NO ? ( evil ? ICN::BUTTON_SMALL_NO_EVIL : ICN::BUTTON_SMALL_NO_GOOD )
++                      : answer.value == Dialog::OK ? ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON )
++                                                   : ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON );
++        addGradientShadow( Assets::getImage( icn, 0 ), chestBackground, answer.button->area().getPosition(), { -3, 3 } );
++    }
 +    int scroll = 0, selected = 0, pressed = -1;
 +    int touchedElement = -1;
 +    Point start, last;
@@ -6354,7 +6366,12 @@ index 0000000..62c356a
 +    COUT( "3DS MESSAGE screen=" << ( information ? "top" : "bottom" ) << " content_height=" << height << " buttons=" << buttons << " choice=" << ( choice != nullptr ) )
 +    int capturedChestScroll = -1;
 +    const auto draw = [&]() {
-+        if ( classicChoice ) {
++        if ( classicConfirmation ) {
++            window = chestBackground;
++            Copy( content, 0, scroll, window, 24, 24, width, viewHeight );
++            if ( height > viewHeight ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 154, width, window );
++        }
++        else if ( classicChoice ) {
 +            window = chestBackground;
 +            Copy( content, 0, scroll, upperWindow, 24, 24, width, viewHeight );
 +            if ( height > viewHeight ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 202, width, upperWindow );
@@ -6393,7 +6410,7 @@ index 0000000..62c356a
 +            button->draw( window );
 +            if ( int( i ) == selected ) {
 +                const auto roi = button->area();
-+                if ( classicChoice ) DrawRect( window, { roi.x - 2, roi.y - 2, roi.width + 4, roi.height + 4 }, GetColorId( 255, 220, 70 ) );
++                if ( classicFrame ) DrawRect( window, { roi.x - 2, roi.y - 2, roi.width + 4, roi.height + 4 }, GetColorId( 255, 220, 70 ) );
 +                else Fill( window, roi.x, roi.y + roi.height + 1, roi.width, 2, border );
 +            }
 +        }
@@ -6404,10 +6421,17 @@ index 0000000..62c356a
 +            if ( height > viewHeight ) prefix += "-long";
 +            if ( !Save( upperWindow, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) || !Save( window, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture chest panels" );
 +        }
++        if ( classicConfirmation && Platform3DS::smokeTest() && capturedChestScroll != scroll ) {
++            capturedChestScroll = scroll;
++            std::string prefix = confirmationPair ? ( buttons & Dialog::YES ? "confirm-yesno" : "confirm-okcancel" ) : ( buttons & Dialog::OK ? "confirm-ok" : "confirm-cancel" );
++            if ( evil ) prefix += "-evil";
++            if ( height > viewHeight ) prefix += "-long";
++            if ( !Save( window, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture confirmation" );
++        }
 +        Display::instance().render();
 +    };
 +    const auto buttonAt = [&]( const Point point ) {
-+        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicChoice ? Rect{ choiceCentre( i ) - 64, 158, 128, 48 } : answers[i].button->area() ) & point ) return int( i );
++        for ( size_t i = 0; i < answers.size(); ++i ) if ( ( classicFrame ? Rect{ choiceCentre( i ) - 64, classicChoice ? 158 : 166, 128, classicChoice ? 48 : 44 } : answers[i].button->area() ) & point ) return int( i );
 +        return -1;
 +    };
 +    const auto elementAt = [&]( const Point point ) {
@@ -6472,12 +6496,12 @@ index 0000000..62c356a
 +            }
 +            else if ( input.type == PanelInputType::TouchMove && down ) {
 +                if ( std::abs( input.position.x - start.x ) >= 10 || std::abs( input.position.y - start.y ) >= 10 ) moved = true;
-+                if ( moved && pressed < 0 && ( !choice || start.y < 8 + viewHeight ) ) scroll += last.y - input.position.y;
++                if ( moved && pressed < 0 && ( classicConfirmation ? ( Rect{ 24, 24, width, viewHeight } & start ) : ( !choice || start.y < 8 + viewHeight ) ) ) scroll += last.y - input.position.y;
 +                last = input.position;
 +            }
 +            else if ( input.type == PanelInputType::TouchUp ) {
 +                if ( information && ( heldPosition || !moved ) ) closed = true;
-+                else if ( down && !moved && pressed >= 0 && buttonAt( classicChoice ? input.position : last ) == pressed ) { result = answers[pressed].value; closed = true; }
++                else if ( down && !moved && pressed >= 0 && buttonAt( classicFrame ? input.position : last ) == pressed ) { result = answers[pressed].value; closed = true; }
 +                down = false; pressed = -1;
 +            }
 +            scroll = std::clamp( scroll, 0, std::max( 0, height - viewHeight ) );
@@ -7407,10 +7431,10 @@ index 0000000..62c356a
 +    Platform3DS::requestCapture();
 +    if ( run( title, text, Dialog::OK, {}, { { 300, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) } } ) != Dialog::OK )
 +        throw std::runtime_error( "OK confirmation differs" );
-+    if ( run( title, text, Dialog::YES | Dialog::NO, {}, { { 300, touch( SDL_FINGERDOWN, 240, 218 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) } } ) != Dialog::NO )
++    if ( run( title, text, Dialog::YES | Dialog::NO, {}, { { 300, touch( SDL_FINGERDOWN, 240, 190 ) }, { 100, touch( SDL_FINGERUP, 240, 190 ) } } ) != Dialog::NO )
 +        throw std::runtime_error( "Native touchscreen NO selection differs" );
 +    if ( run( title, text, Dialog::OK | Dialog::CANCEL, {}, {
-+             { 300, touch( SDL_FINGERDOWN, 80, 218 ) }, { 100, touch( SDL_FINGERMOTION, 160, 170 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
++             { 300, touch( SDL_FINGERDOWN, 80, 190 ) }, { 100, touch( SDL_FINGERMOTION, 160, 170 ) }, { 100, touch( SDL_FINGERUP, 0, 0 ) },
 +             { 200, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL )
 +        throw std::runtime_error( "Dragging out of a dialog button activated it" );
 +    // Start in R+Start must switch rendering, never confirm the active dialog.
@@ -7440,11 +7464,21 @@ index 0000000..62c356a
 +             { 300, touch( SDL_FINGERDOWN, 160, 24 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
 +             { 300, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) } } ) != Dialog::YES
 +         || nestedInformationReturns != nestedBefore + 1 ) throw std::runtime_error( "Nested information lost the lower dialog or selected an answer" );
++    if ( run( title, text, Dialog::YES | Dialog::NO, {}, { { 200, touch( SDL_FINGERDOWN, 88, 190 ) }, { 90, touch( SDL_FINGERUP, 88, 190 ) } } ) != Dialog::YES ) throw std::runtime_error( "Classic YES touch differs" );
++    if ( run( title, text, Dialog::OK | Dialog::CANCEL, {}, { { 200, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) }, { 90, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Classic controller cancellation differs" );
++    if ( run( title, text, Dialog::CANCEL, {}, { { 200, touch( SDL_FINGERDOWN, 160, 190 ) }, { 90, touch( SDL_FINGERUP, 160, 190 ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Classic single cancel differs" );
++    if ( run( title, text, Dialog::OK | Dialog::CANCEL, {}, { { 200, touch( SDL_FINGERDOWN, 88, 190 ) }, { 90, touch( SDL_FINGERUP, 88, 220 ) }, { 90, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL ) throw std::runtime_error( "Classic release outside confirmed" );
++    if ( run( title, text, Dialog::YES | Dialog::NO, {}, { { 200, touch( SDL_FINGERDOWN, 88, 218 ) }, { 90, touch( SDL_FINGERUP, 88, 218 ) }, { 90, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::NO ) throw std::runtime_error( "Classic footer confirmed" );
++    if ( run( title, Text( longBody, FontType::normalWhite() ), Dialog::OK, {}, { { 200, controller( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) }, { 90, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::OK || lastMessageScroll <= 0 ) throw std::runtime_error( "Classic confirmation D-pad did not scroll" );
++    const auto theme = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    const int evil = run( title, text, Dialog::YES | Dialog::NO, {}, { { 200, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } );
++    Settings::Get().setInterfaceType( theme ); if ( evil != Dialog::NO ) throw std::runtime_error( "Evil classic confirmation differs" );
++    run( title, text, Dialog::OK, {}, { { 200, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 90, controller( SDL_CONTROLLER_BUTTON_A, false ) } } );
 +    if ( std::memcmp( savedDisplay.image(), Display::instance().image(), savedDisplay.width() * savedDisplay.height() ) != 0 )
 +        throw std::runtime_error( "Native dialogs modified the game frame" );
 +    Platform3DS::setCommandStripImage( previousStrip );
 +    events.resetFor3DSPanel();
-+    COUT( "3DS NATIVE MESSAGES SMOKE: PASS top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
++    COUT( "3DS NATIVE MESSAGES SMOKE: PASS classic_plain_confirmations all_button_sets evil outside_footer_cancel top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
 +}
 +
 +void Interface3DS::testChestChoice()
