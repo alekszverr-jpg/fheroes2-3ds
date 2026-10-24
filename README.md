@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.43** gives the native shipyard a flush upper frame without the protruding crest, retaining original themed artwork and game buttons. Hardware feedback remains pending. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.44** restyles building purchase with the accepted shipyard frame/buttons, the original building card and a centred resource grid. Hardware construction/payment checks remain pending. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 

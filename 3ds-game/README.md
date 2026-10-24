@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.44: original-style building purchase
+
+Building confirmation now shares the accepted flush BUYBUILD/BUYBUILE frame, opaque themed paper/grey background, original OK/Cancel buttons, shadows, gold focus and enlarged touch targets with the shipyard. The upper screen shows the original BLDGXTRA card with the supplied building artwork/name at 1.25× scale and normal-font description/requirements. Long content scrolls with stylus or D-pad and shows its position. The lower screen centres the original resource order in one or two rows, including all seven resources, with larger amounts. Frame/background composition is cached for the dialog. Information-only windows retain the existing common message path.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; no translation changes. Eligibility still uses the supplied castle callback and the original caller performs construction/payment. Cancel stays selected by default. On New 3DS XL check different races/buildings, requirements and scrolling, allowed/blocked confirmation, touch/controller cancellation and actual construction/payment/return to the castle. The user accepted the 0.3.43 shipyard appearance; this does not confirm previously pending hardware purchase or other service scenarios.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Building New/Old Russian and New English, Shipyard New Russian and Construction New Russian. Checks cover original-entry cancellation, actual castle price preview, seven-resource layout, disabled touch/controller, default cancellation, enlarged targets, release outside, drag cancellation, nested information, bounded D-pad/stylus scrolling, Evil UI and frame/context/input restoration. Building captures were inspected; shipyard captures match accepted 0.3.43 pixel-for-pixel. ARM build, three-file desktop syntax, 27-group/39-marker infrastructure and clean-baseline patch application passed. Full was not run. Actual map construction/payment and physical readability still require hardware validation.
+
 ## Preview 0.3.43: flush shipyard upper frame
 
 The protruding crest is removed on both screens. An uninterrupted rail made from original BUYBUILD/BUYBUILE flat sections and corners now meets the upper screen edge. The lower ornament, themed texture, original buttons and enlarged touch targets remain. Titles and the boat/cost group move upward to use the reclaimed space. No input or purchase rules changed.

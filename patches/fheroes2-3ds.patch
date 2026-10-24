@@ -4214,10 +4214,10 @@ index 0000000..8d46d57
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..3fed679
+index 0000000..d33db32
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
-@@ -0,0 +1,410 @@
+@@ -0,0 +1,427 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4254,11 +4254,12 @@ index 0000000..3fed679
 +{
 +    using namespace fheroes2;
 +    int lastBuildingScroll = 0;
++    int maximumBuildingScroll = 0;
 +    unsigned shipyardEntries = 0;
 +
-+    Image makeShipyardFrame( const int32_t width, const bool evil )
++    Image makePurchaseFrame( const int32_t width, const bool evil )
 +    {
-+        // BUYBUILD is the frame used by Dialog::BuyBoat. Keep its main border,
++        // BUYBUILD is the frame used by building and ship purchases. Keep its main border,
 +        // with a flush upper rail in place of the protruding crest.
 +        const int icn = evil ? ICN::BUYBUILE : ICN::BUYBUILD;
 +        Image source( 288, 240 ); source._disableTransformLayer();
@@ -4340,91 +4341,96 @@ index 0000000..3fed679
 +    }
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
-+    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const int frameIcn = evil ? ICN::BUYBUILE : ICN::BUYBUILD;
++    const auto & paper = Assets::getImage( frameIcn, 5 );
++    const auto fillPaper = [&]( Image & output ) {
++        output._disableTransformLayer(); output.fill( paper.image()[20 * paper.width() + 64] );
++        for ( int32_t y = 0; y < output.height(); y += 25 )
++            for ( int32_t x = 0; x < output.width(); x += 96 )
++                Blit( paper, 48, 10, output, x, y, std::min<int32_t>( 96, output.width() - x ), std::min<int32_t>( 25, output.height() - y ) );
++    };
 +    const Text text( body, FontType::normalWhite() );
-+    // Preserve the original building artwork and proportions at a readable size.
-+    const double scale = std::min( 2.0, std::min( 360.0 / building.width(), ( boatArtwork ? 180.0 : 116.0 ) / building.height() ) );
-+    Image portrait( std::max( 1, int( building.width() * scale ) ), std::max( 1, int( building.height() * scale ) ) );
-+    portrait.reset(); Resize( building, portrait );
-+    const int textY = portrait.height() + ( body.empty() ? 0 : 8 );
-+    Image content( 376, std::max<int32_t>( 188, textY + ( body.empty() ? 0 : text.height( 376 ) ) ) ); content.fill( background );
-+    Blit( portrait, content, ( content.width() - portrait.width() ) / 2, 0 ); if ( !body.empty() ) text.draw( 0, textY, 376, content );
++    Image artwork;
++    if ( boatArtwork ) artwork = building;
++    else {
++        const auto & frame = Assets::getImage( ICN::BLDGXTRA, 0 );
++        artwork.resize( frame.width(), frame.height() ); artwork.reset();
++        Blit( frame, artwork, 0, 0 );
++        Blit( building, artwork, ( frame.width() - building.width() ) / 2, 1 );
++        Text caption( name, FontType::smallWhite() ); caption.fitToOneRow( 125 );
++        caption.draw( ( frame.width() - caption.width() ) / 2, 60, artwork );
++    }
++    const double scale = boatArtwork ? 2.0 : 1.25;
++    Image portrait( std::max( 1, int( artwork.width() * scale ) ), std::max( 1, int( artwork.height() * scale ) ) );
++    portrait.reset(); Resize( artwork, portrait );
++    const int32_t textY = portrait.height() + ( body.empty() ? 0 : 8 );
++    constexpr int32_t viewWidth = 352, viewHeight = 152;
++    Image content( viewWidth, std::max<int32_t>( viewHeight, textY + ( body.empty() ? 0 : text.height( viewWidth ) ) ) );
++    fillPaper( content ); Blit( portrait, content, ( viewWidth - portrait.width() ) / 2, 0 );
++    if ( !body.empty() ) text.draw( 0, textY, viewWidth, content );
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    std::array<std::unique_ptr<ButtonBase>, 2> buttons;
-+    for ( size_t i = 0; i < buttons.size(); ++i ) {
-+        if ( boatArtwork ) {
-+            const int icn = i ? ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON )
-+                              : ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON );
-+            buttons[i] = std::make_unique<Button>( i ? 184 : 40, 176, icn, 0, 1 );
-+            continue;
-+        }
-+        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", { 142, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        Text label( i ? _( "Cancel" ) : _( "building3DS|Build" ), FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
-+        label.draw( 4, ( released.height() - label.height() ) / 2, released.width() - 8, released );
-+        label.draw( 3, ( pressed.height() - label.height() ) / 2 + 1, pressed.width() - 8, pressed );
-+        buttons[i] = std::make_unique<ButtonSprite>( i ? 166 : 6, 206, std::move( released ), std::move( pressed ) );
++    const auto buttonIcn = [&]( const size_t i ) {
++        return i ? ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON )
++                 : ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON );
++    };
++    for ( size_t i = 0; i < buttons.size(); ++i ) buttons[i] = std::make_unique<Button>( i ? 184 : 40, 176, buttonIcn( i ), 0, 1 );
++    const auto touchArea = []( const size_t i ) { return Rect{ i ? 168 : 24, 166, 128, 44 }; };
++    Image topBackground = makePurchaseFrame( 400, evil ), bottomBackground = makePurchaseFrame( 320, evil );
++    if ( Platform3DS::smokeTest() && ( !topBackground.singleLayer() || !bottomBackground.singleLayer() ) )
++        throw std::runtime_error( "Purchase modal backgrounds must be opaque" );
++    Text title( boatArtwork ? name : _( "building3DS|Build" ), FontType::normalWhite() ); title.fitToOneRow( 348 );
++    title.draw( 26, boatArtwork ? 32 : 24, 348, topBackground );
++    if ( boatArtwork ) Blit( portrait, topBackground, ( 400 - portrait.width() ) / 2, 80 );
++    Text( _( "Resource cost:" ), FontType::normalWhite() ).draw( 28, boatArtwork ? 42 : 28, 264, bottomBackground );
++    // Keep the original Resource::BoxSprite order, and centre a partial last row.
++    std::vector<std::pair<int, int32_t>> price;
++    for ( const auto & entry : std::array<std::pair<int, int32_t>, 7>{ { { Resource::WOOD, cost.wood }, { Resource::ORE, cost.ore },
++             { Resource::MERCURY, cost.mercury }, { Resource::SULFUR, cost.sulfur }, { Resource::CRYSTAL, cost.crystal }, { Resource::GEMS, cost.gems }, { Resource::GOLD, cost.gold } } } )
++        if ( entry.second ) price.push_back( entry );
++    const int columns = price.size() > 6 ? 4 : std::max<int>( 1, std::min<int>( 3, price.size() ) );
++    const int cellWidth = 272 / columns;
++    for ( size_t i = 0; i < price.size(); ++i ) {
++        const int row = i / columns, count = std::min<int>( columns, price.size() - row * columns );
++        const int32_t centre = boatArtwork ? ( i ? 224 : 96 ) : ( 320 - count * cellWidth ) / 2 + ( i % columns ) * cellWidth + cellWidth / 2;
++        const int32_t baseline = boatArtwork ? 110 : ( price.size() > 3 ? 78 : 104 ) + row * 52;
++        const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( price[i].first ) );
++        Blit( icon, bottomBackground, centre - icon.width() / 2, baseline - icon.height() );
++        Text amount( std::to_string( price[i].second ), FontType::normalWhite() ); amount.fitToOneRow( boatArtwork ? 112 : cellWidth - 6 );
++        amount.draw( centre - amount.width() / 2, boatArtwork ? 124 : baseline + 8, bottomBackground );
 +    }
-+    const auto touchArea = [&]( const size_t i ) { return boatArtwork ? Rect{ i ? 168 : 24, 166, 128, 44 } : buttons[i]->area(); };
-+    Image boatTop, boatBottom;
-+    if ( boatArtwork ) {
-+        boatTop = makeShipyardFrame( 400, evil ); boatBottom = makeShipyardFrame( 320, evil );
-+        if ( Platform3DS::smokeTest() && ( !boatTop.singleLayer() || !boatBottom.singleLayer() ) )
-+            throw std::runtime_error( "Shipyard modal backgrounds must be opaque" );
-+        Text title( name, FontType::normalWhite() ); title.fitToOneRow( 348 ); title.draw( 26, 32, 348, boatTop );
-+        Blit( portrait, boatTop, ( 400 - portrait.width() ) / 2, 80 );
-+        Text( _( "Resource cost:" ), FontType::normalWhite() ).draw( 28, 42, 264, boatBottom );
-+        const std::array<std::pair<int, int32_t>, 2> price{ { { Resource::WOOD, cost.wood }, { Resource::GOLD, cost.gold } } };
-+        for ( size_t i = 0; i < price.size(); ++i ) {
-+            const int32_t centre = i ? 224 : 96;
-+            const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( price[i].first ) );
-+            Blit( icon, boatBottom, centre - icon.width() / 2, 110 - icon.height() );
-+            const Text amount( std::to_string( price[i].second ), FontType::normalWhite() );
-+            amount.draw( centre - amount.width() / 2, 124, boatBottom );
-+        }
-+        for ( size_t i = 0; i < buttons.size(); ++i ) {
-+            const int icn = i ? ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON )
-+                              : ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON );
-+            addGradientShadow( Assets::getImage( icn, 0 ), boatBottom, buttons[i]->area().getPosition(), { -3, 3 } );
-+        }
-+    }
++    for ( size_t i = 0; i < buttons.size(); ++i )
++        addGradientShadow( Assets::getImage( buttonIcn( i ), 0 ), bottomBackground, buttons[i]->area().getPosition(), { -3, 3 } );
 +    const BuildingScope scope( top, bottom );
 +    int scroll = 0, selected = 1, pressed = -1; bool down = false, moved = false;
 +    Point start, last; Uint32 began = 0;
 +    const auto draw = [&]() {
-+        if ( boatArtwork ) { top = boatTop; bottom = boatBottom; }
-+        else {
-+        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawRect( top, { 0, 0, 400, 240 }, border );
-+        Text title( name, FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
-+        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
-+        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
-+        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawRect( bottom, { 0, 0, 320, 240 }, border );
-+        Text( _( "building3DS|Cost" ), FontType::normalYellow() ).draw( 8, 8, 304, bottom );
-+        int rowHeight = 0;
-+        for ( const auto & resource : resources ) rowHeight = std::max<int32_t>( rowHeight, resource.area().height + 4 );
-+        const int columns = boatArtwork ? std::clamp<int>( resources.size(), 1, 4 ) : ( resources.size() > 6 ? 4 : 3 );
-+        const int columnWidth = 312 / columns;
-+        for ( size_t i = 0; i < resources.size(); ++i ) {
-+            const auto & resource = resources[i];
-+            resource.draw( bottom, { 4 + int( i % columns ) * columnWidth + ( columnWidth - resource.area().width ) / 2, 32 + int( i / columns ) * rowHeight } );
-+        }
++        top = topBackground; bottom = bottomBackground;
++        if ( !boatArtwork ) {
++            Copy( content, 0, scroll, top, 24, 48, viewWidth, viewHeight );
++            if ( content.height() > viewHeight ) {
++                const std::string pages = "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - viewHeight + 31 ) / 32 + 1 ) + " v";
++                Text( pages, FontType::smallWhite() ).draw( 24, 202, viewWidth, top );
++            }
 +        }
 +        if ( canBuild() ) buttons[0]->enable(); else buttons[0]->disable();
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
 +            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +            if ( selected == int( i ) ) {
 +                const auto area = buttons[i]->area();
-+                DrawRect( bottom, boatArtwork ? Rect{ area.x - 2, area.y - 2, area.width + 4, area.height + 4 } : area,
-+                          boatArtwork ? GetColorId( 255, 220, 70 ) : border );
++                DrawRect( bottom, Rect{ area.x - 2, area.y - 2, area.width + 4, area.height + 4 }, GetColorId( 255, 220, 70 ) );
 +            }
 +        }
 +        if ( boatArtwork && Platform3DS::smokeTest() && !evil && down && !moved && pressed == 0 )
 +            if ( !Save( bottom, "sdmc:/3ds/fheroes2/shipyard-pressed-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture pressed shipyard button" );
++        if ( !boatArtwork && Platform3DS::smokeTest() && !evil && !requirements.empty() && scroll > 0 )
++            if ( !Save( top, "sdmc:/3ds/fheroes2/building-scrolled-top.bmp" ) ) throw std::runtime_error( "Cannot capture building scroll" );
++        maximumBuildingScroll = content.height() - viewHeight;
 +        lastBuildingScroll = scroll;
 +        Display::instance().render();
 +    };
 +    draw();
-+    const std::string capture = boatArtwork ? ( evil ? "shipyard-evil" : ( canBuild() ? "shipyard" : "shipyard-disabled" ) ) : "building";
++    const std::string capture = boatArtwork ? ( evil ? "shipyard-evil" : ( canBuild() ? "shipyard" : "shipyard-disabled" ) ) : ( evil ? "building-evil" : ( !canBuild() ? "building-disabled" : !requirements.empty() ? "building-requirements" : price.size() == 7 ? "building-seven" : "building" ) );
 +    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/" + capture + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + capture + "-bottom.bmp" ) ) )
 +        throw std::runtime_error( "Cannot save building dialog" );
 +    auto & events = LocalEvent::Get();
@@ -4457,7 +4463,7 @@ index 0000000..3fed679
 +                if ( down && !moved && pressed >= 0 && ( touchArea( pressed ) & input.position ) ) { if ( pressed ) return false; if ( canBuild() ) return true; }
 +                down = false; pressed = -1;
 +            }
-+            scroll = std::clamp<int32_t>( scroll, 0, content.height() - 188 );
++            scroll = std::clamp<int32_t>( scroll, 0, content.height() - viewHeight );
 +        }
 +        if ( down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) {
 +            const int action = pressed; down = false; pressed = -1;
@@ -4507,15 +4513,25 @@ index 0000000..3fed679
 +    bool allowed = true;
 +    const auto dialog = [&]() { return showBuildingPurchase( name, body, "", image, cost, true, [&]() { return allowed; } ); };
 +    if ( run( dialog, { { 200, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) ) throw std::runtime_error( "Building default selection was not cancel" );
-+    if ( !run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) } } ) ) throw std::runtime_error( "Building allowed touch rejected" );
++    if ( !run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 190 ) }, { 80, touch( SDL_FINGERUP, 80, 190 ) } } ) ) throw std::runtime_error( "Building allowed touch rejected" );
 +    allowed = false;
-+    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building disabled touch accepted" );
++    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 190 ) }, { 80, touch( SDL_FINGERUP, 80, 190 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building disabled touch accepted" );
 +    if ( run( dialog, { { 200, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building disabled controller accepted" );
 +    allowed = true;
-+    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 220 ) }, { 80, touch( SDL_FINGERMOTION, 80, 180 ) }, { 80, touch( SDL_FINGERUP, 80, 180 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building drag accepted" );
++    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 190 ) }, { 80, touch( SDL_FINGERMOTION, 80, 140 ) }, { 80, touch( SDL_FINGERUP, 80, 140 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building drag accepted" );
++    if ( !run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 168 ) }, { 80, touch( SDL_FINGERUP, 80, 168 ) } } ) ) throw std::runtime_error( "Building enlarged touch target rejected" );
++    if ( run( dialog, { { 200, touch( SDL_FINGERDOWN, 80, 190 ) }, { 80, touch( SDL_FINGERUP, 80, 220 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building release outside target accepted" );
 +    if ( run( dialog, { { 200, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 200, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Building nested information accepted purchase" );
 +    const auto longDialog = [&]() { return showBuildingPurchase( name, body + "\n\n" + body + "\n\n" + body, name, image, cost, true, [&]() { return allowed; } ); };
 +    if ( run( longDialog, { { 200, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) || lastBuildingScroll <= 0 ) throw std::runtime_error( "Building long text did not scroll" );
++    std::vector<Step> scrollSteps;
++    for ( int i = 0; i < 20; ++i ) {
++        scrollSteps.emplace_back( 60, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) );
++        scrollSteps.emplace_back( 60, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) );
++    }
++    scrollSteps.insert( scrollSteps.end(), cancel.begin(), cancel.end() );
++    if ( run( longDialog, scrollSteps ) || lastBuildingScroll != maximumBuildingScroll ) throw std::runtime_error( "Building scroll did not reach/clamp at end" );
++    if ( run( longDialog, { { 200, touch( SDL_FINGERDOWN, 160, 140 ) }, { 80, touch( SDL_FINGERMOTION, 160, 40 ) }, { 80, touch( SDL_FINGERUP, 160, 40 ) }, { 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) || lastBuildingScroll <= 0 ) throw std::runtime_error( "Building stylus did not scroll" );
 +    if ( run( [&]() { return showBuildingPurchase( name, body, "", image, cost, false, []() { return true; } ); }, cancel ) ) throw std::runtime_error( "Building information-only accepted purchase" );
 +    Castle castle( 0, 0, Race::KNGT );
 +    if ( run( [&]() { return BuildingInfo( castle, BUILD_CASTLE ).DialogBuyBuilding( true ); }, cancel ) ) throw std::runtime_error( "Original building dialog cancel accepted" );
@@ -4524,7 +4540,8 @@ index 0000000..3fed679
 +    const bool evilResult = run( dialog, cancel ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
 +    if ( evilResult ) throw std::runtime_error( "Nested Evil building cancel accepted" );
 +    if ( run( dialog, cancel ) ) throw std::runtime_error( "Building preview cancel accepted" );
-+    COUT( "3DS BUILDING SMOKE: PASS actual_entry_cancel allowed_touch disabled_touch_controller default_cancel drag_cancel nested_info long_scroll readonly seven_resources evil unchanged_frame_context release_isolation" )
++    if ( run( [&]() { return showBuildingPurchase( name, body, "", image, PaymentConditions::BuyBuilding( Race::KNGT, BUILD_CASTLE ), true, []() { return true; } ); }, cancel ) ) throw std::runtime_error( "Building actual-price preview confirmed" );
++    COUT( "3DS BUILDING SMOKE: PASS original_card_frame actual_price_preview enlarged_hit_target outside_release_cancel bounded_dpad_stylus_scroll actual_entry_cancel allowed_touch disabled_touch_controller default_cancel drag_cancel nested_info long_scroll readonly seven_resources evil unchanged_frame_context release_isolation" )
 +}
 +
 +static void captureOriginalShipyard()
