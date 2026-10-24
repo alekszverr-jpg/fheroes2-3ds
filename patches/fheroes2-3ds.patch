@@ -4214,10 +4214,10 @@ index 0000000..8d46d57
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..da624d3
+index 0000000..3fed679
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
-@@ -0,0 +1,406 @@
+@@ -0,0 +1,410 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#if defined( __3DS__ )
@@ -4259,7 +4259,7 @@ index 0000000..da624d3
 +    Image makeShipyardFrame( const int32_t width, const bool evil )
 +    {
 +        // BUYBUILD is the frame used by Dialog::BuyBoat. Keep its main border,
-+        // preserving its flourishes and trimming only the side/bottom shadow.
++        // with a flush upper rail in place of the protruding crest.
 +        const int icn = evil ? ICN::BUYBUILE : ICN::BUYBUILD;
 +        Image source( 288, 240 ); source._disableTransformLayer();
 +        const auto & paper = Assets::getImage( icn, 5 );
@@ -4271,11 +4271,7 @@ index 0000000..da624d3
 +        for ( int32_t y = 0; y < 240; y += 25 )
 +            for ( int32_t x = 0; x < 288; x += 96 )
 +                Blit( paper, 48, 10, source, x, y, std::min<int32_t>( 96, 288 - x ), std::min<int32_t>( 25, 240 - y ) );
-+        for ( const uint32_t index : { 0U, 4U } ) {
-+            const auto & sprite = Assets::getImage( icn, index );
-+            Blit( sprite, source, index == 0 ? 144 : 144 - sprite.width(), 0 );
-+        }
-+        for ( int32_t y = topHeight; y < bottomStart; y += 35 )
++        for ( int32_t y = 0; y < bottomStart; y += 35 )
 +            for ( const uint32_t index : { 1U, 5U } ) {
 +                const auto & sprite = Assets::getImage( icn, index );
 +                Blit( sprite, 0, 10, source, index == 1 ? 144 : 144 - sprite.width(), y, sprite.width(), std::min<int32_t>( 35, bottomStart - y ) );
@@ -4298,9 +4294,17 @@ index 0000000..da624d3
 +            for ( int32_t x = 0; x < gap.second; x += 2 ) {
 +                const int32_t fromX = gap.first == 50 ? 48 : 238;
 +                const int32_t count = std::min<int32_t>( 2, gap.second - x );
-+                Copy( source, fromX, topHeight - 59, output, gap.first + x, topHeight - 59, count, 15 );
 +                Copy( source, fromX, bottomStart + 35, output, gap.first + x, bottomStart + 35, count, 240 - bottomStart - 35 );
 +            }
++        // Reuse the flat rail and corners of BUYBUILD at their native pixel size.
++        // Tile its plain section instead of cropping through the central crest.
++        const auto & topLeft = Assets::getImage( icn, 4 );
++        const auto & topRight = Assets::getImage( icn, 0 );
++        const int32_t railY = topHeight - 59;
++        Blit( topLeft, 16, railY, output, 0, 0, 32, 15 );
++        for ( int32_t x = 32; x < width - 32; x += 2 )
++            Blit( topLeft, 64, railY, output, x, 0, std::min<int32_t>( 2, width - 32 - x ), 15 );
++        Blit( topRight, topRight.width() - 33, railY, output, width - 32, 0, 32, 15 );
 +        return output;
 +    }
 +
@@ -4367,16 +4371,16 @@ index 0000000..da624d3
 +        boatTop = makeShipyardFrame( 400, evil ); boatBottom = makeShipyardFrame( 320, evil );
 +        if ( Platform3DS::smokeTest() && ( !boatTop.singleLayer() || !boatBottom.singleLayer() ) )
 +            throw std::runtime_error( "Shipyard modal backgrounds must be opaque" );
-+        Text title( name, FontType::normalWhite() ); title.fitToOneRow( 348 ); title.draw( 26, 66, 348, boatTop );
-+        Blit( portrait, boatTop, ( 400 - portrait.width() ) / 2, 94 );
-+        Text( _( "Resource cost:" ), FontType::normalWhite() ).draw( 28, 66, 264, boatBottom );
++        Text title( name, FontType::normalWhite() ); title.fitToOneRow( 348 ); title.draw( 26, 32, 348, boatTop );
++        Blit( portrait, boatTop, ( 400 - portrait.width() ) / 2, 80 );
++        Text( _( "Resource cost:" ), FontType::normalWhite() ).draw( 28, 42, 264, boatBottom );
 +        const std::array<std::pair<int, int32_t>, 2> price{ { { Resource::WOOD, cost.wood }, { Resource::GOLD, cost.gold } } };
 +        for ( size_t i = 0; i < price.size(); ++i ) {
 +            const int32_t centre = i ? 224 : 96;
 +            const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( price[i].first ) );
-+            Blit( icon, boatBottom, centre - icon.width() / 2, 126 - icon.height() );
++            Blit( icon, boatBottom, centre - icon.width() / 2, 110 - icon.height() );
 +            const Text amount( std::to_string( price[i].second ), FontType::normalWhite() );
-+            amount.draw( centre - amount.width() / 2, 138, boatBottom );
++            amount.draw( centre - amount.width() / 2, 124, boatBottom );
 +        }
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
 +            const int icn = i ? ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON )

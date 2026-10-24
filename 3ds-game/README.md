@@ -1,5 +1,11 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.43: flush shipyard upper frame
+
+The protruding crest is removed on both screens. An uninterrupted rail made from original BUYBUILD/BUYBUILE flat sections and corners now meets the upper screen edge. The lower ornament, themed texture, original buttons and enlarged touch targets remain. Titles and the boat/cost group move upward to use the reclaimed space. No input or purchase rules changed.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`. Shipyard passed short monitored Azahar runs on New/Old Russian and New English; Building New Russian regression, ARM build, desktop syntax and clean-baseline patch application passed. Good/Evil and localized captures were inspected; before/after images were retained locally. Full was not run. Physical appearance/touch and real coastal purchase/payment/2D–3D return still need New 3DS XL checks; earlier pending hardware scenarios remain open.
+
 ## Preview 0.3.42: original-style shipyard prototype
 
 The shipyard now uses the original BUYBUILD/BUYBUILE frame and parchment/grey background instead of a stone sheet and a plain outline. Decorative corners, central flourishes and jewels retain their pixel proportions; small plain border/background sections extend to each screen. The original boat is displayed at 2× scale with transparency preserved. The lower screen groups the original wood/gold cost, larger quantity labels and localized game OK/Cancel buttons with their shadows and pressed/disabled states. Gold focus marks the controller selection; invisible 128×44 touch targets surround the smaller visible buttons. The backgrounds are fully opaque and composed once per dialog. Other panels retain their previous styling while this prototype awaits feedback.
