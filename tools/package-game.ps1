@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.50'
+$version = '0.3.51'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -31,6 +31,8 @@ $manifest = [ordered]@{
     native_chest_choice='Fixed Gold/Experience buttons, rewards and context; scrolling description; original true=gold/false=experience caller contract; L chooses experience'
     hardware_chest_choice='User reports Gold choice works on New 3DS XL; Experience and level-up not separately confirmed'
     native_level_up='Touchscreen: two secondary choices, one skill confirmation, primary-only; top skill descriptions; original caller grants upgrades'
+    recruitment_style='0.3.51: original Good/Evil frame and RECRBKG/BLDGXTRA cost card, upper base attributes/total costs/remaining balances, lower animated portrait/quantity/slider and inset original OK/Cancel, 128x38 touch targets and drawn variant arrows'
+    validation_recruitment_style='Recruit New/Old ru and New en; Well/Messages/Elements New ru; bounded monitored groups, visible idle/large quantity/downgrade/rare resources/held scrolling/footer and outside release; physical readability and real hires pending'
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'

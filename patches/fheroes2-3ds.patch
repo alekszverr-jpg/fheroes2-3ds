@@ -6119,10 +6119,10 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..e620bbc
+index 0000000..ce70a51
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1585 @@
+@@ -0,0 +1,1642 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -6155,6 +6155,7 @@ index 0000000..e620bbc
 +#include "monster_anim.h"
 +#include "kingdom.h"
 +#include "race.h"
++#include "pal.h"
 +#include "world.h"
 +#include "resource.h"
 +#include "translations.h"
@@ -6895,9 +6896,23 @@ index 0000000..e620bbc
 +{
 +    using namespace fheroes2;
 +    const CursorRestorer cursorRestorer( false );
-+    Image window( 320, 240 );
++    Image window( 320, 240 ), upperWindow;
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t border = GetColorId( 150, 115, 63 );
++    const Image background = Interface3DS::makeClassicPanelBackground( 320, evil );
++    const Image upperBackground = Interface3DS::makeClassicPanelBackground( 400, evil );
++    upperWindow = upperBackground;
++    // Reuse the original recruitment cost card, including its own title rail and shadow.
++    const auto & originalCost = Assets::getImage( ICN::RECRBKG, 0 );
++    const auto & costTitle = Assets::getImage( ICN::BLDGXTRA, 0 );
++    Sprite costCard( 132, 67 ); costCard.reset();
++    Copy( costTitle, 3, 58, costCard, 3, 0, 63, 14 );
++    Copy( costTitle, costTitle.width() - 66, 58, costCard, 66, 0, 63, 14 );
++    Copy( originalCost, 138, 54, costCard, 0, 0, 3, 63 );
++    Copy( originalCost, 267, 54, costCard, 129, 0, 3, 63 );
++    Copy( originalCost, 138, 117, costCard, 0, 63, 132, 4 );
++    Text( _( "Cost per troop:" ), FontType::smallWhite() ).draw( 3, 3, 126, costCard );
++    if ( evil ) ApplyPalette( costCard, PAL::GetPalette( PAL::PaletteType::GOOD_TO_EVIL_INTERFACE ) );
 +    const std::array<int, 7> resources{ Resource::GOLD, Resource::WOOD, Resource::MERCURY, Resource::ORE, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS };
 +    std::vector<Monster> variants{ original };
 +    while ( allowDowngradedMonster && variants.back().GetDowngrade() != variants.back() )
@@ -6926,20 +6941,35 @@ index 0000000..e620bbc
 +    };
 +    std::vector<std::unique_ptr<ButtonBase>> buttons;
 +    const std::array<std::string, 8> labels{ "-", "+", "MIN", "MAX", "<", ">", _( "Okay" ), _( "Cancel" ) };
-+    const std::array<Rect, 8> areas{ Rect{ 70, 128, 32, 28 }, { 218, 128, 32, 28 }, { 10, 128, 52, 28 },  { 258, 128, 52, 28 },
-+                                     { 126, 94, 28, 22 },      { 266, 94, 28, 22 },   { 12, 204, 136, 30 }, { 172, 204, 136, 30 } };
++    const std::array<Rect, 8> areas{ Rect{ 70, 128, 20, 16 }, { 218, 128, 20, 16 }, { 24, 128, 36, 16 },  { 248, 128, 36, 16 },
++                                     { 126, 104, 16, 10 },      { 266, 104, 16, 10 },   { 12, 186, 116, 24 }, { 172, 186, 116, 24 } };
 +    for ( size_t i = 0; i < labels.size(); ++i ) {
++        if ( i >= Confirm ) {
++            const int icn = i == Confirm ? ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON )
++                                        : ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON );
++            buttons.emplace_back( std::make_unique<Button>( 0, 0, icn, 0, 1 ) );
++            continue;
++        }
 +        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", { areas[i].width, areas[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        const Text label( labels[i], i < Confirm ? FontType::smallWhite() : FontType::normalWhite() );
++        makeButtonSprites( released, pressed, "", { areas[i].width, areas[i].height }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++        const Text label( ( i == Previous || i == Next ) ? "" : labels[i], FontType::smallWhite() );
 +        label.draw( 4, ( released.height() - label.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
 +        label.draw( 3, ( pressed.height() - label.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
++        if ( i == Previous || i == Next ) {
++            for ( int dx = 0; dx < 5; ++dx ) {
++                const int x = released.width() / 2 + ( i == Previous ? dx - 2 : 2 - dx );
++                for ( int dy = -dx; dy <= dx; ++dy ) {
++                    SetPixel( released, x, released.height() / 2 + dy, GetColorId( 255, 220, 150 ) );
++                    SetPixel( pressed, x - 1, pressed.height() / 2 + dy + 1, GetColorId( 255, 220, 150 ) );
++                }
++            }
++        }
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( areas[i].x, areas[i].y, std::move( released ), std::move( pressed ) ) );
 +    }
 +    // Custom button frames add borders to the requested content size. Position from their actual hit areas.
-+    buttons[Minimum]->setPosition( 12, 128 );
-+    buttons[Maximum]->setPosition( 308 - buttons[Maximum]->area().width, 128 );
-+    buttons[Minus]->setPosition( 16 + buttons[Minimum]->area().width, 128 );
++    buttons[Minimum]->setPosition( 24, 128 );
++    buttons[Maximum]->setPosition( 296 - buttons[Maximum]->area().width, 128 );
++    buttons[Minus]->setPosition( 28 + buttons[Minimum]->area().width, 128 );
 +    buttons[Plus]->setPosition( buttons[Maximum]->area().x - buttons[Plus]->area().width - 4, 128 );
 +    const int quantityX = buttons[Minus]->area().x + buttons[Minus]->area().width + 4;
 +    const int quantityWidth = buttons[Plus]->area().x - quantityX - 4;
@@ -6953,8 +6983,13 @@ index 0000000..e620bbc
 +        if ( quantityWidth < 60 )
 +            throw std::runtime_error( "Recruit quantity text has no room" );
 +    }
-+    const Rect slider{ 12, 158, 296, 22 };
-+    const Rect portraitArea{ 12, 34, 104, 90 };
++    for ( const int action : { Confirm, Cancel } )
++        buttons[action]->setPosition( ( action == Confirm ? 88 : 232 ) - buttons[action]->area().width / 2, 186 );
++    const auto hitArea = [&]( const int action ) {
++        return action == Confirm ? Rect{ 24, 180, 128, 38 } : action == Cancel ? Rect{ 168, 180, 128, 38 } : buttons[action]->area();
++    };
++    const Rect slider{ 24, 158, 272, 22 };
++    const Rect portraitArea{ 24, 38, 96, 90 };
 +    std::vector<int> portraitFrames;
 +    Rect portraitBounds;
 +    size_t portraitFrame = 0;
@@ -6985,7 +7020,7 @@ index 0000000..e620bbc
 +    bool down = false, moved = false, sliding = false, closed = false, accepted = false;
 +    Point start, last;
 +    uint32_t began = 0;
-+    const ModalScope scope( window, false );
++    const ModalScope scope( window, false, &upperWindow );
 +    const auto enabled = [&]( const int action ) {
 +        if ( action == Previous || action == Next )
 +            return variants.size() > 1;
@@ -6998,13 +7033,12 @@ index 0000000..e620bbc
 +        return true;
 +    };
 +    const auto draw = [&]() {
-+        window.fill( GetColorId( 35, 29, 24 ) );
-+        StandardWindow::renderBackgroundImage( window, { 0, 0, 320, 240 }, 0, evil );
-+        DrawBorder( window, border );
++        window = background;
++        upperWindow = upperBackground;
 +        std::string title = _( "Recruit %{name}" );
 +        StringReplace( title, "%{name}", variants[variant].GetMultiName() );
 +        const Text titleText( title, FontType::normalYellow() );
-+        Text( title, titleText.height( 296 ) <= 26 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 12, 6, 296, window );
++        Text( title, titleText.height( 272 ) <= 17 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 24, 18, 272, window );
 +        const Sprite & creature = Assets::getImage( variants[variant].GetMonsterSprite(), portraitFrames[portraitFrame] );
 +        Image icon( portraitBounds.width, portraitBounds.height );
 +        icon.reset();
@@ -7015,24 +7049,32 @@ index 0000000..e620bbc
 +        scaledIcon.reset();
 +        Resize( icon, scaledIcon );
 +        Blit( scaledIcon, window, portraitArea.x + ( portraitArea.width - iconWidth ) / 2, portraitArea.y + ( portraitArea.height - iconHeight ) / 2 );
-+        Text( _( "Cost per troop:" ), FontType::smallWhite() ).draw( 126, 36, 182, window );
++        Blit( costCard, window, 156, 38 );
++        addGradientShadow( costCard, window, { 156, 38 }, { -3, 3 } );
++        const Monster & monster = variants[variant];
++        Text( monster.GetMultiName(), FontType::normalYellow() ).draw( 24, 24, 352, upperWindow );
++        Text( _( "Attack" ) + std::string( ": " ) + std::to_string( monster.GetAttack() ) + "\n" + _( "Defense" ) + ": " + std::to_string( monster.GetDefense() ), FontType::normalWhite() ).draw( 24, 56, 176, upperWindow );
++        Text( _( "Damage" ) + std::string( ": " ) + std::to_string( monster.GetDamageMin() ) + " - " + std::to_string( monster.GetDamageMax() ) + "\n" + _( "Hit Points" ) + ": " + std::to_string( monster.GetHitPoints() ), FontType::normalWhite() ).draw( 200, 56, 176, upperWindow );
++        Text( _( "Resource cost:" ), FontType::normalYellow() ).draw( 24, 110, 352, upperWindow );
 +        const Funds price = variants[variant].GetCost();
 +        std::vector<int> used;
 +        for ( const int resource : resources )
 +            if ( price.Get( resource ) > 0 )
 +                used.push_back( resource );
 +        for ( size_t i = 0; i < used.size(); ++i ) {
-+            const int columnWidth = 182 / int( used.size() );
++            const int columnWidth = 126 / int( used.size() );
 +            const ResourceDialogElement cost( used[i], std::to_string( price.Get( used[i] ) ) );
-+            cost.draw( window, { 126 + columnWidth * int( i ) + ( columnWidth - cost.area().width ) / 2, 53 } );
++            cost.draw( window, { 159 + columnWidth * int( i ) + ( columnWidth - cost.area().width ) / 2, 57 } );
 +            const int32_t total = price.Get( used[i] ) * count;
-+            Text( _( "Resource cost:" ) + std::string( " " ) + std::to_string( total ) + " (" + std::to_string( funds.Get( used[i] ) - total ) + ")",
-+                  FontType::smallWhite() )
-+                .draw( 12 + int( i ) * ( 296 / int( used.size() ) ), 184, 296 / int( used.size() ), window );
++            const int totalWidth = 352 / int( used.size() );
++            const ResourceDialogElement totalCost( used[i], std::to_string( total ) );
++            totalCost.draw( upperWindow, { 24 + int( i ) * totalWidth + ( totalWidth - totalCost.area().width ) / 2, 136 } );
++            Text( std::to_string( funds.Get( used[i] ) ) + " - " + std::to_string( total ) + " = " + std::to_string( funds.Get( used[i] ) - total ), FontType::smallWhite() )
++                .draw( 24 + int( i ) * totalWidth, 190, totalWidth, upperWindow );
 +        }
 +        std::string availability = _( "Available: %{count}" );
 +        StringReplace( availability, "%{count}", available );
-+        Text( availability, FontType::smallWhite() ).draw( variants.size() > 1 ? 166 : 126, 98, variants.size() > 1 ? 96 : 182, window );
++        Text( availability, FontType::smallWhite() ).draw( variants.size() > 1 ? 162 : 126, 110, variants.size() > 1 ? 100 : 170, window );
 +        const Text quantity( std::to_string( count ) + "/" + std::to_string( maximum ), FontType::normalWhite() );
 +        if ( quantity.width() <= quantityWidth )
 +            quantity.draw( quantityX, 135, quantityWidth, window );
@@ -7040,9 +7082,9 @@ index 0000000..e620bbc
 +            Text( std::to_string( count ), FontType::smallWhite() ).draw( quantityX, 128, quantityWidth, window );
 +            Text( "/" + std::to_string( maximum ), FontType::smallWhite() ).draw( quantityX, 143, quantityWidth, window );
 +        }
-+        Fill( window, 12, 166, 296, 4, GetColorId( 50, 40, 30 ) );
-+        const int thumb = maximum > 0 ? int( uint64_t( count ) * 288 / maximum ) : 0;
-+        Fill( window, 12 + thumb, 160, 8, 16, border );
++        Fill( window, 24, 166, 272, 4, GetColorId( 50, 40, 30 ) );
++        const int thumb = maximum > 0 ? int( uint64_t( count ) * 264 / maximum ) : 0;
++        Fill( window, 24 + thumb, 160, 8, 16, border );
 +        for ( int i = 0; i < int( buttons.size() ); ++i ) {
 +            if ( ( i == Previous || i == Next ) && variants.size() == 1 )
 +                continue;
@@ -7056,8 +7098,17 @@ index 0000000..e620bbc
 +                buttons[i]->release();
 +            buttons[i]->draw( window );
 +        }
++        if ( Platform3DS::smokeTest() ) {
++            const Rect inner{ 16, 16, 288, 204 };
++            for ( const auto & button : buttons ) {
++                const auto & area = button->area();
++                if ( area.x < inner.x || area.y < inner.y || area.x + area.width > inner.x + inner.width || area.y + area.height > inner.y + inner.height )
++                    throw std::runtime_error( "Recruit control crosses the classic frame" );
++            }
++        }
 +        if ( captureRecruitLayout ) {
 +            if ( !Save( window, "sdmc:/3ds/fheroes2/recruit-large.bmp" ) ) throw std::runtime_error( "Recruit layout screenshot failed" );
++            if ( !Save( upperWindow, "sdmc:/3ds/fheroes2/recruit-large-top.bmp" ) ) throw std::runtime_error( "Recruit top screenshot failed" );
 +            captureRecruitLayout = false;
 +        }
 +        if ( captureRecruitPortrait ) {
@@ -7066,7 +7117,7 @@ index 0000000..e620bbc
 +            if ( firstPortrait.empty() ) {
 +                firstPortrait.resize( portraitArea.width, portraitArea.height );
 +                Copy( window, portraitArea.x, portraitArea.y, firstPortrait, 0, 0, portraitArea.width, portraitArea.height );
-+                if ( !Save( window, "sdmc:/3ds/fheroes2/recruit-static.bmp" ) ) throw std::runtime_error( "Recruit screenshot failed" );
++                if ( !Save( window, "sdmc:/3ds/fheroes2/recruit-static.bmp" ) || !Save( upperWindow, "sdmc:/3ds/fheroes2/recruit-top.bmp" ) ) throw std::runtime_error( "Recruit screenshot failed" );
 +            }
 +            else {
 +                current.resize( portraitArea.width, portraitArea.height );
@@ -7135,7 +7186,7 @@ index 0000000..e620bbc
 +    };
 +    const auto slide = [&]( const Point point ) {
 +        if ( maximum > 0 )
-+            count = std::max<uint32_t>( 1, uint64_t( std::clamp<int32_t>( point.x - 12, 0, 288 ) ) * maximum / 288 );
++            count = std::max<uint32_t>( 1, uint64_t( std::clamp<int32_t>( point.x - 24, 0, 264 ) ) * maximum / 264 );
 +    };
 +    draw();
 +    auto & events = LocalEvent::Get();
@@ -7178,7 +7229,7 @@ index 0000000..e620bbc
 +                    slide( last );
 +                else
 +                    for ( int i = 0; i < int( buttons.size() ); ++i )
-+                        if ( buttons[i]->area() & last )
++                        if ( hitArea( i ) & last )
 +                            pressed = i;
 +            }
 +            else if ( input.type == PanelInputType::TouchMove && down ) {
@@ -7188,7 +7239,7 @@ index 0000000..e620bbc
 +                    slide( last );
 +            }
 +            else if ( input.type == PanelInputType::TouchUp && down ) {
-+                if ( !moved && !sliding && pressed >= 0 && ( buttons[pressed]->area() & last ) )
++                if ( !moved && !sliding && pressed >= 0 && ( hitArea( pressed ) & last ) )
 +                    activate( pressed );
 +                down = false;
 +                sliding = false;
@@ -7296,13 +7347,13 @@ index 0000000..e620bbc
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                { 80, touch( SDL_FINGERDOWN, 234, 140 ) },
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) },
-+                { 80, touch( SDL_FINGERDOWN, 80, 219 ) },
++                { 80, touch( SDL_FINGERDOWN, 80, 198 ) },
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) } } )
 +             .GetCount()
 +         != 2 )
 +        throw std::runtime_error( "Recruit stylus buttons differ" );
 +    if ( run( peasant, 10, false,
-+              { { 250, touch( SDL_FINGERDOWN, 300, 166 ) },
++              { { 250, touch( SDL_FINGERDOWN, 290, 166 ) },
 +                { 80, touch( SDL_FINGERMOTION, 12, 166 ) },
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                { 80, controller( SDL_CONTROLLER_BUTTON_A, true ) },
@@ -7311,7 +7362,7 @@ index 0000000..e620bbc
 +         != 1 )
 +        throw std::runtime_error( "Recruit slider differs" );
 +    if ( run( peasant, 10, false,
-+              { { 250, touch( SDL_FINGERDOWN, 80, 219 ) },
++              { { 250, touch( SDL_FINGERDOWN, 80, 198 ) },
 +                { 80, touch( SDL_FINGERMOTION, 160, 166 ) },
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                { 80, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) },
@@ -7319,6 +7370,12 @@ index 0000000..e620bbc
 +             .GetCount()
 +         != 0 )
 +        throw std::runtime_error( "Recruit drag accepted a purchase" );
++    if ( run( peasant, 10, false, { { 250, touch( SDL_FINGERDOWN, 80, 225 ) }, { 80, touch( SDL_FINGERUP, 80, 225 ) },
++             { 80, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).GetCount() != 0 )
++        throw std::runtime_error( "Recruit footer confirmed a purchase" );
++    if ( run( peasant, 10, false, { { 250, touch( SDL_FINGERDOWN, 80, 198 ) }, { 80, touch( SDL_FINGERMOTION, 80, 225 ) }, { 80, touch( SDL_FINGERUP, 80, 225 ) },
++             { 80, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, controller( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).GetCount() != 0 )
++        throw std::runtime_error( "Recruit outside release confirmed a purchase" );
 +    const auto nested = nestedInformationReturns;
 +    if ( run( peasant, 10, false,
 +              { { 250, controller( SDL_CONTROLLER_BUTTON_B, true ) },
@@ -7343,7 +7400,7 @@ index 0000000..e620bbc
 +    if ( run( peasant, 10, false,
 +              { { 250, touch( SDL_FINGERDOWN, 50, 80 ) },
 +                { 750, touch( SDL_FINGERMOTION, 50, 10 ) },
-+                { 100, touch( SDL_FINGERMOTION, 80, 219 ) },
++                { 100, touch( SDL_FINGERMOTION, 80, 198 ) },
 +                { 100, touch( SDL_FINGERMOTION, 80, 10 ) },
 +                { 100, touch( SDL_FINGERUP, 0, 0 ) },
 +                { 150, controller( SDL_CONTROLLER_BUTTON_A, true ) },
@@ -7371,7 +7428,7 @@ index 0000000..e620bbc
 +    if ( run( peasant, 0, false,
 +              { { 250, controller( SDL_CONTROLLER_BUTTON_A, true ) },
 +                { 80, controller( SDL_CONTROLLER_BUTTON_A, false ) },
-+                { 80, touch( SDL_FINGERDOWN, 240, 219 ) },
++                { 80, touch( SDL_FINGERDOWN, 240, 198 ) },
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) } } )
 +             .GetCount()
 +         != 0 )
@@ -7387,14 +7444,14 @@ index 0000000..e620bbc
 +    if ( run( dragon, 10, true, { { 250, controller( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, controller( SDL_CONTROLLER_BUTTON_A, false ) } } ).GetCount() != 1 )
 +        throw std::runtime_error( "Recruit ignored rare-resource limit" );
 +    const auto downgraded = run( dragon, 10, true,
-+                                 { { 250, touch( SDL_FINGERDOWN, 140, 106 ) },
++                                 { { 250, touch( SDL_FINGERDOWN, 140, 114 ) },
 +                                   { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                                   { 80, controller( SDL_CONTROLLER_BUTTON_A, true ) },
 +                                   { 80, controller( SDL_CONTROLLER_BUTTON_A, false ) } } );
 +    if ( downgraded.GetID() != dragon.GetDowngrade().GetID() || !downgraded.GetCount() || !kingdom.AllowPayment( downgraded.GetCost() * downgraded.GetCount() ) )
 +        throw std::runtime_error( "Recruit downgrade did not recalculate cost" );
 +    if ( run( dragon, 10, false,
-+              { { 250, touch( SDL_FINGERDOWN, 140, 106 ) },
++              { { 250, touch( SDL_FINGERDOWN, 140, 114 ) },
 +                { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                { 80, controller( SDL_CONTROLLER_BUTTON_A, true ) },
 +                { 80, controller( SDL_CONTROLLER_BUTTON_A, false ) } } )
@@ -7409,7 +7466,7 @@ index 0000000..e620bbc
 +    Settings::Get().setInterfaceType( previousInterface );
 +    if ( evil.GetID() != dragon.GetID() || evil.GetCount() != 1 )
 +        throw std::runtime_error( "Recruit evil interface differs" );
-+    COUT( "3DS RECRUIT SMOKE: PASS large_animated_portrait held_stylus_scroll release_isolation affordable_available_limits quantity_buttons_slider cancel_drag nested_info downgrade rare_resource empty_funds unchanged_context" )
++    COUT( "3DS RECRUIT SMOKE: PASS classic_frame_original_cost_card top_totals inset_controls footer_outside large_animated_portrait held_stylus_scroll release_isolation affordable_available_limits quantity_buttons_slider cancel_drag nested_info downgrade rare_resource empty_funds unchanged_context" )
 +}
 +
 +void Interface3DS::testNativeMessages()

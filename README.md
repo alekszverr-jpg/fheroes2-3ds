@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.50** extends the original game frame to illustrated response messages: descriptions above, resource/artifact/spell icons and controls below. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.51** restyles recruitment with the original cost card, inset controls, animated portraits and an upper cost/attribute summary. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 

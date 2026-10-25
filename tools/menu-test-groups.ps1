@@ -4,7 +4,7 @@ $menuTestGroups = [ordered]@{
     Elements = @{ Markers = @('3DS ILLUSTRATED MESSAGES SMOKE: PASS'); Captures = @('message-resource-bottom.bmp','message-artifact-top.bmp','message-artifact-bottom.bmp','message-spell-top.bmp','message-spell-bottom.bmp','message-mixed-evil-long-bottom.bmp','message-mixed-long-top.bmp') }
     Chest = @{ Markers = @('3DS CHEST SMOKE: PASS'); Captures = @('chest-top.bmp','chest-bottom.bmp','chest-evil-top.bmp','chest-evil-bottom.bmp','chest-long-top.bmp') }
     LevelUp = @{ Markers = @('3DS LEVEL UP SMOKE: PASS'); Captures = @('level-choice-top.bmp','level-choice-bottom.bmp','level-single-top.bmp','level-single-bottom.bmp','level-primary-top.bmp','level-primary-bottom.bmp','level-choice-evil-top.bmp','level-choice-evil-bottom.bmp','level-choice-long-top.bmp') }
-    Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp') }
+    Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp','recruit-top.bmp','recruit-large-top.bmp') }
     Market = @{ Markers = @('3DS MARKET SMOKE: PASS'); Captures = @('market-top.bmp','market-bottom.bmp') }
     Gift = @{ Markers = @('3DS GIFT SMOKE: PASS'); Captures = @('gift-top.bmp','gift-bottom.bmp') }
     Hero = @{ Markers = @('3DS HERO SMOKE: PASS'); Captures = @('hero-army-top.bmp','hero-army-bottom.bmp','hero-artifacts-top.bmp','hero-artifacts-bottom.bmp','hero-skills-top.bmp','hero-skills-bottom.bmp') }

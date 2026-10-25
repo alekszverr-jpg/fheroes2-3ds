@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.51: original-style recruitment
+
+Recruitment now uses the accepted original Good/Evil frame on both screens and the original RECRBKG/BLDGXTRA cost card. The lower screen keeps the animated creature portrait, unit price, availability, quantity controls, slider and original inset OK/Cancel buttons with separate 128x38 touch targets. Variant controls draw actual arrows. The upper screen shows base creature attributes, total resource costs and the current-minus-cost balance. Portrait scale stays fixed across idle frames; holding/B retains the original information and scrolling behaviour.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check portrait readability, quantities/slider, downgrade variants and cancel; perform a real hire and confirm exact payment, dwelling decrease and army placement. The dialog continues to return the selected troop; the original caller applies payment/army changes.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Recruit New/Old Russian and New English; Well, Messages and Elements New Russian. Recruit covers visible idle, affordable/available/rare-resource limits, 100000000 quantity, buttons/slider, disabled/empty cases, downgrade gating, held information with stylus/D-pad scroll, outside/footer/drag rejection, Evil and restored funds/frame/viewport/strip. Old test coordinates for the slider endpoint and cancel button were updated after two bounded diagnostic failures; neither deadline was increased. ARM build, five-file desktop syntax, 28-group/40-marker infrastructure and clean-baseline patch application passed. Full was not run. Real hire effects and physical readability remain hardware checks.
+
 ## Preview 0.3.50: original-style illustrated messages
 
 Response messages containing supported static game elements now use the accepted original frame: descriptions on the upper screen, resource/artifact/spell/stat icons and original response buttons below. Icon rows and long descriptions scroll within their own bounds; controls stay fixed. Held icons and B retain nested original information, including after text scrolling. Good/Evil backgrounds are opaque. Information-only messages, wide passive artwork and animations keep their existing layout.
