@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.55: original-style castle army panel
+
+The main castle garrison/visiting-hero panel and the standalone army panel now use the accepted original Good/Evil lower frame. Five slots per row remain, with compact original creature icons, recessed trays and full counts. Oversized count text scales proportionally inside its strip instead of using an ellipsis. Headings, castle arrows, income and two action rows have separate inset touch regions. Construction receives extra width so localized action labels remain complete; smoke checks enforce label fit and button/frame bounds.
+
+ArmyBar still owns transfer, merge, swap, last-hero-creature protection and manual/drag splitting. Details, hero information, buildings, construction, income and castle navigation preserve their action identifiers. Touch-up checks the actual release point, preventing an outside release/footer tap from opening construction. Upper town/panorama/stereo painting is unchanged; a normal static-town upper snapshot matched 0.3.54 pixel-for-pixel.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed CastleArmy and CastleScreen New/Old Russian and New English, plus CastleBuildings, CastleStereo and Well New Russian. Cases cover original ArmyBar actions/conservation, nested details/hero/split cancel, missing hero, four-billion count, Evil, Y/catalog return, construction, previous/next/single-castle gating, footer/outside release and restored funds/heroes/frame/context. Well checks retain exact individual/Max payment/population/army totals. Captures inspected; ARM build, two-file desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run. Replace only `3ds/fheroes2/fheroes2.3dsx`; on New 3DS XL verify readability/touch, real transfers/splits, castle arrows, construction/catalog and stereo return. Hardware checks remain separate.
+
 ## Preview 0.3.54: original-style built-building catalog
 
 The built-building catalog now uses the accepted Good/Evil game frame: six original building thumbnails below, selected artwork and description above. Paging arrows, OK and Back sit inside the lower frame with separate inset touch targets. The page number appears in the heading. Upper text has a separate position indicator and visible scroll track/arrows, keeping the footer clear. Text is shown in whole rows at the viewport edges. Touch-up now checks the actual release position, so releasing outside an action does not open a building.

@@ -23,7 +23,7 @@ $menuTestGroups = [ordered]@{
     Well = @{ Markers = @('3DS WELL SMOKE: PASS'); Captures = @('well-top.bmp','well-bottom.bmp','well-idle-top.bmp','well-evil-top.bmp','well-evil-bottom.bmp','well-empty-top.bmp','well-empty-bottom.bmp','well-large-top.bmp','well-large-bottom.bmp') }
     SystemExit = @{ Markers = @('3DS SYSTEM EXIT SMOKE: PASS'); Captures = @() }
     CastleScreen = @{ Markers = @('3DS CASTLE MAIN SMOKE: PASS'); Captures = @('castle-main-top.bmp','castle-main-bottom.bmp') }
-    CastleArmy = @{ Markers = @('3DS CASTLE ARMY SMOKE: PASS'); Captures = @('castle-army-top.bmp','castle-army-bottom.bmp') }
+    CastleArmy = @{ Markers = @('3DS CASTLE ARMY SMOKE: PASS'); Captures = @('castle-army-top.bmp','castle-army-bottom.bmp','castle-army-evil-bottom.bmp','castle-army-no-hero-bottom.bmp','castle-army-large-bottom.bmp') }
     CastleOptions = @{ Markers = @('3DS CASTLE OPTIONS SMOKE: PASS'); Captures = @('castle-options-top.bmp','castle-options-bottom.bmp') }
     HeroRecruit = @{ Markers = @('3DS HERO RECRUIT SMOKE: PASS'); Captures = @('hero-recruit-top.bmp','hero-recruit-bottom.bmp') }
     Construction = @{ Markers = @('3DS CONSTRUCTION SMOKE: PASS'); Captures = @('construction-top.bmp','construction-bottom.bmp') }

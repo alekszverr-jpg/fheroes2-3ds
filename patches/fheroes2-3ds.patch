@@ -4584,12 +4584,13 @@ index 0000000..6556377
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_army.cpp b/src/fheroes2/gui/ui_3ds_castle_army.cpp
 new file mode 100644
-index 0000000..9142f38
+index 0000000..cd772a6
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_army.cpp
-@@ -0,0 +1,496 @@
+@@ -0,0 +1,522 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -4629,19 +4630,19 @@ index 0000000..9142f38
 +namespace
 +{
 +    using namespace fheroes2;
-+    Rect slotArea( int index ) { return { 12 + index % 5 * 60, index < 5 ? 28 : 112, 56, 54 }; }
++    Rect slotArea( int index ) { return { 26 + index % 5 * 54, index < 5 ? 42 : 112, 50, 44 }; }
 +    class CastleArmyBar : public ArmyBar
 +    {
 +    public:
 +        explicit CastleArmyBar( Army * army ) : ArmyBar( army, false, false ) {}
 +        void select( int index )
 +        {
-+            ResetSelected(); const auto item = GetItemIterPos( { 12 + index * 60 + 28, rowY + 27 } );
++            ResetSelected(); const auto item = GetItemIterPos( { 26 + index * 54 + 25, rowY + 22 } );
 +            if ( item.first != items.end() && ( **item.first ).isValid() ) curItemPos = item;
 +        }
 +        void information( int index, bool held )
 +        {
-+            const auto item = GetItemIterPos( { 12 + index * 60 + 28, rowY + 27 } );
++            const auto item = GetItemIterPos( { 26 + index * 54 + 25, rowY + 22 } );
 +            if ( item.first == items.end() || !( **item.first ).isValid() ) return;
 +            ResetSelected();
 +            if ( held ) ActionBarRightMouseHold( **item.first );
@@ -4649,7 +4650,7 @@ index 0000000..9142f38
 +        }
 +        void activate( int index, CastleArmyBar & other, bool split )
 +        {
-+            const auto item = GetItemIterPos( { 12 + index * 60 + 28, rowY + 27 } );
++            const auto item = GetItemIterPos( { 26 + index * 54 + 25, rowY + 22 } );
 +            if ( item.first == items.end() ) return;
 +            auto & troop = **item.first;
 +            if ( other.isSelected() ) {
@@ -4708,34 +4709,37 @@ index 0000000..9142f38
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const Image bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    CastleArmyBar garrison( &castle.GetArmy() ), guest( hero ? &hero->GetArmy() : nullptr );
 +    for ( auto * bar : { &garrison, &guest } ) {
-+        bar->rowY = bar == &garrison ? 28 : 112;
-+        bar->setTableSize( { 5, 1 } ); bar->setSingleItemSize( { 56, 54 } ); bar->setRenderingOffset( { 12, bar->rowY } ); bar->setInBetweenItemsOffset( { 4, 0 } );
++        bar->rowY = bar == &garrison ? 42 : 112;
++        bar->setTableSize( { 5, 1 } ); bar->setSingleItemSize( { 50, 44 } ); bar->setRenderingOffset( { 26, bar->rowY } ); bar->setInBetweenItemsOffset( { 4, 0 } );
 +    }
 +    const std::array<std::string, 9> labels{ _( "Details" ), _( "Split" ), _( "Hero" ), screen ? _( "Exit" ) : _( "Back" ), _( "castle3DS|Buildings" ), "", "", _( "construction3DS|Construction" ), _( "construction3DS|Income" ) };
-+    const std::array<Rect, 9> controls{ Rect{ 12, 176, 96, 25 }, { 112, 176, 96, 25 }, { 212, 176, 96, 25 },
-+        screen ? Rect{ 212, 208, 96, 25 } : Rect{ 164, 208, 148, 25 }, screen ? Rect{ 12, 208, 96, 25 } : Rect{ 8, 208, 148, 25 },
-+        { 8, 2, 26, 25 }, { 286, 2, 26, 25 }, { 112, 208, 96, 25 }, { 212, 86, 96, 25 } };
++    const std::array<Rect, 9> controls{ Rect{ 24, 160, 86, 28 }, { 116, 160, 86, 28 }, { 208, 160, 88, 28 },
++        screen ? Rect{ 216, 190, 80, 28 } : Rect{ 168, 190, 128, 28 }, screen ? Rect{ 24, 190, 80, 28 } : Rect{ 24, 190, 128, 28 },
++        { 24, 16, 34, 26 }, { 262, 16, 34, 26 }, { 108, 190, 104, 28 }, { 220, 86, 76, 26 } };
 +    const int controlCount = screen ? 9 : 5;
 +    const int elementCount = 10 + controlCount;
 +    std::array<std::unique_ptr<ButtonBase>, 9> buttons;
 +    for ( int i = 0; i < controlCount; ++i ) {
-+        Sprite released, pressed; makeButtonSprites( released, pressed, "", { controls[i].width - 10, controls[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        const int width = controls[i].width - 8;
-+        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= width ? FontType::normalWhite() : FontType::smallWhite() ); text.fitToOneRow( width );
++        Sprite released, pressed; makeButtonSprites( released, pressed, "", { controls[i].width - 12, 14 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++        const int width = released.width() - 8;
++        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= width ? FontType::normalWhite() : FontType::smallWhite() );
++        if ( Platform3DS::smokeTest() && text.width() > width ) throw std::runtime_error( "Castle action label needs more room" );
++        text.fitToOneRow( width );
 +        text.draw( 4, ( released.height() - text.height() ) / 2, width, released ); text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, width, pressed );
 +        if ( i == 5 || i == 6 ) {
 +            // Draw actual arrows, independent of font glyph coverage.
 +            for ( int dx = 0; dx < 6; ++dx ) {
-+                const int x = i == 5 ? 9 + dx : 16 - dx;
++                const int x = released.width() / 2 + ( i == 5 ? dx - 3 : 3 - dx );
 +                for ( int dy = -dx; dy <= dx; ++dy ) {
 +                    SetPixel( released, x, released.height() / 2 + dy, GetColorId( 255, 220, 150 ) );
 +                    SetPixel( pressed, x - 1, pressed.height() / 2 + dy + 1, GetColorId( 255, 220, 150 ) );
 +                }
 +            }
 +        }
-+        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) );
++        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x + ( controls[i].width - released.width() ) / 2, controls[i].y + ( controls[i].height - released.height() ) / 2, std::move( released ), std::move( pressed ) );
 +    }
 +    Image city( 400, 160 ); city.reset(); Resize( town, city );
 +    Image top( 400, 240 ), bottom( 320, 240 ); const CastleArmyScope scope( top, bottom, screen ? &screen->rightTop : nullptr );
@@ -4775,7 +4779,7 @@ index 0000000..9142f38
 +        return BUILD_NOTHING;
 +    };
 +    const auto draw = [&]() {
-+        top.fill( background ); bottom.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        top.fill( background ); bottom = bottomBackground; StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
 +        Text name( castle.GetName(), FontType::normalYellow() ); name.fitToOneRow( 376 ); name.draw( 12, 8, 376, top ); Blit( city, top, 0, 28 );
 +        const int active = selected(); const int preview = active >= 0 ? active : focus < 10 ? focus : -1;
 +        if ( preview >= 0 && troopAt( preview ) && troopAt( preview )->isValid() ) {
@@ -4789,24 +4793,27 @@ index 0000000..9142f38
 +            DrawRect( bottom, { area.x + 1, area.y + 1, area.width - 2, area.height - 2 }, border );
 +            DrawLine( bottom, { area.x + 2, area.y + 2 }, { area.x + area.width - 3, area.y + 2 }, light );
 +        };
-+        bevel( { 8, 27, 304, 57 } ); bevel( { 8, 111, 304, 57 } );
-+        DrawLine( bottom, { 12, 171 }, { 307, 171 }, shadow );
-+        DrawLine( bottom, { 12, 172 }, { 307, 172 }, border );
-+        Text( _( "Garrison" ), FontType::normalYellow() ).draw( screen ? 40 : 12, 8, screen ? 240 : 296, bottom );
-+        Text guestName( hero ? hero->GetName() : _( "None" ), FontType::normalYellow() ); guestName.fitToOneRow( screen ? 192 : 296 ); guestName.draw( 12, 91, screen ? 192 : 296, bottom );
++        bevel( { 24, 40, 272, 48 } ); bevel( { 24, 110, 272, 48 } );
++        Text( _( "Garrison" ), FontType::normalYellow() ).draw( screen ? 62 : 24, 18, screen ? 196 : 272, bottom );
++        Text guestName( hero ? hero->GetName() : _( "None" ), FontType::normalYellow() ); guestName.fitToOneRow( screen ? 184 : 272 ); guestName.draw( 24, 92, screen ? 184 : 272, bottom );
 +        for ( int i = 0; i < 10; ++i ) {
 +            const auto area = slotArea( i ); StandardWindow::renderBackgroundImage( bottom, area, 0, evil );
 +            // A recessed dark portrait well and a separate count strip.
-+            Fill( bottom, area.x + 2, area.y + 2, area.width - 4, 35, background );
++            Fill( bottom, area.x + 2, area.y + 2, area.width - 4, 28, background );
 +            bevel( area );
-+            DrawLine( bottom, { area.x + 2, area.y + 37 }, { area.x + area.width - 3, area.y + 37 }, border );
++            DrawLine( bottom, { area.x + 2, area.y + 31 }, { area.x + area.width - 3, area.y + 31 }, border );
 +            const auto * troop = troopAt( i );
 +            if ( troop && troop->isValid() ) {
 +                const auto & original = Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() );
-+                const double scale = std::min( 52.0 / original.width(), 34.0 / original.height() );
++                const double scale = std::min( 46.0 / original.width(), 28.0 / original.height() );
 +                Image image( std::max( 1, int( original.width() * scale ) ), std::max( 1, int( original.height() * scale ) ) ); image.reset(); Resize( original, image );
-+                Blit( image, bottom, area.x + ( area.width - image.width() ) / 2, area.y + 2 + ( 34 - image.height() ) / 2 );
-+                Text count( std::to_string( troop->GetCount() ), FontType::normalWhite() ); if ( count.width() > 54 ) count.set( std::to_string( troop->GetCount() ), FontType::smallWhite() ); count.draw( area.x, area.y + 38, 56, bottom );
++                Blit( image, bottom, area.x + ( area.width - image.width() ) / 2, area.y + 2 + ( 28 - image.height() ) / 2 );
++                const Text count( std::to_string( troop->GetCount() ), FontType::smallWhite() );
++                Image amount( count.width(), count.height() ); amount.reset(); count.draw( 0, 0, amount );
++                if ( amount.width() > 46 ) {
++                    Image scaled( 46, std::max<int32_t>( 1, amount.height() * 46 / amount.width() ) ); scaled.reset(); Resize( amount, scaled ); amount = std::move( scaled );
++                }
++                Blit( amount, bottom, area.x + ( area.width - amount.width() ) / 2, area.y + 32 + ( 10 - amount.height() ) / 2 );
 +            }
 +            if ( active == i ) DrawRect( bottom, area, GetColorId( 90, 175, 85 ) );
 +        }
@@ -4825,7 +4832,22 @@ index 0000000..9142f38
 +    };
 +    const auto indexAt = [&]( Point point ) { for ( int i = 0; i < 10; ++i ) if ( slotArea( i ) & point ) return i; for ( int i = 0; i < controlCount; ++i ) if ( controls[i] & point ) return i + 10; return -1; };
 +    if ( screen && screen->animate ) screen->animate( city );
++    if ( Platform3DS::smokeTest() ) {
++        for ( int i = 0; i < controlCount; ++i ) {
++            const auto area = buttons[i]->area(), hit = controls[i];
++            if ( area.x < hit.x || area.x + area.width > hit.x + hit.width || area.y < hit.y || area.y + area.height > hit.y + hit.height )
++                throw std::runtime_error( "Castle army control crosses its inset target" );
++        }
++        for ( int i = 0; i < 10; ++i ) {
++            const auto area = slotArea( i );
++            if ( area.x < 24 || area.x + area.width > 296 || area.y < 38 || area.y + area.height > 158 )
++                throw std::runtime_error( "Castle troop slot crosses the classic frame" );
++        }
++    }
 +    draw();
++    if ( Platform3DS::smokeTest() && castle.GetArmy().GetTroop( 0 )->GetCount() >= 1000000000U && !Save( bottom, "sdmc:/3ds/fheroes2/castle-army-large-bottom.bmp" ) ) throw std::runtime_error( "Cannot save large castle army count" );
++    if ( Platform3DS::smokeTest() && evil && !Save( bottom, "sdmc:/3ds/fheroes2/castle-army-evil-bottom.bmp" ) ) throw std::runtime_error( "Cannot save Evil castle army" );
++    if ( Platform3DS::smokeTest() && !hero && !Save( bottom, "sdmc:/3ds/fheroes2/castle-army-no-hero-bottom.bmp" ) ) throw std::runtime_error( "Cannot save empty guest panel" );
 +    if ( Platform3DS::smokeTest() && ( !Save( top, screen ? "sdmc:/3ds/fheroes2/castle-main-top.bmp" : "sdmc:/3ds/fheroes2/castle-army-top.bmp" ) || !Save( bottom, screen ? "sdmc:/3ds/fheroes2/castle-main-bottom.bmp" : "sdmc:/3ds/fheroes2/castle-army-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save castle army" );
 +    auto & events = LocalEvent::Get();
 +    while ( events.HandleEvents() ) {
@@ -4852,6 +4874,7 @@ index 0000000..9142f38
 +            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) { down = true; moved = false; start = last = input.position; pressed = indexAt( start ); began = SDL_GetTicks(); }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) { moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6; last = input.position; }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                last = input.position;
 +                const int source = pressed, target = indexAt( last ); const bool wasDown = down; down = false; pressed = -1;
 +                if ( wasDown && !moved && source >= 0 && source == target ) { focus = source; if ( source == 13 ) { clear(); return BUILD_NOTHING; } const auto choice = activate( source ); if ( choice ) return choice; }
 +                else if ( wasDown && moved && source >= 0 && source < 10 && target >= 0 && target < 10 && source != target ) {
@@ -4920,21 +4943,21 @@ index 0000000..9142f38
 +    if ( visiting.GetTroop( 0 )->GetCount() != 1 || army.GetTroop( 0 )->GetCount() != 14 ) throw std::runtime_error( "Castle army final stack reserve differs" );
 +    prepare(); army.Clean(); army.GetTroop( 0 )->Set( Monster::ARCHER, 1 ); steps.clear(); tap( steps, 40, 50 ); tap( steps, 220, 135 ); run( &hero, steps );
 +    if ( army.isValid() || visiting.GetTroop( 3 )->GetCount() != 1 ) throw std::runtime_error( "Castle army incorrectly reserved last garrison creature" );
-+    prepare(); steps.clear(); tap( steps, 40, 50 ); tap( steps, 150, 190 ); tap( steps, 160, 50 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( &hero, steps );
++    prepare(); steps.clear(); tap( steps, 40, 50 ); tap( steps, 150, 174 ); tap( steps, 160, 50 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( &hero, steps );
 +    if ( army.GetTroop( 0 )->GetCount() != 5 || army.GetTroop( 2 )->GetCount() != 5 ) throw std::runtime_error( "Castle army split button differs" );
 +    prepare(); steps.clear(); steps.emplace_back( 250, touch( SDL_FINGERDOWN, 40, 50 ) ); steps.emplace_back( 100, touch( SDL_FINGERMOTION, 160, 135 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 160, 135 ) ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( &hero, steps );
 +    if ( army.GetTroop( 0 )->GetCount() != 5 || visiting.GetTroop( 2 )->GetCount() != 5 ) throw std::runtime_error( "Castle army cross-row drag split differs" );
-+    prepare(); steps.clear(); tap( steps, 40, 50 ); tap( steps, 150, 190 ); tap( steps, 160, 50 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( &hero, steps );
++    prepare(); steps.clear(); tap( steps, 40, 50 ); tap( steps, 150, 174 ); tap( steps, 160, 50 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( &hero, steps );
 +    if ( army.GetTroop( 0 )->GetCount() != 10 || army.GetTroop( 2 )->isValid() ) throw std::runtime_error( "Castle army cancelled split changed troops" );
 +    prepare(); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( &hero, steps );
 +    if ( army.GetTroop( 0 )->isValid() || visiting.GetTroop( 0 )->GetCount() != 15 ) throw std::runtime_error( "Castle army controller transfer differs" );
-+    prepare(); steps.clear(); tap( steps, 40, 50 ); tap( steps, 50, 190 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( &hero, steps );
++    prepare(); steps.clear(); tap( steps, 40, 50 ); tap( steps, 50, 174 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( &hero, steps );
 +    if ( army.GetTroop( 0 )->GetCount() != 10 ) throw std::runtime_error( "Castle army cancelled details changed troops" );
 +    prepare(); steps = { { 250, touch( SDL_FINGERDOWN, 40, 50 ) }, { 900, touch( SDL_FINGERUP, 40, 50 ) } }; run( &hero, steps );
 +    prepare(); steps = { { 250, touch( SDL_FINGERDOWN, 40, 50 ) }, { 100, touch( SDL_FINGERMOTION, 319, 240 ) }, { 80, touch( SDL_FINGERUP, 319, 240 ) } }; run( &hero, steps );
 +    if ( army.GetTroop( 0 )->GetCount() != 10 ) throw std::runtime_error( "Castle army outside drag changed troops" );
-+    prepare(); steps.clear(); tap( steps, 40, 135 ); tap( steps, 250, 190 ); run( nullptr, steps );
-+    prepare(); steps.clear(); tap( steps, 250, 190 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( &hero, steps );
++    prepare(); steps.clear(); tap( steps, 40, 135 ); tap( steps, 250, 174 ); run( nullptr, steps );
++    prepare(); steps.clear(); tap( steps, 250, 174 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( &hero, steps );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
 +    run( &hero, {} ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
@@ -4943,7 +4966,8 @@ index 0000000..9142f38
 +        steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_Y ); run( &hero, steps, true, false );
 +    }
 +    run( &hero, {} );
-+    COUT( "3DS CASTLE ARMY SMOKE: PASS actual_Y_dispatch toggle_close original_ArmyBar same_move cross_merge_swap last_hero_creature split_button drag_split split_cancel controller details_cancel held_info missing_hero hero_nested outside_drag evil conservation unchanged_funds_heroes_frame_context release_isolation" )
++    prepare(); army.GetTroop( 0 )->Set( Monster::ARCHER, 4000000000U ); run( &hero, {} );
++    COUT( "3DS CASTLE ARMY SMOKE: PASS classic_frame inset_actions compact_slots actual_Y_dispatch toggle_close original_ArmyBar same_move cross_merge_swap last_hero_creature split_button drag_split split_cancel controller details_cancel held_info missing_hero hero_nested outside_drag evil conservation unchanged_funds_heroes_frame_context release_isolation" )
 +}
 +void Interface3DS::testCastleScreen()
 +{
@@ -4993,14 +5017,16 @@ index 0000000..9142f38
 +             || count != inventory() || heroes != castle.GetKingdom().GetHeroes() || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Castle main changed state/context or leaked input" );
 +        return action;
 +    };
-+    std::vector<Step> steps; tap( steps, 155, 220 );
++    std::vector<Step> steps; tap( steps, 160, 204 );
 +    if ( run( steps, false, false ) != CastleScreen::Action::Construction ) throw std::runtime_error( "Direct construction button failed" );
-+    steps.clear(); tap( steps, 155, 220 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
-+    steps.clear(); tap( steps, 20, 14 );
++    steps.clear(); tap( steps, 160, 204 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
++    steps.clear(); tap( steps, 160, 226 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps, false, false ) != CastleScreen::Action::Close ) throw std::runtime_error( "Castle footer activated construction" );
++    steps = { { 250, touch( SDL_FINGERDOWN, 160, 204 ) }, { 80, touch( SDL_FINGERUP, 160, 226 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps, false, false ) != CastleScreen::Action::Close ) throw std::runtime_error( "Castle outside release activated construction" );
++    steps.clear(); tap( steps, 40, 28 );
 +    if ( run( steps, true, false ) != CastleScreen::Action::Previous ) throw std::runtime_error( "Castle main previous failed" );
-+    steps.clear(); tap( steps, 300, 14 );
++    steps.clear(); tap( steps, 280, 28 );
 +    if ( run( steps, true, false ) != CastleScreen::Action::Next ) throw std::runtime_error( "Castle main next failed" );
-+    steps.clear(); tap( steps, 20, 14 ); tap( steps, 300, 14 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    steps.clear(); tap( steps, 40, 28 ); tap( steps, 280, 28 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
 +    if ( run( steps, false, false ) != CastleScreen::Action::Close ) throw std::runtime_error( "Single castle navigation active" );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_A );
 +    if ( run( steps, false, false ) != CastleScreen::Action::Building ) throw std::runtime_error( "Castle main Y building selection failed" );
@@ -5086,7 +5112,7 @@ index 0000000..9142f38
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_buildings.cpp b/src/fheroes2/gui/ui_3ds_castle_buildings.cpp
 new file mode 100644
-index 0000000..2d0b08a
+index 0000000..0148542
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_buildings.cpp
 @@ -0,0 +1,304 @@
@@ -5385,8 +5411,8 @@ index 0000000..2d0b08a
 +    steps.clear(); for ( size_t i = 0; i < size_t( std::find( entries.begin(), entries.end(), BUILD_CASTLE ) - entries.begin() ); ++i ) press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT );
 +    steps.emplace_back( 150, touch( SDL_FINGERDOWN, 200, 160 ) ); steps.emplace_back( 100, touch( SDL_FINGERMOTION, 200, 40 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 200, 40 ) );
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps ) || lastBuildingScroll <= 0 ) throw std::runtime_error( "Long castle description did not scroll" );
-+    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); tap( steps, 80, 220 ); press( steps, SDL_CONTROLLER_BUTTON_A ); if ( run( steps, 2 ) != entries[0] ) throw std::runtime_error( "Army Buildings choice not returned to castle" );
-+    steps.clear(); tap( steps, 80, 220 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps, 1 ) ) throw std::runtime_error( "Buildings cancel did not restore army panel" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); tap( steps, 80, 204 ); press( steps, SDL_CONTROLLER_BUTTON_A ); if ( run( steps, 2 ) != entries[0] ) throw std::runtime_error( "Army Buildings choice not returned to castle" );
++    steps.clear(); tap( steps, 80, 204 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps, 1 ) ) throw std::runtime_error( "Buildings cancel did not restore army panel" );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); const auto evil = run( steps ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
