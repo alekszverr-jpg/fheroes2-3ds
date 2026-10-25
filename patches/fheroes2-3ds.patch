@@ -4602,10 +4602,10 @@ index 0000000..6556377
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_army.cpp b/src/fheroes2/gui/ui_3ds_castle_army.cpp
 new file mode 100644
-index 0000000..cd772a6
+index 0000000..b3b3bc1
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_army.cpp
-@@ -0,0 +1,522 @@
+@@ -0,0 +1,523 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -5040,6 +5040,7 @@ index 0000000..cd772a6
 +    steps.clear(); tap( steps, 160, 204 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
 +    steps.clear(); tap( steps, 160, 226 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps, false, false ) != CastleScreen::Action::Close ) throw std::runtime_error( "Castle footer activated construction" );
 +    steps = { { 250, touch( SDL_FINGERDOWN, 160, 204 ) }, { 80, touch( SDL_FINGERUP, 160, 226 ) } }; press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); if ( run( steps, false, false ) != CastleScreen::Action::Close ) throw std::runtime_error( "Castle outside release activated construction" );
++    steps.clear(); tap( steps, 160, 204 ); tap( steps, 155, 174 ); tap( steps, 80, 204 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( steps, false, true );
 +    steps.clear(); tap( steps, 40, 28 );
 +    if ( run( steps, true, false ) != CastleScreen::Action::Previous ) throw std::runtime_error( "Castle main previous failed" );
 +    steps.clear(); tap( steps, 280, 28 );
@@ -5440,12 +5441,13 @@ index 0000000..0148542
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_options.cpp b/src/fheroes2/gui/ui_3ds_castle_options.cpp
 new file mode 100644
-index 0000000..80c556c
+index 0000000..535d7db
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_options.cpp
-@@ -0,0 +1,223 @@
+@@ -0,0 +1,244 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -5502,8 +5504,10 @@ index 0000000..80c556c
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil );
++    const Image bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    const std::array<Heroes *, 2> heroes{ first, second };
-+    const std::array<Rect, 6> areas{ Rect{ 8, 28, 148, 116 }, { 164, 28, 148, 116 }, { 8, 160, 148, 28 }, { 164, 160, 148, 28 }, { 8, 206, 148, 28 }, { 164, 206, 148, 28 } };
++    const std::array<Rect, 6> areas{ Rect{ 24, 40, 128, 112 }, { 168, 40, 128, 112 }, { 24, 158, 128, 28 }, { 168, 158, 128, 28 }, { 24, 190, 128, 28 }, { 168, 190, 128, 28 } };
 +    const std::array<std::string, 4> labels{ _( "Spread" ), _( "Grouped" ), _( "Back" ), _( "Details" ) };
 +    const std::array<std::string, 2> formationDescriptions{
 +        _( "'Spread' combat formation spreads the castle's units from the top to the bottom of the battlefield, with at least one empty space between each unit." ),
@@ -5511,14 +5515,19 @@ index 0000000..80c556c
 +    std::array<Image, 2> portraits;
 +    for ( size_t i = 0; i < heroes.size(); ++i ) if ( heroes[i] ) {
 +        Image original( 102, 94 ); original.fill( background ); heroes[i]->PortraitRedraw( 0, 0, PORT_BIG, original );
-+        portraits[i].resize( 80, 74 ); portraits[i].reset(); Resize( original, portraits[i] );
++        const double scale = std::min( 92.0 / original.width(), 84.0 / original.height() );
++        portraits[i].resize( int( original.width() * scale ), int( original.height() * scale ) ); portraits[i].reset(); Resize( original, portraits[i] );
 +    }
 +    std::array<std::unique_ptr<ButtonBase>, 4> buttons;
 +    for ( size_t i = 0; i < buttons.size(); ++i ) {
-+        Sprite released, pressed; makeButtonSprites( released, pressed, "", { 142, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= 140 ? FontType::normalWhite() : FontType::smallWhite() ); text.fitToOneRow( 140 );
-+        text.draw( 4, ( released.height() - text.height() ) / 2, 140, released ); text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, 140, pressed );
-+        buttons[i] = std::make_unique<ButtonSprite>( areas[i + 2].x, areas[i + 2].y, std::move( released ), std::move( pressed ) );
++        Sprite released, pressed; makeButtonSprites( released, pressed, "", { areas[i + 2].width - 12, 14 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++        const int width = released.width() - 8;
++        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= width ? FontType::normalWhite() : FontType::smallWhite() );
++        if ( Platform3DS::smokeTest() && text.width() > width ) throw std::runtime_error( "Castle options label does not fit" );
++        text.fitToOneRow( width );
++        text.draw( 4, ( released.height() - text.height() ) / 2, width, released ); text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, width, pressed );
++        const auto area = areas[i + 2];
++        buttons[i] = std::make_unique<ButtonSprite>( area.x + ( area.width - released.width() ) / 2, area.y + ( area.height - released.height() ) / 2, std::move( released ), std::move( pressed ) );
 +    }
 +    Image top( 400, 240 ), bottom( 320, 240 ); const OptionsScope scope( top, bottom );
 +    int candidate = first ? 0 : 1, focus = first ? 0 : second ? 1 : 4, pressed = -1;
@@ -5542,31 +5551,29 @@ index 0000000..80c556c
 +        information( index ); return { Action::Options, 0 };
 +    };
 +    const auto draw = [&]() {
-+        top.fill( background ); bottom.fill( background );
-+        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
-+        Fill( top, 12, 32, 376, 188, background ); DrawRect( top, { 0, 0, 400, 240 }, border ); DrawRect( bottom, { 0, 0, 320, 240 }, border );
-+        Text title( castle.GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
++        top = topBackground; bottom = bottomBackground;
++        Text title( castle.GetName(), FontType::normalYellow() ); title.fitToOneRow( 352 ); title.draw( 24, 20, 352, top );
 +        Heroes * hero = heroes[candidate];
 +        if ( hero ) {
-+            hero->PortraitRedraw( 20, 44, PORT_BIG, top );
-+            Text name( hero->GetName(), FontType::normalYellow() ); name.fitToOneRow( 244 ); name.draw( 144, 40, 244, top );
++            hero->PortraitRedraw( 24, 44, PORT_BIG, top );
++            Text name( hero->GetName(), FontType::normalYellow() ); name.fitToOneRow( 232 ); name.draw( 144, 44, 232, top );
 +            std::string level = _( "heroQuickInfo|(Level %{level})" ); StringReplace( level, "%{level}", hero->GetLevel() );
-+            Text description( std::string( Race::String( hero->GetRace() ) ) + " " + level, FontType::smallWhite() ); description.fitToOneRow( 244 ); description.draw( 144, 66, 244, top );
++            Text description( std::string( Race::String( hero->GetRace() ) ) + " " + level, FontType::smallWhite() ); description.fitToOneRow( 232 ); description.draw( 144, 70, 232, top );
 +            const std::array<int, 4> values{ hero->GetAttack(), hero->GetDefense(), hero->GetPower(), hero->GetKnowledge() };
 +            const std::array<int, 4> skills{ Skill::Primary::ATTACK, Skill::Primary::DEFENSE, Skill::Primary::POWER, Skill::Primary::KNOWLEDGE };
-+            for ( size_t i = 0; i < values.size(); ++i ) Text( std::string( Skill::Primary::String( skills[i] ) ) + ": " + std::to_string( values[i] ), FontType::normalWhite() ).draw( 144, 100 + int( i ) * 20, 244, top );
++            for ( size_t i = 0; i < values.size(); ++i ) Text( std::string( Skill::Primary::String( skills[i] ) ) + ": " + std::to_string( values[i] ), FontType::normalWhite() ).draw( 144, 96 + int( i ) * 20, 232, top );
 +        }
-+        else Text( _( "None" ), FontType::normalWhite() ).draw( 12, 60, 376, top );
++        else Text( _( "None" ), FontType::normalWhite() ).draw( 24, 60, 352, top );
 +        std::string reason;
 +        if ( focus == 2 || focus == 3 ) reason = castle.isBuild( BUILD_CAPTAIN ) ? labels[castle.GetArmy().isSpreadFormation() ? 0 : 1] : std::string( _( "Requires:" ) ) + " " + Castle::GetStringBuilding( BUILD_CAPTAIN, castle.GetRace() );
 +        else if ( hero ) castle.AllowBuyHero( &reason );
-+        Text( reason, FontType::smallWhite() ).draw( 12, 190, 376, top );
-+        Text( _( "construction3DS|Options" ), FontType::normalYellow() ).draw( 8, 8, 304, bottom );
++        Text( reason, FontType::smallWhite() ).draw( 24, 188, 352, top );
++        Text( _( "construction3DS|Options" ), FontType::normalYellow() ).draw( 24, 18, 272, bottom );
 +        for ( size_t i = 0; i < heroes.size(); ++i ) {
 +            const auto & area = areas[i]; Fill( bottom, area.x + 1, area.y + 1, area.width - 2, area.height - 2, background );
-+            if ( heroes[i] ) { Blit( portraits[i], bottom, area.x + 34, area.y + 4 ); Text name( heroes[i]->GetName(), FontType::smallWhite() ); name.fitToOneRow( 140 ); name.draw( area.x + 4, area.y + 86, 140, bottom ); }
-+            else Text( _( "None" ), FontType::smallWhite() ).draw( area.x + 4, area.y + 44, 140, bottom );
-+            DrawRect( bottom, area, candidate == int( i ) ? GetColorId( 255, 220, 70 ) : border );
++            if ( heroes[i] ) { Blit( portraits[i], bottom, area.x + ( area.width - portraits[i].width() ) / 2, area.y + 4 ); Text name( heroes[i]->GetName(), FontType::smallWhite() ); name.fitToOneRow( 120 ); name.draw( area.x + 4, area.y + 92, 120, bottom ); }
++            else Text( _( "None" ), FontType::smallWhite() ).draw( area.x + 4, area.y + 48, 120, bottom );
++            DrawRect( bottom, area, heroes[i] && candidate == int( i ) ? GetColorId( 255, 220, 70 ) : border );
 +            Fill( bottom, area.x + 2, area.y + area.height - 4, area.width - 4, 2, heroes[i] && castle.AllowBuyHero() ? GetColorId( 90, 175, 85 ) : GetColorId( 175, 65, 45 ) );
 +        }
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
@@ -5576,7 +5583,15 @@ index 0000000..80c556c
 +        if ( castle.isBuild( BUILD_CAPTAIN ) ) DrawRect( bottom, areas[castle.GetArmy().isSpreadFormation() ? 2 : 3], GetColorId( 90, 175, 85 ) );
 +        DrawRect( bottom, areas[focus], GetColorId( 255, 220, 70 ) ); Display::instance().render();
 +    };
++    if ( Platform3DS::smokeTest() ) for ( size_t i = 0; i < buttons.size(); ++i ) {
++        const auto area = buttons[i]->area(), hit = areas[i + 2];
++        if ( area.x < hit.x || area.x + area.width > hit.x + hit.width || area.y < hit.y || area.y + area.height > hit.y + hit.height ) throw std::runtime_error( "Castle options button crosses its inset target" );
++    }
 +    draw();
++    if ( Platform3DS::smokeTest() ) {
++        const std::string kind = evil ? "evil" : !first && !second ? "empty" : !second ? "single" : !castle.isBuild( BUILD_CAPTAIN ) ? "no-captain" : !castle.AllowBuyHero() ? "unaffordable" : "ready";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/castle-options-" + kind + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/castle-options-" + kind + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save castle options state" );
++    }
 +    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/castle-options-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/castle-options-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save castle options" );
 +    auto & events = LocalEvent::Get();
 +    while ( events.HandleEvents() ) {
@@ -5602,6 +5617,7 @@ index 0000000..80c556c
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) { moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6; last = input.position; }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                last = input.position;
 +                const int index = pressed; const bool tap = down && !moved && index >= 0 && ( areas[index] & last ); down = false; pressed = -1;
 +                if ( tap ) {
 +                    if ( index < 2 && candidate != index ) { candidate = focus = index; }
@@ -5660,11 +5676,17 @@ index 0000000..80c556c
 +    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 174 ) }, { 80, touch( SDL_FINGERUP, 80, 174 ) } } ).action != Action::Spread
 +         || run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 230, 174 ) }, { 80, touch( SDL_FINGERUP, 230, 174 ) } } ).action != Action::Grouped ) throw std::runtime_error( "Formation action differs" );
 +    if ( run( &first, &second, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) }, { 100, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ).action != Action::Spread ) throw std::runtime_error( "Controller formation differs" );
++    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 204 ) }, { 80, touch( SDL_FINGERUP, 80, 204 ) } } ).action != Action::Close ) throw std::runtime_error( "Castle options touch Back differs" );
++    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 80, 70 ) }, { 80, touch( SDL_FINGERUP, 80, 226 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Castle candidate outside release recruited" );
++    if ( run( &first, &second, { { 250, touch( SDL_FINGERDOWN, 230, 226 ) }, { 80, touch( SDL_FINGERUP, 230, 226 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Castle options footer activated" );
++    const Funds funded = kingdom.GetFunds(); kingdom.OddFundsResource( funded );
++    if ( run( &first, &second, cancel ).action != Action::Close ) throw std::runtime_error( "Unfunded castle options changed action" );
++    kingdom.AddFundsResource( funded );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 ); Platform3DS::pushModalImages( &parentTop, &parentBottom );
 +    const auto evil = run( &first, &second, cancel ); Platform3DS::popModalImages(); Settings::Get().setInterfaceType( previous );
 +    if ( evil.action != Action::Close || run( &first, &second, cancel ).action != Action::Close ) throw std::runtime_error( "Castle options nested cancel differs" );
-+    COUT( "3DS CASTLE OPTIONS SMOKE: PASS first_second_touch_Y_controller missing_hero captain_gate formation_touch_controller readonly_hero held_info drag_cancel evil unchanged_funds_heroes_formation_frame_context release_isolation" )
++    COUT( "3DS CASTLE OPTIONS SMOKE: PASS classic_frame inset_controls larger_portraits first_second_touch_Y_controller missing_hero captain_gate formation_touch_controller readonly_hero held_info drag_cancel evil unchanged_funds_heroes_formation_frame_context release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_commands.cpp b/src/fheroes2/gui/ui_3ds_commands.cpp

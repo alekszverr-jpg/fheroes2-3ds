@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.57: original-style castle options
+
+Castle options now use the accepted original Good/Evil frame on both screens. Candidate portraits grow from 80x74 to a proportionally fitted 91x84 inside inset cards; formation, Back and Details controls have separate 128x28 touch regions within the frame. Action labels fit without truncation. Empty cards no longer show a selected-candidate highlight. The upper screen retains the original hero portrait, class/level/stats and the source recruitment/formation reason. Missing candidates, no captain and insufficient funds have dedicated validation captures.
+
+Selection returns the same candidate pointers and Spread/Grouped/Close actions. Captain gating, formation application and real hero recruitment/payment remain in the original castle caller. Touch-up checks the final position, rejecting an outside release or footer tap. Upper panorama/stereo and the 0.3.56 halfling/animation fixes are preserved.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed CastleOptions New/Old Russian and New English, plus HeroRecruit, Construction, CastleScreen and CastleStereo New Russian. Checks cover first/second touch/Y/controller choice, empty/single candidates, no captain, formation actions, readonly hero/held information, drag/footer/outside release, touch Back, funds reason, Evil and restored funds/heroes/formation/frame/context. CastleScreen also exercises the actual main castle -> construction -> options -> Back -> construction -> town return. Captures inspected; ARM build, two-file desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check candidate/Details/held information, captain/no-captain formations, actual formation application and hero hire/payment, Back and return to the town/3D. Synthetic options tests preserve funds and formation; they do not establish those gameplay effects on hardware.
+
 ## Preview 0.3.56: construction styling and readable halfling portraits
 
 Construction now uses the accepted Good/Evil frame with six original building cards, inset page/options/exit controls, wide castle-switch buttons and a compact income button. Upper artwork, condition/requirements and descriptions use whole text rows, a separate footer and visible scroll track/arrows. Source BuildingInfo/CheckBuyBuilding and the caller still own availability, confirmation, payment and building application; the catalog preserves its action contract. Outside release uses the actual final stylus position.

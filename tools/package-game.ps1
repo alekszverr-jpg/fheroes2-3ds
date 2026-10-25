@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.56'
+$version = '0.3.57'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -51,6 +51,8 @@ $manifest = [ordered]@{
     construction_style='0.3.56: original Good/Evil frame, six original cards, inset paging/options/exit, wide castle arrows and compact income, whole description rows and scroll track; original BuildingInfo/caller contract retained'
     halfling_portrait_fix='0.3.56: isolated opaque source pixels no longer dominate body scale when source canvas exceeds twice largest connected body; ordinary bounds retained; viewport-only nearest-neighbour sampling; held battle fixture and visible-height regression'
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
+    castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
+    validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
     native_castle_buildings='Army panel Buildings button; six built entries/page, dwellings first, upgrades/highest guild, original race drawing IDs, upper artwork/description/availability; same Castle::OpenDialog action dispatch'
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
     emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'
