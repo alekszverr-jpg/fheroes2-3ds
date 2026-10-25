@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.55'
+$version = '0.3.56'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -48,6 +48,9 @@ $manifest = [ordered]@{
     validation_castle_building_catalog_style='CastleBuildings New/Old ru and New en; CastleArmy/CastleScreen/CastleStereo New ru, bounded monitored groups; race mappings/filter/pages/held info/long scroll/footer/outside release/nested return; physical real building actions pending'
     castle_army_style='0.3.55: original Good/Evil lower frame, compact five-slot trays, full scaled counts, inset navigation/income/actions and wider construction; ArmyBar semantics and upper town/stereo painting preserved; actual release point checked'
     validation_castle_army_style='CastleArmy/CastleScreen New/Old ru and New en; CastleBuildings/CastleStereo/Well New ru; bounded monitored groups, transfer/merge/swap/last-hero reserve/split/held/nested/4-billion counts, labels/bounds, construction/navigation/footer/outside-release; hardware pending'
+    construction_style='0.3.56: original Good/Evil frame, six original cards, inset paging/options/exit, wide castle arrows and compact income, whole description rows and scroll track; original BuildingInfo/caller contract retained'
+    halfling_portrait_fix='0.3.56: isolated opaque source pixels no longer dominate body scale when source canvas exceeds twice largest connected body; ordinary bounds retained; viewport-only nearest-neighbour sampling; held battle fixture and visible-height regression'
+    validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     native_castle_buildings='Army panel Buildings button; six built entries/page, dwellings first, upgrades/highest guild, original race drawing IDs, upper artwork/description/availability; same Castle::OpenDialog action dispatch'
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
     emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'

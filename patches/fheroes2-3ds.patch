@@ -3549,10 +3549,10 @@ index 0000000..7bc2313
 +};
 diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
 new file mode 100644
-index 0000000..7d83e30
+index 0000000..8671008
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_army.cpp
-@@ -0,0 +1,348 @@
+@@ -0,0 +1,366 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -3784,6 +3784,7 @@ index 0000000..7d83e30
 +        if ( !Save( top, "sdmc:/3ds/fheroes2/army-info-no-upgrade-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/army-info-no-upgrade-bottom.bmp" ) )
 +            throw std::runtime_error( "Cannot save army card without upgrade" );
 +    }
++    if ( Platform3DS::smokeTest() && troop.GetID() == Monster::HALFLING && !Save( top, "sdmc:/3ds/fheroes2/army-info-halfling-top.bmp" ) ) throw std::runtime_error( "Cannot save halfling card" );
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        bool redraw = false; Platform3DS::PanelInput input;
@@ -3879,6 +3880,23 @@ index 0000000..7d83e30
 +    const Troop dragon( Monster::BLACK_DRAGON, 5 );
 +    if ( run( dragon, 0, { { 250, touch( SDL_FINGERMOTION, 50, 20 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) } }, true ) != Dialog::ZERO || lastScroll <= 0 )
 +        throw std::runtime_error( "Army card held-stylus scroll differs" );
++    struct BattleHalfling final : Troop {
++        BattleHalfling() : Troop( Monster::HALFLING, 8 ) {}
++        bool isBattle() const override { return true; }
++    } halfling;
++    {
++        const AnimationReference reference( Monster::HALFLING );
++        const auto & sprite = Assets::getImage( halfling.GetMonsterSprite(), reference.getAnimationVector( Monster_Info::STAND_STILL ).front() );
++        const auto roi = GetActiveROI( sprite );
++        COUT( "3DS HALFLING SOURCE: size=" << sprite.width() << "x" << sprite.height() << " active=" << roi.x << "," << roi.y << "," << roi.width << "," << roi.height )
++        int left = sprite.width(), top = sprite.height(), right = 0, bottom = 0;
++        for ( int y = 0; y < sprite.height(); ++y ) for ( int x = 0; x < sprite.width(); ++x ) {
++            if ( sprite.transform()[y * sprite.width() + x] == 0 ) { left = std::min( left, x ); top = std::min( top, y ); right = std::max( right, x + 1 ); bottom = std::max( bottom, y + 1 ); }
++        }
++        COUT( "3DS HALFLING OPAQUE: " << left << "," << top << "," << right-left << "," << bottom-top << " padding_transform=" << int( sprite.transform()[0] ) )
++        Save( sprite, "sdmc:/3ds/fheroes2/halfling-source.bmp" );
++    }
++    if ( run( halfling, 0, { { 300, touch( SDL_FINGERUP, 50, 180 ) } }, true ) != Dialog::ZERO ) throw std::runtime_error( "Held halfling battle card differs" );
 +    struct BattleTroop final : Troop {
 +        BattleTroop() : Troop( Monster::ARCHER, 3 ) {}
 +        bool isBattle() const override { return true; }
@@ -5924,12 +5942,13 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_construction.cpp b/src/fheroes2/gui/ui_3ds_construction.cpp
 new file mode 100644
-index 0000000..289287d
+index 0000000..93dd586
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_construction.cpp
-@@ -0,0 +1,239 @@
+@@ -0,0 +1,269 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -5963,6 +5982,7 @@ index 0000000..289287d
 +{
 +    using namespace fheroes2;
 +    size_t lastSelected = 0, lastPage = 0;
++    int lastScroll = 0;
 +    class ConstructionScope
 +    {
 +    public:
@@ -5977,7 +5997,7 @@ index 0000000..289287d
 +            auto & display = Display::instance(); display.updateNextRenderRoi( { 0, 0, display.width(), display.height() } ); display.render();
 +        }
 +    };
-+    Rect tileArea( size_t slot ) { return { 4 + int( slot % 3 ) * 104, 28 + int( slot / 3 ) * 72, 102, 70 }; }
++    Rect tileArea( size_t slot ) { return { 24 + int( slot % 3 ) * 92, 40 + int( slot / 3 ) * 60, 86, 56 }; }
 +}
 +Interface3DS::ConstructionChoice Interface3DS::showConstruction( const Castle & castle )
 +{
@@ -5996,17 +6016,22 @@ index 0000000..289287d
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil );
++    const Image bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
++    constexpr int contentWidth = 352, viewHeight = 164;
 +    Image top( 400, 240 ), bottom( 320, 240 ), content;
++    int textY = 0;
++    bool capturedPage = false, capturedScroll = false;
 +    size_t selected = 0, page = 0;
 +    int scroll = 0, pressed = -1, touched = -1;
 +    bool down = false, moved = false; Point start, last; Uint32 began = 0;
-+    const std::array<Rect, 7> controls{ Rect{ 4, 174, 34, 28 }, Rect{ 82, 174, 34, 28 }, Rect{ 120, 174, 100, 28 }, Rect{ 224, 174, 92, 28 },
-+                                         Rect{ 4, 206, 96, 28 }, Rect{ 104, 206, 96, 28 }, Rect{ 204, 206, 112, 28 } };
++    const std::array<Rect, 7> controls{ Rect{ 24, 160, 34, 28 }, Rect{ 64, 160, 34, 28 }, Rect{ 108, 160, 94, 28 }, Rect{ 208, 160, 88, 28 },
++                                         Rect{ 24, 190, 104, 28 }, Rect{ 132, 190, 104, 28 }, Rect{ 240, 190, 56, 28 } };
 +    const std::array<std::string, 7> labels{ "", "", _( "construction3DS|Options" ), _( "Exit" ), _( "construction3DS|Castle" ), _( "construction3DS|Castle" ), _( "construction3DS|Income" ) };
 +    std::array<std::unique_ptr<ButtonBase>, 7> buttons;
 +    for ( size_t i = 0; i < controls.size(); ++i ) {
 +        Sprite released, pressedSprite;
-+        makeButtonSprites( released, pressedSprite, "", { controls[i].width - 6, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        makeButtonSprites( released, pressedSprite, "", { controls[i].width - 12, 14 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +        const bool arrow = i < 2 || i == 4 || i == 5;
 +        const bool left = i == 0 || i == 4;
 +        if ( arrow ) {
@@ -6025,48 +6050,61 @@ index 0000000..289287d
 +            text.draw( textX, ( released.height() - text.height() ) / 2, textWidth, released );
 +            text.draw( textX - 1, ( pressedSprite.height() - text.height() ) / 2 + 1, textWidth, pressedSprite );
 +        }
-+        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressedSprite ) );
++        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x + ( controls[i].width - released.width() ) / 2, controls[i].y + ( controls[i].height - released.height() ) / 2, std::move( released ), std::move( pressedSprite ) );
 +    }
 +    const auto update = [&]() {
 +        scroll = 0; const auto & info = *entries[selected];
 +        const auto type = static_cast<BuildingType>( info.getBuilding() );
 +        const auto & original = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), getIndexBuildingSprite( type ) );
-+        const double scale = std::min( 2.0, std::min( 360.0 / original.width(), 94.0 / original.height() ) );
++        const double scale = std::min( 2.0, std::min( 336.0 / original.width(), 86.0 / original.height() ) );
 +        Image portrait( std::max( 1, int( original.width() * scale ) ), std::max( 1, int( original.height() * scale ) ) ); portrait.reset(); Resize( original, portrait );
 +        std::string description = info.GetConditionDescription() + "\n\n" + BuildingInfo::getBuildingDescription( castle.GetRace(), info.getBuilding() );
 +        const auto requirements = getBuildingRequirementString( castle.GetRace(), type );
 +        if ( !requirements.empty() ) description += "\n\n" + std::string( _( "Requires:" ) ) + "\n" + requirements;
 +        const Text text( description, FontType::normalWhite() );
-+        const int textY = portrait.height() + 8;
-+        content.resize( 376, std::max<int32_t>( 188, textY + text.height( 376 ) ) ); content.fill( background );
-+        Blit( portrait, content, ( content.width() - portrait.width() ) / 2, 0 ); text.draw( 0, textY, 376, content );
++        textY = portrait.height() + 8;
++        content.resize( contentWidth, std::max<int32_t>( viewHeight, textY + text.height( contentWidth ) ) ); Interface3DS::fillClassicPanelPaper( content, evil );
++        Blit( portrait, content, ( content.width() - portrait.width() ) / 2, 0 ); text.draw( 0, textY, contentWidth, content );
 +    };
 +    update(); const ConstructionScope scope( top, bottom );
 +    const auto draw = [&]() {
-+        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawRect( top, { 0, 0, 400, 240 }, border );
-+        Text title( entries[selected]->GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
-+        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
-+        if ( content.height() > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
-+        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
-+        Text titleBottom( castle.GetName().empty() ? _( "construction3DS|Construction" ) : castle.GetName(), FontType::normalYellow() ); titleBottom.fitToOneRow( 304 ); titleBottom.draw( 8, 6, 304, bottom );
++        top = topBackground; bottom = bottomBackground;
++        Text title( entries[selected]->GetName(), FontType::normalYellow() ); title.fitToOneRow( contentWidth ); title.draw( 24, 20, contentWidth, top );
++        const int lineHeight = Text( "A", FontType::normalWhite() ).height();
++        int visibleStart = scroll, visibleEnd = scroll + viewHeight;
++        if ( visibleStart > textY ) visibleStart = textY + ( visibleStart - textY + lineHeight - 1 ) / lineHeight * lineHeight;
++        if ( visibleEnd > textY ) visibleEnd = textY + ( visibleEnd - textY ) / lineHeight * lineHeight;
++        if ( visibleEnd > visibleStart ) Copy( content, 0, visibleStart, top, 24, 40 + visibleStart - scroll, contentWidth, visibleEnd - visibleStart );
++        if ( content.height() > viewHeight ) {
++            Text( std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( content.height() - viewHeight + 31 ) / 32 + 1 ), FontType::smallYellow() ).draw( 24, 205, contentWidth, top );
++            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            const int thumbHeight = std::max<int32_t>( 12, 144 * viewHeight / content.height() );
++            Fill( top, 380, 50 + scroll * ( 144 - thumbHeight ) / ( content.height() - viewHeight ), 3, thumbHeight, border );
++            for ( int dx = -3; dx <= 3; ++dx ) for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
++                SetPixel( top, 381 + dx, 40 + dy, border ); SetPixel( top, 381 + dx, 203 - dy, border );
++            }
++        }
++        Text titleBottom( castle.GetName().empty() ? _( "construction3DS|Construction" ) : castle.GetName(), FontType::normalYellow() ); titleBottom.fitToOneRow( 204 ); titleBottom.draw( 24, 18, 204, bottom );
++        Text( std::to_string( page / 6 + 1 ) + "/" + std::to_string( ( entries.size() + 5 ) / 6 ), FontType::smallYellow() ).draw( 240, 22, 56, bottom );
 +        for ( size_t slot = 0; slot < 6 && page + slot < entries.size(); ++slot ) {
 +            const auto area = tileArea( slot ); const auto & info = *entries[page + slot];
 +            const auto status = castle.CheckBuyBuilding( info.getBuilding() );
 +            const uint8_t stateColor = status == BuildingStatus::ALLOW_BUILD ? GetColorId( 70, 210, 70 ) : status == BuildingStatus::ALREADY_BUILT ? border : GetColorId( 220, 90, 70 );
-+            DrawRect( bottom, area, page + slot == selected ? GetColorId( 255, 220, 70 ) : border ); Fill( bottom, area.x + 2, area.y + area.height - 3, area.width - 4, 2, stateColor );
++            Fill( bottom, area.x, area.y, area.width, area.height, background ); DrawRect( bottom, area, page + slot == selected ? GetColorId( 255, 220, 70 ) : border ); Fill( bottom, area.x + 2, area.y + area.height - 2, area.width - 4, 2, stateColor );
 +            const auto & original = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), getIndexBuildingSprite( static_cast<BuildingType>( info.getBuilding() ) ) );
-+            const double scale = std::min( 92.0 / original.width(), 30.0 / original.height() );
++            const double scale = std::min( 78.0 / original.width(), 26.0 / original.height() );
 +            Image image( std::max( 1, int( original.width() * scale ) ), std::max( 1, int( original.height() * scale ) ) ); image.reset(); Resize( original, image );
 +            Blit( image, bottom, area.x + ( area.width - image.width() ) / 2, area.y + 3 );
-+            Text name( info.GetName(), FontType::smallWhite() ); if ( name.height( 94 ) > 24 ) name.fitToOneRow( 94 ); name.draw( area.x + 4, area.y + 35, 94, bottom );
++            Text name( info.GetName(), FontType::smallWhite() ); if ( name.height( 78 ) > 24 ) name.fitToOneRow( 78 ); name.draw( area.x + 4, area.y + 31, 78, bottom );
 +        }
-+        Text( std::to_string( page / 6 + 1 ) + "/" + std::to_string( ( entries.size() + 5 ) / 6 ), FontType::smallWhite() ).draw( 38, 184, 44, bottom );
 +        if ( page ) buttons[0]->enable(); else buttons[0]->disable();
 +        if ( page + 6 < entries.size() ) buttons[1]->enable(); else buttons[1]->disable();
 +        for ( size_t i : { size_t( 4 ), size_t( 5 ) } ) { if ( castle.GetKingdom().GetCastles().size() > 1 ) buttons[i]->enable(); else buttons[i]->disable(); }
 +        for ( size_t i = 0; i < buttons.size(); ++i ) { if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom ); }
-+        lastSelected = selected; lastPage = page;
++        lastSelected = selected; lastPage = page; lastScroll = scroll;
 +        Display::instance().render();
++        if ( Platform3DS::smokeTest() && page && !capturedPage ) { if ( !Save( bottom, "sdmc:/3ds/fheroes2/construction-page-bottom.bmp" ) ) throw std::runtime_error( "Cannot save construction page" ); capturedPage = true; }
++        if ( Platform3DS::smokeTest() && scroll && !capturedScroll ) { if ( !Save( top, "sdmc:/3ds/fheroes2/construction-scroll-top.bmp" ) ) throw std::runtime_error( "Cannot save construction scroll" ); capturedScroll = true; }
 +    };
 +    const auto select = [&]( size_t index ) { selected = index; page = selected / 6 * 6; update(); };
 +    const auto confirm = [&]() -> ConstructionChoice {
@@ -6075,7 +6113,12 @@ index 0000000..289287d
 +        if ( info.DialogBuyBuilding( true ) && castle.CheckBuyBuilding( info.getBuilding() ) == BuildingStatus::ALLOW_BUILD ) return { Action::Build, info.getBuilding() };
 +        return {};
 +    };
++    if ( Platform3DS::smokeTest() ) for ( size_t i = 0; i < controls.size(); ++i ) {
++        const auto area = buttons[i]->area(), hit = controls[i];
++        if ( area.x < hit.x || area.x + area.width > hit.x + hit.width || area.y < hit.y || area.y + area.height > hit.y + hit.height ) throw std::runtime_error( "Construction button crosses its inset target" );
++    }
 +    draw();
++    if ( Platform3DS::smokeTest() && evil && ( !Save( top, "sdmc:/3ds/fheroes2/construction-evil-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/construction-evil-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save Evil construction" );
 +    COUT( "3DS construction: catalog ready" )
 +    if ( Platform3DS::smokeTest() && ( !Save( top, "sdmc:/3ds/fheroes2/construction-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/construction-bottom.bmp" ) ) ) throw std::runtime_error( "Cannot save construction catalog" );
 +    auto & events = LocalEvent::Get();
@@ -6097,17 +6140,18 @@ index 0000000..289287d
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchDown ) {
 +                down = true; moved = false; pressed = touched = -1; start = last = input.position; began = SDL_GetTicks();
-+                for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) pressed = int( i );
++                for ( size_t i = 0; i < buttons.size(); ++i ) if ( controls[i] & start ) pressed = int( i );
 +                for ( size_t slot = 0; slot < 6 && page + slot < entries.size(); ++slot ) if ( tileArea( slot ) & start ) touched = int( page + slot );
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchMove && down ) {
 +                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
-+                if ( moved && pressed < 0 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, content.height() - 188 ); last = input.position;
++                if ( moved && pressed < 0 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, content.height() - viewHeight ); last = input.position;
 +            }
 +            else if ( input.type == Platform3DS::PanelInputType::TouchUp ) {
++                last = input.position;
 +                const int button = pressed, tile = touched; const bool activate = down && !moved;
 +                down = false; pressed = touched = -1;
-+                if ( activate && button >= 0 && ( buttons[button]->area() & last ) && buttons[button]->isEnabled() ) {
++                if ( activate && button >= 0 && ( controls[button] & last ) && buttons[button]->isEnabled() ) {
 +                    if ( button == 0 ) select( page - 6 ); else if ( button == 1 ) select( page + 6 );
 +                    else if ( button == 2 ) return { Action::Options, 0 }; else if ( button == 3 ) return {};
 +                    else if ( button == 4 ) return { Action::Previous, 0 }; else if ( button == 5 ) return { Action::Next, 0 };
@@ -6155,16 +6199,20 @@ index 0000000..289287d
 +    if ( run( cancel ).action != Action::Close ) throw std::runtime_error( "Construction close differs" );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 150, 60 ) }, { 80, touch( SDL_FINGERUP, 150, 60 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastSelected != 1 ) throw std::runtime_error( "Construction touch selection differs" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastPage != 6 ) throw std::runtime_error( "Construction page toggle differs" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 98, 186 ) }, { 80, touch( SDL_FINGERUP, 98, 186 ) }, { 150, touch( SDL_FINGERDOWN, 20, 186 ) }, { 80, touch( SDL_FINGERUP, 20, 186 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastPage ) throw std::runtime_error( "Construction touch pages differ" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 170, 186 ) }, { 80, touch( SDL_FINGERUP, 170, 186 ) } } ).action != Action::Options ) throw std::runtime_error( "Construction options fallback differs" );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 220 ) }, { 80, touch( SDL_FINGERUP, 120, 220 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Construction single-castle navigation enabled" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 80, 174 ) }, { 80, touch( SDL_FINGERUP, 80, 174 ) }, { 150, touch( SDL_FINGERDOWN, 40, 174 ) }, { 80, touch( SDL_FINGERUP, 40, 174 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastPage ) throw std::runtime_error( "Construction touch pages differ" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 155, 174 ) }, { 80, touch( SDL_FINGERUP, 155, 174 ) } } ).action != Action::Options ) throw std::runtime_error( "Construction options fallback differs" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 180, 204 ) }, { 80, touch( SDL_FINGERUP, 180, 204 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Construction single-castle navigation enabled" );
 +    castles.push_back( &other );
-+    if ( run( { { 250, touch( SDL_FINGERDOWN, 120, 220 ) }, { 80, touch( SDL_FINGERUP, 120, 220 ) } } ).action != Action::Next
-+         || run( { { 250, touch( SDL_FINGERDOWN, 40, 220 ) }, { 80, touch( SDL_FINGERUP, 40, 220 ) } } ).action != Action::Previous ) throw std::runtime_error( "Construction castle navigation differs" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 180, 204 ) }, { 80, touch( SDL_FINGERUP, 180, 204 ) } } ).action != Action::Next
++         || run( { { 250, touch( SDL_FINGERDOWN, 70, 204 ) }, { 80, touch( SDL_FINGERUP, 70, 204 ) } } ).action != Action::Previous ) throw std::runtime_error( "Construction castle navigation differs" );
 +    if ( run( { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 300, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Construction cancelled purchase returned build" );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 50, 60 ) }, { 900, touch( SDL_FINGERUP, 50, 60 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Construction held information differs" );
 +    if ( run( { { 250, touch( SDL_FINGERDOWN, 50, 60 ) }, { 100, touch( SDL_FINGERMOTION, 250, 140 ) }, { 80, touch( SDL_FINGERUP, 250, 140 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastSelected ) throw std::runtime_error( "Construction drag selected building" );
-+    COUT( "3DS CONSTRUCTION SMOKE: PASS selection pages_Y_touch options_return navigation_disabled_prev_next nested_purchase_cancel held_info drag_cancel unchanged_funds_frame_context release_isolation" )
++    if ( run( { { 150, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) }, { 150, touch( SDL_FINGERDOWN, 150, 140 ) }, { 100, touch( SDL_FINGERMOTION, 150, 45 ) }, { 80, touch( SDL_FINGERUP, 150, 45 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close || lastScroll <= 0 ) throw std::runtime_error( "Construction description did not scroll" );
++    if ( run( { { 250, touch( SDL_FINGERDOWN, 155, 174 ) }, { 80, touch( SDL_FINGERUP, 155, 226 ) }, { 150, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ).action != Action::Close ) throw std::runtime_error( "Construction release outside activated Options" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    const auto evil = run( cancel ); Settings::Get().setInterfaceType( previous ); if ( evil.action != Action::Close || run( cancel ).action != Action::Close ) throw std::runtime_error( "Construction Evil close differs" );
++    COUT( "3DS CONSTRUCTION SMOKE: PASS classic_frame inset_controls whole_text_rows selection pages_Y_touch options_return navigation_disabled_prev_next nested_purchase_cancel held_info drag_cancel unchanged_funds_frame_context release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
@@ -9368,10 +9416,10 @@ index 0000000..127d07b
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_portrait.cpp b/src/fheroes2/gui/ui_3ds_portrait.cpp
 new file mode 100644
-index 0000000..51414c6
+index 0000000..e9f6bd1
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_portrait.cpp
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,187 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_portrait.h"
 +#if defined( __3DS__ )
@@ -9386,6 +9434,38 @@ index 0000000..51414c6
 +#include "logging.h"
 +#include "monster.h"
 +#include "pal.h"
++namespace
++{
++    // Stray isolated pixels in some source frames must not set the portrait scale.
++    fheroes2::Rect bodyComponent( const fheroes2::Sprite & sprite )
++    {
++        using namespace fheroes2;
++        if ( sprite.singleLayer() ) return { 0, 0, sprite.width(), sprite.height() };
++        const int width = sprite.width(), height = sprite.height();
++        std::vector<uint8_t> seen( size_t( width ) * height, 0 );
++        std::vector<int> pending;
++        size_t largest = 0; Rect result;
++        for ( int seed = 0; seed < width * height; ++seed ) {
++            if ( seen[seed] || sprite.transform()[seed] != 0 ) continue;
++            pending.clear(); pending.push_back( seed ); seen[seed] = 1;
++            int left = seed % width, right = left + 1, top = seed / width, bottom = top + 1;
++            for ( size_t i = 0; i < pending.size(); ++i ) {
++                const int x = pending[i] % width, y = pending[i] / width;
++                left = std::min( left, x ); right = std::max( right, x + 1 ); top = std::min( top, y ); bottom = std::max( bottom, y + 1 );
++                for ( int dy = -1; dy <= 1; ++dy ) for ( int dx = -1; dx <= 1; ++dx ) {
++                    const int nx = x + dx, ny = y + dy;
++                    if ( nx < 0 || nx >= width || ny < 0 || ny >= height ) continue;
++                    const int next = ny * width + nx;
++                    if ( !seen[next] && sprite.transform()[next] == 0 ) { seen[next] = 1; pending.push_back( next ); }
++                }
++            }
++            if ( pending.size() > largest ) { largest = pending.size(); result = { left, top, right - left, bottom - top }; }
++        }
++        if ( largest < 16 ) return { 0, 0, width, height };
++        const int left = std::max( 0, int( result.x ) - 2 ), top = std::max( 0, int( result.y ) - 2 );
++        return { left, top, std::min( width, int( result.x + result.width ) + 2 ) - left, std::min( height, int( result.y + result.height ) + 2 ) - top };
++    }
++}
 +namespace Interface3DS
 +{
 +    MonsterPortrait::MonsterPortrait( const Monster & monster, const bool includeDeath, const bool animated, const bool mirror )
@@ -9396,6 +9476,9 @@ index 0000000..51414c6
 +        const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
 +        const auto & body = Assets::getImage( _animation.icnFile(), standing.front() );
 +        _bodyBounds = { body.x(), body.y(), body.width(), body.height() };
++        const auto visible = bodyComponent( body );
++        if ( body.width() > visible.width * 2 || body.height() > visible.height * 2 )
++            _bodyBounds = { body.x() + visible.x, body.y() + visible.y, visible.width, visible.height };
 +        const auto & first = Assets::getImage( _animation.icnFile(), _animation.frameId() );
 +        int32_t left = first.x() - _animation.offset(), top = first.y();
 +        int32_t right = left + first.width(), bottom = top + first.height();
@@ -9448,14 +9531,23 @@ index 0000000..51414c6
 +        // Keep the body readable. Like the original dialog ROI, the portrait viewport clips
 +        // wide attacks/flight frames instead of shrinking the creature to fit their full extent.
 +        const double scale = std::min( double( area.width ) / _bodyBounds.width, double( area.height ) / _bodyBounds.height );
-+        Image resized( std::max( 1, int( sprite.width() * scale ) ), std::max( 1, int( sprite.height() * scale ) ) );
-+        resized.reset(); Resize( sprite, resized );
++        const int scaledWidth = std::max( 1, int( sprite.width() * scale ) ), scaledHeight = std::max( 1, int( sprite.height() * scale ) );
 +        Image viewport( area.width, area.height ); viewport.reset();
-+        Point out{ ( area.width - int( _bodyBounds.width * scale ) ) / 2 + int( std::lround( ( sprite.x() - _animation.offset() - _bodyBounds.x ) * scale ) ),
-+                   ( area.height - int( _bodyBounds.height * scale ) ) / 2 + int( std::lround( ( sprite.y() - _bodyBounds.y ) * scale ) ) };
-+        Point in{ 0, 0 }; Size size{ resized.width(), resized.height() };
-+        if ( FitToRoi( resized, in, viewport, out, size, { 0, 0, area.width, area.height } ) )
-+            Blit( resized, in, viewport, out, size );
++        const Point out{ ( area.width - int( _bodyBounds.width * scale ) ) / 2 + int( std::lround( ( sprite.x() - _animation.offset() - _bodyBounds.x ) * scale ) ),
++                         ( area.height - int( _bodyBounds.height * scale ) ) / 2 + int( std::lround( ( sprite.y() - _bodyBounds.y ) * scale ) ) };
++        // Same nearest-neighbour mapping as Resize + clipping, without allocating/resizing
++        // a huge transparent canvas when the actual creature occupies a small part of it.
++        const int left = std::max( 0, int( out.x ) ), top = std::max( 0, int( out.y ) );
++        const int right = std::min( int( area.width ), int( out.x ) + scaledWidth ), bottom = std::min( int( area.height ), int( out.y ) + scaledHeight );
++        std::vector<int> sourceX( std::max( 0, right - left ) );
++        for ( int x = left; x < right; ++x ) sourceX[x - left] = ( x - out.x ) * sprite.width() / scaledWidth;
++        for ( int y = top; y < bottom; ++y ) {
++            const int sourceY = ( y - out.y ) * sprite.height() / scaledHeight;
++            for ( int x = left; x < right; ++x ) {
++                const int from = sourceY * sprite.width() + sourceX[x - left], to = y * area.width + x;
++                viewport.image()[to] = sprite.image()[from]; viewport.transform()[to] = sprite.singleLayer() ? 0 : sprite.transform()[from];
++            }
++        }
 +        Blit( viewport, output, area.x, area.y, reflected );
 +    }
 +    PortraitTestRandomScope::PortraitTestRandomScope( const Monster & monster, const bool includeDeath )
@@ -9486,7 +9578,7 @@ index 0000000..51414c6
 +        const uint32_t delay = uint32_t( Game::getAnimationDelayValue( Game::DelayType::CASTLE_UNIT_DELAY ) );
 +        if ( delay != 150 ) throw std::runtime_error( "Unexpected original castle animation interval" );
 +        Image canvas( 132, 146 );
-+        for ( const int id : { Monster::PEASANT, Monster::BLACK_DRAGON, Monster::LICH, Monster::CYCLOPS } ) {
++        for ( const int id : { Monster::PEASANT, Monster::BLACK_DRAGON, Monster::LICH, Monster::CYCLOPS, Monster::HALFLING } ) {
 +            for ( const bool death : { false, true } ) {
 +                rng = Rand::PCG32( uint64_t( 123 ) );
 +                RandomMonsterAnimation original( Monster( id ), death );
@@ -9509,8 +9601,9 @@ index 0000000..51414c6
 +            if ( still.advance( SDL_GetTicks() + 100000 ) || still.frameId() != frame || still.offset() != offset )
 +                throw std::runtime_error( "Readonly portrait animated" );
 +            canvas.reset(); still.draw( canvas, { 0, 0, 132, 146 } );
++            if ( id == Monster::HALFLING && GetActiveROI( canvas ).height < 100 ) throw std::runtime_error( "Halfling portrait is too small" );
 +        }
-+        COUT( "3DS ORIGINAL PORTRAITS: PASS original_sequence_400_frames_four_monsters_both_death_policies 150ms fixed_bounds static_readonly reflected_mirror" )
++        COUT( "3DS ORIGINAL PORTRAITS: PASS original_sequence_400_frames_five_monsters_both_death_policies 150ms fixed_bounds static_readonly reflected_mirror" )
 +    }
 +}
 +#endif

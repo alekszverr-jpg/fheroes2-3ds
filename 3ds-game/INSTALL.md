@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.55
+# fheroes2 for Nintendo 3DS — preview 0.3.56
+
+## Preview 0.3.56: construction styling and readable halfling portraits
+
+Construction now uses the accepted Good/Evil frame with six original building cards, inset page/options/exit controls, wide castle-switch buttons and a compact income button. Upper artwork, condition/requirements and descriptions use whole text rows, a separate footer and visible scroll track/arrows. Source BuildingInfo/CheckBuyBuilding and the caller still own availability, confirmation, payment and building application; the catalog preserves its action contract. Outside release uses the actual final stylus position.
+
+The tiny held battle halfling was reproduced: its 278x99 standing sprite contains isolated opaque pixels far from the creature. Portrait scaling now uses the largest connected opaque body component (with a small margin) only when the canvas exceeds twice that component's dimensions. Ordinary body bounds are retained otherwise. Original frames, random selection, offsets and 150 ms timing are unchanged. Clipped nearest-neighbour sampling produces only the visible viewport, avoiding a large temporary image for padded frames. A held battle-halfling fixture and a minimum visible-height check cover the regression; the original animation comparison now covers five creatures and both death policies, 400 frames each (4000 steps).
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Construction, Army and Recruit on New/Old Russian and New English, plus Well, CastleScreen and CastleStereo New Russian. The long-scroll case uses the mage-guild description in both languages. Checks cover pages/options, single/multiple-castle navigation, nested purchase cancellation/held info, drag/outside release, scrolling, Evil, readonly held halfling and unchanged funds/frame/context. Original sequence/timing tests pass; captures inspected. ARM build, three-file desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run. Synthetic construction tests preserve funds and do not confirm real building application; real construction/payment and held-halfling appearance remain hardware checks.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check the held battle halfling, original animation, construction paging/requirements/options/income/castle navigation, actual purchase/payment and town return. User reports broad success with 0.3.55 without individual scenario results; earlier open hardware cases remain separate.
 
 ## Preview 0.3.55: original-style castle army panel
 
