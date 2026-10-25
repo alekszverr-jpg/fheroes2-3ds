@@ -3549,12 +3549,13 @@ index 0000000..7bc2313
 +};
 diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
 new file mode 100644
-index 0000000..cbccd1b
+index 0000000..5c5da39
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_army.cpp
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,387 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -3686,7 +3687,10 @@ index 0000000..cbccd1b
 +    const bool interactive = ( flags & Dialog::BUTTONS ) != 0;
 +    const CursorRestorer cursorRestorer( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
-+    const uint8_t background = GetColorId( 35, 29, 24 ), border = GetColorId( 150, 115, 63 );
++    const uint8_t border = GetColorId( 150, 115, 63 );
++    const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil );
++    const Image bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
++    constexpr int contentWidth = 352, viewHeight = 164;
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    std::string stats = _( "Attack Skill" ) + std::string( ": " ) + troop.GetAttackString() + "\n" + _( "Defense Skill" ) + ": " + troop.GetDefenseString();
 +    if ( getMonsterData( troop.GetID() ).battleStats.shots > 0 )
@@ -3698,7 +3702,7 @@ index 0000000..cbccd1b
 +    stats += "\n" + std::string( _( "Speed" ) ) + ": " + troop.GetSpeedString() + "\n" + _( "Morale" ) + ": " + Morale::String( troop.GetMorale() )
 +             + "\n" + _( "Luck" ) + ": " + Luck::String( troop.GetLuck() );
 +    const Text statText( stats, FontType::normalWhite() );
-+    const int statHeight = std::max<int32_t>( 154, statText.height( 232 ) + 8 );
++    const int statHeight = std::max<int32_t>( 154, statText.height( 208 ) + 8 );
 +    std::string properties;
 +    for ( const auto & description : getMonsterPropertiesDescription( troop.GetID() ) ) properties += description + "\n\n";
 +    size_t effectCount = 0;
@@ -3727,10 +3731,10 @@ index 0000000..cbccd1b
 +    }
 +    const int costBottom = resources.empty() ? 0 : 128 + int( ( resources.size() + 1 ) / 2 ) * resourceRowHeight;
 +    int descriptionY = std::max( statHeight, costBottom ) + 8;
-+    if ( descriptionY < 188 && descriptionY + Text( "A", FontType::normalWhite() ).height() > 188 ) descriptionY = 188;
-+    const int height = properties.empty() ? std::max( statHeight, costBottom ) : descriptionY + description.height( 376 );
-+    Image contentBase( 376, std::max( height, 188 ) ); contentBase.fill( background );
-+    statText.draw( 144, 4, 232, contentBase ); description.draw( 0, descriptionY, 376, contentBase );
++    if ( descriptionY < viewHeight && descriptionY + Text( "A", FontType::normalWhite() ).height() > viewHeight ) descriptionY = viewHeight;
++    const int height = properties.empty() ? std::max( statHeight, costBottom ) : descriptionY + description.height( contentWidth );
++    Image contentBase( contentWidth, std::max( height, viewHeight ) ); Interface3DS::fillClassicPanelPaper( contentBase, evil );
++    statText.draw( 144, 4, 208, contentBase ); description.draw( 0, descriptionY, contentWidth, contentBase );
 +    if ( !resources.empty() ) {
 +        Text( _( "Upgrade" ), FontType::normalYellow() ).draw( 0, 108, 132, contentBase );
 +        for ( size_t i = 0; i < resources.size(); ++i ) {
@@ -3749,12 +3753,12 @@ index 0000000..cbccd1b
 +    std::vector<std::unique_ptr<ButtonBase>> buttons;
 +    for ( size_t i = 0; i < actions.size(); ++i ) {
 +        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", { 284, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        makeButtonSprites( released, pressed, "", { 224, 22 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +        const Text text( actions[i] == Dialog::UPGRADE ? _( "Upgrade" ) : actions[i] == Dialog::DISMISS ? _( "Dismiss" ) : _( "Exit" ), FontType::normalWhite() );
 +        text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
 +        text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, pressed.width() - 8, pressed );
 +        const int x = ( 320 - released.width() ) / 2;
-+        buttons.emplace_back( std::make_unique<ButtonSprite>( x, 206 - int( actions.size() - 1 - i ) * 32, std::move( released ), std::move( pressed ) ) );
++        buttons.emplace_back( std::make_unique<ButtonSprite>( x, 176 - int( actions.size() - 1 - i ) * 38, std::move( released ), std::move( pressed ) ) );
 +    }
 +    int scroll = 0, selected = int( actions.size() ) - 1, pressed = -1, result = Dialog::ZERO;
 +    bool closed = false, down = !interactive && Platform3DS::isPhysicalTouchHeld(), moved = false;
@@ -3763,15 +3767,27 @@ index 0000000..cbccd1b
 +    size_t frame = 0;
 +    const CardScope scope( top, interactive ? &bottom : nullptr );
 +    const auto draw = [&]() {
-+        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawBorder( top, border );
++        top = topBackground;
 +        const std::string title = std::string( troop.GetName() ) + " (" + std::to_string( troop.GetCount() ) + ")";
-+        Text( title, Text( title, FontType::normalYellow() ).height( 376 ) <= 22 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 12, 8, 376, top );
++        Text( title, Text( title, FontType::normalYellow() ).height( contentWidth ) <= 17 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 24, 20, contentWidth, top );
 +        Copy( contentBase, content );
 +        portrait.draw( content, portraitArea, frame, reflected );
-+        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
-+        if ( height > 188 ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - 188 + 31 ) / 32 + 1 ) + " v", FontType::smallYellow() ).draw( 0, 224, 400, top );
++        Copy( content, 0, scroll, top, 24, 40, contentWidth, viewHeight );
++        if ( height > viewHeight ) {
++            Text( std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ), FontType::smallYellow() ).draw( 24, 205, contentWidth, top );
++            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            const int thumbHeight = std::max( 12, 144 * viewHeight / height );
++            Fill( top, 380, 50 + scroll * ( 144 - thumbHeight ) / ( height - viewHeight ), 3, thumbHeight, border );
++            for ( int dx = -3; dx <= 3; ++dx ) {
++                for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
++                    SetPixel( top, 381 + dx, 40 + dy, border );
++                    SetPixel( top, 381 + dx, 203 - dy, border );
++                }
++            }
++        }
 +        if ( interactive ) {
-+            bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawBorder( bottom, border );
++            bottom = bottomBackground;
++            Text( title, Text( title, FontType::normalYellow() ).height( 272 ) <= 34 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 24, 24, 272, bottom );
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
 +                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y + area.height + 1, area.width, 2, border ); }
@@ -3795,6 +3811,11 @@ index 0000000..cbccd1b
 +        if ( action == Dialog::UPGRADE ) showResourceMessage( Text( _( "Upgrade" ), FontType::normalYellow() ), Text( _( "Upgrade your troops." ), FontType::normalWhite() ), Dialog::ZERO, troop.GetTotalUpgradeCost() );
 +        else showStandardTextMessage( action == Dialog::DISMISS ? _( "Dismiss" ) : _( "Exit" ), action == Dialog::DISMISS ? _( "Dismiss this army." ) : _( "Exit this menu." ), Dialog::ZERO );
 +    };
++    if ( Platform3DS::smokeTest() ) for ( const auto & button : buttons ) {
++        const auto area = button->area();
++        if ( area.x < 24 || area.x + area.width > 296 || area.y < 80 || area.y + area.height > 216 )
++            throw std::runtime_error( "Army card action crosses the classic frame" );
++    }
 +    draw();
 +    if ( Platform3DS::smokeTest() && ( !Save( top, troop.isBattle() ? "sdmc:/3ds/fheroes2/army-info-battle-top.bmp" : "sdmc:/3ds/fheroes2/army-info-top.bmp" ) || ( interactive && !Save( bottom, troop.isBattle() ? "sdmc:/3ds/fheroes2/army-info-battle-bottom.bmp" : "sdmc:/3ds/fheroes2/army-info-bottom.bmp" ) ) ) ) throw std::runtime_error( "Cannot save army card" );
 +    if ( Platform3DS::smokeTest() && interactive && !troop.isBattle() && !( flags & Dialog::UPGRADE ) && ( flags & Dialog::DISMISS ) ) {
@@ -3832,13 +3853,15 @@ index 0000000..cbccd1b
 +                else if ( down && !moved && pressed >= 0 && ( buttons[pressed]->area() & last ) ) activate( pressed );
 +                down = false; pressed = -1;
 +            }
-+            scroll = std::clamp( scroll, 0, std::max( 0, height - 188 ) );
++            scroll = std::clamp( scroll, 0, std::max( 0, height - viewHeight ) );
 +        }
 +        if ( interactive && down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) { information( pressed ); redraw = true; }
 +        const Uint32 now = SDL_GetTicks();
 +        if ( interactive && now - animationTick >= 75 ) { frame += ( now - animationTick ) / 75; animationTick = now; redraw = true; }
 +        if ( redraw && !closed ) draw();
 +    }
++    if ( Platform3DS::smokeTest() && scroll > 0 && !Save( top, "sdmc:/3ds/fheroes2/army-info-scrolled-top.bmp" ) )
++        throw std::runtime_error( "Cannot save scrolled army card" );
 +    lastScroll = scroll; lastStats = stats; lastEffects = effectCount;
 +    return result;
 +}
@@ -3875,11 +3898,14 @@ index 0000000..cbccd1b
 +        if ( !accept || disabled ) { sequence.emplace_back( 200, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) ); sequence.emplace_back( 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) ); }
 +        return run( archer, flags | ( disabled ? Dialog::UPGRADE_DISABLE : 0 ), std::move( sequence ) );
 +    };
-+    if ( confirmation( 155, true ) != Dialog::UPGRADE || confirmation( 155, false ) != Dialog::CANCEL
-+         || confirmation( 155, true, true ) != Dialog::CANCEL || confirmation( 185, true ) != Dialog::DISMISS
-+         || confirmation( 185, false ) != Dialog::CANCEL ) throw std::runtime_error( "Army card confirmation contract differs" );
++    if ( confirmation( 116, true ) != Dialog::UPGRADE || confirmation( 116, false ) != Dialog::CANCEL
++         || confirmation( 116, true, true ) != Dialog::CANCEL || confirmation( 154, true ) != Dialog::DISMISS
++         || confirmation( 154, false ) != Dialog::CANCEL ) throw std::runtime_error( "Army card confirmation contract differs" );
 +    if ( run( archer, Dialog::BUTTONS, close ) != Dialog::CANCEL ) throw std::runtime_error( "Army card forbidden actions differ" );
-+    if ( run( archer, flags, { { 250, touch( SDL_FINGERDOWN, 160, 155 ) }, { 80, touch( SDL_FINGERMOTION, 160, 120 ) },
++    if ( run( archer, flags, { { 250, touch( SDL_FINGERDOWN, 160, 225 ) }, { 80, touch( SDL_FINGERUP, 160, 225 ) },
++        { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::CANCEL )
++        throw std::runtime_error( "Army card footer activated an action" );
++    if ( run( archer, flags, { { 250, touch( SDL_FINGERDOWN, 160, 116 ) }, { 80, touch( SDL_FINGERMOTION, 160, 80 ) },
 +        { 80, touch( SDL_FINGERUP, 0, 0 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != Dialog::CANCEL )
 +        throw std::runtime_error( "Army card drag activated action" );
 +    if ( run( archer, flags, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
@@ -3909,7 +3935,7 @@ index 0000000..cbccd1b
 +    const Troop redDragon( Monster::RED_DRAGON, 5 ); const int evil = run( redDragon, flags, close );
 +    Settings::Get().setInterfaceType( previous );
 +    if ( evil != Dialog::CANCEL ) throw std::runtime_error( "Army card Evil UI differs" );
-+    COUT( "3DS ARMY INFO SMOKE: PASS actual_dialog upgrade_dismiss_confirm_cancel unaffordable forbidden_actions drag held_scroll battle_stats_effects nested_info evil unchanged_troop_frame_context" )
++    COUT( "3DS ARMY INFO SMOKE: PASS classic_frame inset_controls actual_dialog upgrade_dismiss_confirm_cancel unaffordable forbidden_actions drag held_scroll battle_stats_effects nested_info evil unchanged_troop_frame_context" )
 +}
 +
 +
@@ -6119,10 +6145,10 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..ce70a51
+index 0000000..c02dbcf
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1642 @@
+@@ -0,0 +1,1660 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -6730,35 +6756,45 @@ index 0000000..ce70a51
 +    Image window( 320, 240 );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t border = GetColorId( 150, 115, 63 );
++    const Image background = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    const int minimum = std::min<int32_t>( 1, maximum );
 +    int value = std::clamp<int32_t>( count, minimum, maximum );
 +    int slots = fast && freeSlots > 1 ? 2 : 0;
 +    const std::array<std::string, 6> labels{ "MIN", "-", "+", "MAX", _( "Okay" ), _( "Cancel" ) };
-+    const std::array<Point, 6> positions{ Point{ 12, 72 }, { 66, 72 }, { 224, 72 }, { 264, 72 }, { 12, 204 }, { 172, 204 } };
++    const std::array<Point, 6> positions{ Point{ 24, 72 }, { 76, 72 }, { 212, 72 }, { 248, 72 }, { 24, 186 }, { 168, 186 } };
 +    std::vector<std::unique_ptr<ButtonBase>> buttons;
 +    for ( int i = 0; i < 6 + freeSlots - 1; ++i ) {
++        if ( i == 4 || i == 5 ) {
++            const int icn = i == 4 ? ( evil ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON )
++                                  : ( evil ? ICN::UNIFORM_EVIL_CANCEL_BUTTON : ICN::UNIFORM_GOOD_CANCEL_BUTTON );
++            auto button = std::make_unique<Button>( 0, 186, icn, 0, 1 );
++            button->setPosition( ( i == 4 ? 88 : 232 ) - button->area().width / 2, 186 );
++            buttons.emplace_back( std::move( button ) );
++            continue;
++        }
 +        Sprite released, pressed;
-+        const Size size{ i >= 4 && i < 6 ? 130 : i == 1 || i == 2 ? 24 : 40, 26 };
-+        makeButtonSprites( released, pressed, "", size, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        const Size size{ i == 1 || i == 2 ? 20 : 36, 16 };
++        makeButtonSprites( released, pressed, "", size, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +        const std::string label = i < 6 ? labels[i] : std::to_string( i - 4 );
 +        const Text text( label, i >= 4 && i < 6 ? FontType::normalWhite() : FontType::smallWhite() );
 +        text.draw( 4, ( released.height() - text.height( released.width() - 8 ) ) / 2, released.width() - 8, released );
 +        text.draw( 3, ( pressed.height() - text.height( pressed.width() - 8 ) ) / 2 + 1, pressed.width() - 8, pressed );
-+        const Point position = i < 6 ? positions[i] : Point{ 12 + ( i - 6 ) * 60, 164 };
++        const Point position = i < 6 ? positions[i] : Point{ 24 + ( i - 6 ) * 68, 148 };
 +        buttons.emplace_back( std::make_unique<ButtonSprite>( position.x, position.y, std::move( released ), std::move( pressed ) ) );
 +    }
-+    const Rect slider{ 12, 112, 296, 22 };
++    const auto hitArea = [&]( const int action ) {
++        return action == 4 ? Rect{ 24, 180, 128, 38 } : action == 5 ? Rect{ 168, 180, 128, 38 } : buttons[action]->area();
++    };
++    const Rect slider{ 24, 112, 272, 22 };
 +    bool down = false, moved = false, sliding = false, closed = false, accepted = false;
 +    Point start, last;
 +    int pressed = -1;
 +    const ModalScope scope( window, false );
 +    const auto draw = [&]() {
-+        window.fill( GetColorId( 35, 29, 24 ) );
-+        StandardWindow::renderBackgroundImage( window, { 0, 0, 320, 240 }, 0, evil );
-+        DrawBorder( window, border );
++        window = background;
 +        const Text title( name, FontType::normalYellow() );
-+        Text( name, title.height( 296 ) <= 26 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 12, 8, 296, window );
-+        Text( _( "How many creatures do you wish to move?" ), FontType::smallWhite() ).draw( 12, 38, 296, window );
++        Text( name, title.height( 272 ) <= 17 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 24, 22, 272, window );
++        Text( _( "How many creatures do you wish to move?" ), FontType::smallWhite() ).draw( 24, 46, 272, window );
 +        const std::string quantity = std::to_string( value ) + "/" + std::to_string( maximum );
 +        const Text number( quantity, FontType::normalWhite() );
 +        if ( number.width() <= 120 ) number.draw( 100, 79, 120, window );
@@ -6766,10 +6802,10 @@ index 0000000..ce70a51
 +            Text( std::to_string( value ), FontType::smallWhite() ).draw( 100, 72, 120, window );
 +            Text( "/" + std::to_string( maximum ), FontType::smallWhite() ).draw( 100, 87, 120, window );
 +        }
-+        Fill( window, 12, 120, 296, 4, GetColorId( 50, 40, 30 ) );
-+        const int thumb = maximum > minimum ? int( int64_t( value - minimum ) * 288 / ( maximum - minimum ) ) : 0;
-+        Fill( window, 12 + thumb, 114, 8, 16, border );
-+        if ( freeSlots > 1 ) Text( _( "Select how many units to separate into:" ), FontType::smallWhite() ).draw( 12, 138, 296, window );
++        Fill( window, 24, 120, 272, 4, GetColorId( 50, 40, 30 ) );
++        const int thumb = maximum > minimum ? int( int64_t( value - minimum ) * 264 / ( maximum - minimum ) ) : 0;
++        Fill( window, 24 + thumb, 114, 8, 16, border );
++        if ( freeSlots > 1 ) Text( _( "Select how many units to separate into:" ), FontType::smallWhite() ).draw( 24, 132, 272, window );
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
 +            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release();
 +            buttons[i]->draw( window );
@@ -6795,9 +6831,14 @@ index 0000000..ce70a51
 +        else slots = action - 4;
 +    };
 +    const auto slide = [&]( Point point ) {
-+        value = minimum + int( int64_t( std::clamp<int32_t>( point.x - 12, 0, 288 ) ) * ( maximum - minimum ) / 288 );
++        value = minimum + int( int64_t( std::clamp<int32_t>( point.x - 24, 0, 264 ) ) * ( maximum - minimum ) / 264 );
 +        slots = 0;
 +    };
++    if ( Platform3DS::smokeTest() ) for ( const auto & button : buttons ) {
++        const auto area = button->area();
++        if ( area.x < 24 || area.x + area.width > 296 || area.y < 60 || area.y + area.height > 216 )
++            throw std::runtime_error( "Army split control crosses the classic frame" );
++    }
 +    draw();
 +    if ( Platform3DS::smokeTest() && !Save( window, "sdmc:/3ds/fheroes2/army-split-bottom.bmp" ) ) throw std::runtime_error( "Cannot save army split screenshot" );
 +    auto & events = LocalEvent::Get();
@@ -6820,7 +6861,7 @@ index 0000000..ce70a51
 +            else if ( input.type == PanelInputType::TouchDown ) {
 +                start = last = input.position; down = true; moved = false; sliding = slider & start; pressed = -1;
 +                if ( sliding ) slide( last );
-+                else for ( size_t i = 0; i < buttons.size(); ++i ) if ( buttons[i]->area() & start ) pressed = int( i );
++                else for ( size_t i = 0; i < buttons.size(); ++i ) if ( hitArea( int( i ) ) & start ) pressed = int( i );
 +            }
 +            else if ( input.type == PanelInputType::TouchMove && down ) {
 +                last = input.position;
@@ -6828,7 +6869,7 @@ index 0000000..ce70a51
 +                if ( sliding ) slide( last );
 +            }
 +            else if ( input.type == PanelInputType::TouchUp && down ) {
-+                if ( !moved && !sliding && pressed >= 0 && ( buttons[pressed]->area() & last ) ) activate( pressed );
++                if ( !moved && !sliding && pressed >= 0 && ( hitArea( pressed ) & last ) ) activate( pressed );
 +                down = false; sliding = false; pressed = -1;
 +            }
 +        }
@@ -6863,17 +6904,20 @@ index 0000000..ce70a51
 +    int32_t count = 5; bool fast = true;
 +    if ( run( 5, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 5 || !fast )
 +        throw std::runtime_error( "Army fast split default differs" );
-+    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 210, 178 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 240, 160 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                                 { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 5 || !fast )
 +        throw std::runtime_error( "Army fast split slots differ" );
 +    if ( run( 5, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
 +                                 { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 6 || fast )
 +        throw std::runtime_error( "Army manual split count/fast-mode differs" );
 +    const int savedCount = count; const bool savedFast = fast;
-+    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 300, 120 ) }, { 80, touch( SDL_FINGERMOTION, 12, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
-+                                 { 80, touch( SDL_FINGERDOWN, 80, 219 ) }, { 80, touch( SDL_FINGERMOTION, 160, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 290, 120 ) }, { 80, touch( SDL_FINGERMOTION, 12, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++                                 { 80, touch( SDL_FINGERDOWN, 80, 198 ) }, { 80, touch( SDL_FINGERMOTION, 160, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                                 { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 || count != savedCount || fast != savedFast )
 +        throw std::runtime_error( "Army split cancel/drag changed caller values" );
++    if ( run( 5, 10, count, fast, { { 250, touch( SDL_FINGERDOWN, 80, 225 ) }, { 80, touch( SDL_FINGERUP, 80, 225 ) },
++                                 { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) != 0 || count != savedCount || fast != savedFast )
++        throw std::runtime_error( "Army split footer changed caller values" );
 +    count = 0; fast = true;
 +    if ( run( 1, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 1 || fast )
 +        throw std::runtime_error( "Army single-slot split bounds differ" );
@@ -6881,7 +6925,7 @@ index 0000000..ce70a51
 +    if ( run( 1, 0, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count || fast )
 +        throw std::runtime_error( "Army zero redistribution differs" );
 +    count = 1000000000;
-+    if ( run( 2, 2000000000, count, fast, { { 250, touch( SDL_FINGERDOWN, 300, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
++    if ( run( 2, 2000000000, count, fast, { { 250, touch( SDL_FINGERDOWN, 290, 120 ) }, { 80, touch( SDL_FINGERUP, 0, 0 ) },
 +                                          { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 2 || count != 2000000000 || fast )
 +        throw std::runtime_error( "Army split large slider count differs" );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
@@ -6889,7 +6933,7 @@ index 0000000..ce70a51
 +    const int evil = run( 5, 10, count, fast, { { 250, key( SDL_CONTROLLER_BUTTON_START, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_START, false ) } } );
 +    Settings::Get().setInterfaceType( previous );
 +    if ( evil != 2 || !fast ) throw std::runtime_error( "Army split Evil UI differs" );
-+    COUT( "3DS ARMY SPLIT SMOKE: PASS actual_dialog manual_fast_slots limits slider cancel_drag large_counts evil caller_contract unchanged_context" )
++    COUT( "3DS ARMY SPLIT SMOKE: PASS classic_frame inset_controls actual_dialog manual_fast_slots limits slider cancel_drag large_counts evil caller_contract unchanged_context" )
 +}
 +
 +Troop Interface3DS::showRecruit( const Monster & original, const uint32_t available, const bool allowDowngradedMonster, const Funds & funds )

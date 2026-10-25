@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.52: original-style army cards and split controls
+
+Army information and splitting now use the accepted original Good/Evil frame. Cards keep the creature portrait, stats, upgrade costs, properties and battle effects above; the lower screen has a heading and inset action buttons. The upper content viewport reserves a separate footer for its position indicator, with a visible right-hand scroll track and arrows. Held/noninteractive cards retain their original close and scrolling behaviour; interactive portraits keep their current idle animation.
+
+Split controls now sit inside the frame: quantity and slider, optional multi-slot distribution, and original inset OK/Cancel buttons with separate 128x38 touch targets. Manual and fast splitting preserve their caller contracts, including zero redistribution and large counts. Only `3ds/fheroes2/fheroes2.3dsx` needs replacement.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Army New/Old Russian and New English, plus CastleArmy, BattleDialogs and Recruit New Russian. Tests cover upgrade/dismiss YES/NO, unaffordable/forbidden actions, nested information, held scroll, battle stats/effects, quantity/slider/manual/fast slots, large/zero cases, drag/footer rejection, Evil and unchanged caller values/troop/frame/context. Captures inspected; ARM build, two-file desktop syntax, 28-group/40-marker infrastructure and clean-baseline patch application passed. Full was not run. On New 3DS XL verify readability/scrolling and actual upgrade payment, dismissal and redistribution from hero/castle armies; emulator dialog tests do not confirm those gameplay effects on hardware.
+
 ## Preview 0.3.51: original-style recruitment
 
 Recruitment now uses the accepted original Good/Evil frame on both screens and the original RECRBKG/BLDGXTRA cost card. The lower screen keeps the animated creature portrait, unit price, availability, quantity controls, slider and original inset OK/Cancel buttons with separate 128x38 touch targets. Variant controls draw actual arrows. The upper screen shows base creature attributes, total resource costs and the current-minus-cost balance. Portrait scale stays fixed across idle frames; holding/B retains the original information and scrolling behaviour.

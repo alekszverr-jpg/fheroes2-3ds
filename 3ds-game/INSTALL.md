@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.51
+# fheroes2 for Nintendo 3DS — preview 0.3.52
+
+## Preview 0.3.52: original-style army cards and split controls
+
+Army information and splitting now use the accepted original Good/Evil frame. Cards keep the creature portrait, stats, upgrade costs, properties and battle effects above; the lower screen has a heading and inset action buttons. The upper content viewport reserves a separate footer for its position indicator, with a visible right-hand scroll track and arrows. Held/noninteractive cards retain their original close and scrolling behaviour; interactive portraits keep their current idle animation.
+
+Split controls now sit inside the frame: quantity and slider, optional multi-slot distribution, and original inset OK/Cancel buttons with separate 128x38 touch targets. Manual and fast splitting preserve their caller contracts, including zero redistribution and large counts. Only `3ds/fheroes2/fheroes2.3dsx` needs replacement.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Army New/Old Russian and New English, plus CastleArmy, BattleDialogs and Recruit New Russian. Tests cover upgrade/dismiss YES/NO, unaffordable/forbidden actions, nested information, held scroll, battle stats/effects, quantity/slider/manual/fast slots, large/zero cases, drag/footer rejection, Evil and unchanged caller values/troop/frame/context. Captures inspected; ARM build, two-file desktop syntax, 28-group/40-marker infrastructure and clean-baseline patch application passed. Full was not run. On New 3DS XL verify readability/scrolling and actual upgrade payment, dismissal and redistribution from hero/castle armies; emulator dialog tests do not confirm those gameplay effects on hardware.
 
 ## Preview 0.3.51: original-style recruitment
 
