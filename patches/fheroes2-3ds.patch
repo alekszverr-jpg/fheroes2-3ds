@@ -2126,7 +2126,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..76931af 100644
+index 69d39fb..b6f7d07 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2177,7 +2177,7 @@ index 69d39fb..76931af 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,116 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,117 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2187,7 +2187,7 @@ index 69d39fb..76931af 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 27> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard" };
++        const std::array<const char *, 28> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2259,6 +2259,7 @@ index 69d39fb..76931af 100644
 +            COUT( "3DS HIGH RESOLUTION SMOKE: PASS" )
 +        } );
 +        runGroup( "Messages", []() { Interface3DS::testNativeMessages(); } );
++        runGroup( "Elements", []() { Interface3DS::testIllustratedMessages(); } );
 +        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
@@ -6118,10 +6119,10 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..3ed00c6
+index 0000000..e620bbc
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1509 @@
+@@ -0,0 +1,1585 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -6147,6 +6148,8 @@ index 0000000..3ed00c6
 +#include "settings.h"
 +#include "heroes.h"
 +#include "army_troop.h"
++#include "artifact.h"
++#include "spell_info.h"
 +#include "battle.h"
 +#include "monster_info.h"
 +#include "monster_anim.h"
@@ -6263,14 +6266,16 @@ index 0000000..3ed00c6
 +    using namespace fheroes2;
 +    const bool information = buttons == Dialog::ZERO;
 +    const bool classicChoice = choice && ( choice->classicChest || choice->classicSkill );
-+    const bool classicConfirmation = !information && !choice && elements.empty();
++    const bool classicIllustrated = !information && !choice && !elements.empty()
++        && std::all_of( elements.begin(), elements.end(), []( const DialogElement * element ) { return hasInformation( element ) && element->area().width <= 272; } );
++    const bool classicConfirmation = !information && !choice && ( elements.empty() || classicIllustrated );
 +    const bool classicFrame = classicChoice || classicConfirmation;
 +    const bool confirmationPair = buttons == ( Dialog::YES | Dialog::NO ) || buttons == ( Dialog::OK | Dialog::CANCEL );
 +    const auto choiceCentre = [&]( const size_t i ) { return ( classicConfirmation ? !confirmationPair : elements.size() == 1 ) ? 160 : i ? 232 : 88; };
 +    const int buttonRow = classicChoice ? 168 : classicConfirmation ? 176 : 202;
 +    const CursorRestorer cursorRestorer( false );
 +    Image window( information ? 400 : 320, 240 );
-+    const int width = classicChoice ? 352 : classicConfirmation ? 272 : window.width() - 24;
++    const int width = ( classicChoice || classicIllustrated ) ? 352 : classicConfirmation ? 272 : window.width() - 24;
 +    int rewardHeight = 0;
 +    if ( choice ) for ( const auto * element : elements ) rewardHeight = std::max<int32_t>( rewardHeight, element->area().height );
 +    const int viewHeight = classicChoice ? 176 : classicConfirmation ? 128 : choice ? std::min( 100, 160 - rewardHeight ) : information ? 204 : 180;
@@ -6278,18 +6283,21 @@ index 0000000..3ed00c6
 +    const uint8_t border = GetColorId( 150, 115, 63 );
 +    const int headerHeight = header.empty() ? 0 : header.height( width ) + 8;
 +    int height = headerHeight + ( body.empty() ? 0 : body.height( width ) + 8 );
++    const int textHeight = height;
++    const int elementWidth = classicIllustrated ? 272 : width;
++    if ( classicIllustrated ) height = 0;
 +    std::vector<Point> offsets( elements.size() );
 +    for ( size_t first = 0; !choice && first < elements.size(); ) {
 +        size_t last = first;
 +        int rowWidth = 0, rowHeight = 0;
 +        while ( last < elements.size() ) {
 +            const auto size = elements[last]->area();
-+            if ( last > first && rowWidth + 10 + size.width > width ) break;
++            if ( last > first && rowWidth + 10 + size.width > elementWidth ) break;
 +            rowWidth += ( last > first ? 10 : 0 ) + size.width;
 +            rowHeight = std::max( rowHeight, int( size.height ) );
 +            ++last;
 +        }
-+        int x = ( width - rowWidth ) / 2;
++        int x = ( elementWidth - rowWidth ) / 2;
 +        for ( size_t i = first; i < last; ++i ) {
 +            offsets[i] = { x, height + rowHeight - elements[i]->area().height };
 +            x += elements[i]->area().width + 10;
@@ -6297,12 +6305,21 @@ index 0000000..3ed00c6
 +        height += rowHeight + 10;
 +        first = last;
 +    }
-+    Image content( width, std::max( height, viewHeight ) );
++    const int elementMaximum = std::max( 0, height - viewHeight );
++    const int textMaximum = classicIllustrated ? std::max( 0, textHeight - 176 ) : 0;
++    const int scrollMaximum = std::max( elementMaximum, textMaximum );
++    Image textContent;
++    if ( classicIllustrated ) {
++        textContent.resize( width, std::max( textHeight, 176 ) );
++        Interface3DS::fillClassicPanelPaper( textContent, Settings::Get().isEvilInterfaceEnabled() );
++        header.draw( 0, 0, width, textContent ); body.draw( 0, headerHeight, width, textContent );
++    }
++    Image content( elementWidth, std::max( height, viewHeight ) );
 +    if ( classicFrame ) Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
 +    else content.fill( background );
 +    const int textTop = classicConfirmation ? std::max( 0, ( viewHeight - height ) / 2 ) : 0;
-+    header.draw( 0, textTop, width, content );
-+    body.draw( 0, textTop + headerHeight, width, content );
++    if ( classicIllustrated ) { for ( auto & offset : offsets ) offset.y += textTop; }
++    else { header.draw( 0, textTop, width, content ); body.draw( 0, textTop + headerHeight, width, content ); }
 +    if ( !choice ) for ( size_t i = 0; i < elements.size(); ++i ) elements[i]->draw( content, offsets[i] );
 +    else for ( size_t i = 0; i < elements.size(); ++i )
 +        offsets[i] = { ( classicChoice ? choiceCentre( i ) : 80 + int( i ) * 160 ) - elements[i]->area().width / 2, classicChoice ? 50 : 8 + viewHeight + 12 };
@@ -6311,7 +6328,7 @@ index 0000000..3ed00c6
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    Image upperWindow, chestBackground;
 +    if ( classicFrame ) {
-+        if ( classicChoice ) upperWindow = Interface3DS::makeClassicPanelBackground( 400, evil );
++        if ( classicChoice || ( classicIllustrated && textHeight > 0 ) ) upperWindow = Interface3DS::makeClassicPanelBackground( 400, evil );
 +        chestBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    }
 +    std::array<Image, 2> rewardImages;
@@ -6362,14 +6379,20 @@ index 0000000..3ed00c6
 +    if ( heldPosition ) start = last = *heldPosition;
 +    int result = Dialog::ZERO;
 +    bool closed = false;
-+    const ModalScope scope( window, information, classicChoice ? &upperWindow : nullptr );
++    const ModalScope scope( window, information, !upperWindow.empty() ? &upperWindow : nullptr );
 +    COUT( "3DS MESSAGE screen=" << ( information ? "top" : "bottom" ) << " content_height=" << height << " buttons=" << buttons << " choice=" << ( choice != nullptr ) )
 +    int capturedChestScroll = -1;
 +    const auto draw = [&]() {
 +        if ( classicConfirmation ) {
 +            window = chestBackground;
-+            Copy( content, 0, scroll, window, 24, 24, width, viewHeight );
-+            if ( height > viewHeight ) Text( "^ " + std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 154, width, window );
++            const int visibleScroll = classicIllustrated ? std::min( scroll, elementMaximum ) : scroll;
++            Copy( content, 0, visibleScroll, window, 24, 24, elementWidth, viewHeight );
++            if ( classicIllustrated && !upperWindow.empty() ) {
++                const int textScroll = std::min( scroll, textMaximum );
++                Copy( textContent, 0, textScroll, upperWindow, 24, 24, width, 176 );
++                if ( textMaximum > 0 ) Text( "^ " + std::to_string( ( textScroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( textMaximum + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 202, width, upperWindow );
++            }
++            if ( height > viewHeight ) Text( "^ " + std::to_string( ( visibleScroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ) + " v", FontType::smallWhite() ).draw( 24, 154, width, window );
 +        }
 +        else if ( classicChoice ) {
 +            window = chestBackground;
@@ -6424,9 +6447,14 @@ index 0000000..3ed00c6
 +        if ( classicConfirmation && Platform3DS::smokeTest() && capturedChestScroll != scroll ) {
 +            capturedChestScroll = scroll;
 +            std::string prefix = confirmationPair ? ( buttons & Dialog::YES ? "confirm-yesno" : "confirm-okcancel" ) : ( buttons & Dialog::OK ? "confirm-ok" : "confirm-cancel" );
++            if ( classicIllustrated ) {
++                prefix = elements.size() > 1 ? "message-mixed" : dynamic_cast<const ArtifactDialogElement *>( elements[0] ) ? "message-artifact"
++                       : dynamic_cast<const SpellDialogElement *>( elements[0] ) ? "message-spell" : "message-resource";
++            }
 +            if ( evil ) prefix += "-evil";
-+            if ( height > viewHeight ) prefix += "-long";
-+            if ( !Save( window, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture confirmation" );
++            if ( scrollMaximum > 0 ) prefix += "-long";
++            if ( !Save( window, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" )
++                 || ( classicIllustrated && !upperWindow.empty() && !Save( upperWindow, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) ) ) throw std::runtime_error( "Cannot capture confirmation" );
 +        }
 +        Display::instance().render();
 +    };
@@ -6442,9 +6470,10 @@ index 0000000..3ed00c6
 +            }
 +            return -1;
 +        }
-+        if ( point.y < 8 || point.y >= 8 + viewHeight ) return -1;
++        const int originY = classicIllustrated ? 24 : 8;
++        if ( point.y < originY || point.y >= originY + viewHeight ) return -1;
 +        for ( size_t i = 0; i < elements.size(); ++i ) {
-+            const Rect roi{ 12 + offsets[i].x, 8 + offsets[i].y - scroll, elements[i]->area().width, elements[i]->area().height };
++            const Rect roi{ ( classicIllustrated ? 24 : 12 ) + offsets[i].x, originY + offsets[i].y - ( classicIllustrated ? std::min( scroll, elementMaximum ) : scroll ), elements[i]->area().width, elements[i]->area().height };
 +            if ( roi & point ) return int( i );
 +        }
 +        return -1;
@@ -6496,7 +6525,7 @@ index 0000000..3ed00c6
 +            }
 +            else if ( input.type == PanelInputType::TouchMove && down ) {
 +                if ( std::abs( input.position.x - start.x ) >= 10 || std::abs( input.position.y - start.y ) >= 10 ) moved = true;
-+                if ( moved && pressed < 0 && ( classicConfirmation ? ( Rect{ 24, 24, width, viewHeight } & start ) : ( !choice || start.y < 8 + viewHeight ) ) ) scroll += last.y - input.position.y;
++                if ( moved && pressed < 0 && ( classicConfirmation ? ( Rect{ 24, 24, elementWidth, viewHeight } & start ) : ( !choice || start.y < 8 + viewHeight ) ) ) scroll += last.y - input.position.y;
 +                last = input.position;
 +            }
 +            else if ( input.type == PanelInputType::TouchUp ) {
@@ -6504,7 +6533,7 @@ index 0000000..3ed00c6
 +                else if ( down && !moved && pressed >= 0 && buttonAt( classicFrame ? input.position : last ) == pressed ) { result = answers[pressed].value; closed = true; }
 +                down = false; pressed = -1;
 +            }
-+            scroll = std::clamp( scroll, 0, std::max( 0, height - viewHeight ) );
++            scroll = std::clamp( scroll, 0, scrollMaximum );
 +        }
 +        if ( !information && down && !moved && pressed < 0 && SDL_GetTicks() - began >= 550 ) {
 +            showInformation();
@@ -7461,7 +7490,7 @@ index 0000000..3ed00c6
 +        throw std::runtime_error( "Long top information did not scroll" );
 +    const ResourceDialogElement gold( Resource::GOLD, "200" );
 +    if ( run( Text{}, Text{}, Dialog::YES | Dialog::NO, { &gold }, {
-+             { 300, touch( SDL_FINGERDOWN, 160, 24 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
++             { 300, touch( SDL_FINGERDOWN, 160, 80 ) }, { 900, touch( SDL_FINGERUP, 0, 0 ) },
 +             { 300, controller( SDL_CONTROLLER_BUTTON_START, true ) }, { 100, controller( SDL_CONTROLLER_BUTTON_START, false ) } } ) != Dialog::YES
 +         || nestedInformationReturns != nestedBefore + 1 ) throw std::runtime_error( "Nested information lost the lower dialog or selected an answer" );
 +    if ( run( title, text, Dialog::YES | Dialog::NO, {}, { { 200, touch( SDL_FINGERDOWN, 88, 190 ) }, { 90, touch( SDL_FINGERUP, 88, 190 ) } } ) != Dialog::YES ) throw std::runtime_error( "Classic YES touch differs" );
@@ -7479,6 +7508,54 @@ index 0000000..3ed00c6
 +    Platform3DS::setCommandStripImage( previousStrip );
 +    events.resetFor3DSPanel();
 +    COUT( "3DS NATIVE MESSAGES SMOKE: PASS classic_plain_confirmations all_button_sets evil outside_footer_cancel top_info bottom_ok native_touch_no drag_cancel long_scroll nested_info release_isolation" )
++}
++
++
++void Interface3DS::testIllustratedMessages()
++{
++    using namespace fheroes2;
++    Heroes hero( Heroes::LORDKILBURN, Race::KNGT );
++    const auto experience = hero.GetExperience(); const auto funds = world.GetKingdom( hero.GetColor() ).GetFunds();
++    const auto viewport = Platform3DS::viewport(); const auto strip = Platform3DS::commandStripImage(); const auto hud = Platform3DS::battleHUDImage();
++    Image saved; Copy( Display::instance(), saved );
++    const auto key = []( int button, bool down ) { SDL_Event e{}; e.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; e.cbutton.button = button; e.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return e; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
++    const auto press = [&]( std::vector<TimedEvent> & steps, int button ) { steps.emplace_back( 120, key( button, true ) ); steps.emplace_back( 90, key( button, false ) ); };
++    const auto run = [&]( const std::string & title, const std::string & body, const std::vector<const DialogElement *> & elements, std::vector<TimedEvent> steps, int buttons = Dialog::OK ) {
++        const int result = runInjectedInput( [&]() { return fheroes2::showMessage( Text( title, FontType::normalYellow() ), Text( body, FontType::normalWhite() ), buttons, elements ); }, std::move( steps ) );
++        if ( viewport != Platform3DS::viewport() || strip != Platform3DS::commandStripImage() || hud != Platform3DS::battleHUDImage()
++             || hero.GetExperience() != experience || !( funds == world.GetKingdom( hero.GetColor() ).GetFunds() )
++             || std::memcmp( saved.image(), Display::instance().image(), saved.width() * saved.height() ) ) throw std::runtime_error( "Illustrated message changed caller/frame/context" );
++        return result;
++    };
++    const ResourceDialogElement gold( Resource::GOLD, "200" );
++    const Artifact item( Artifact::GOLDEN_BOW ); const ArtifactDialogElement artifact( item );
++    const Spell haste( Spell::HASTE ); const SpellDialogElement spell( haste, &hero );
++    std::vector<TimedEvent> accept; press( accept, SDL_CONTROLLER_BUTTON_A );
++    if ( run( "", "", { &gold }, { { 180, touch( SDL_FINGERDOWN, 160, 190 ) }, { 90, touch( SDL_FINGERUP, 160, 190 ) } } ) != Dialog::OK ) throw std::runtime_error( "Resource illustration confirmation failed" );
++    const auto nested = nestedInformationReturns;
++    auto held = std::vector<TimedEvent>{ { 180, touch( SDL_FINGERDOWN, 160, 80 ) }, { 850, touch( SDL_FINGERUP, 160, 80 ) } }; press( held, SDL_CONTROLLER_BUTTON_A );
++    if ( run( item.GetName(), item.GetDescription(), { &artifact }, held ) != Dialog::OK || nestedInformationReturns != nested + 1 ) throw std::runtime_error( "Held artifact lost illustrated dialog" );
++    auto info = accept; info.clear(); press( info, SDL_CONTROLLER_BUTTON_B ); press( info, SDL_CONTROLLER_BUTTON_A );
++    const auto spellInfo = nestedInformationReturns;
++    if ( run( haste.GetName(), getSpellDescription( haste, &hero ), { &spell }, info ) != Dialog::OK || nestedInformationReturns != spellInfo + 1 ) throw std::runtime_error( "Spell information lost illustrated dialog" );
++    const Funds reward( 10, 10, 10, 10, 10, 10, 100000 ); const auto resources = getResourceDialogElements( reward );
++    std::vector<const DialogElement *> mixed; for ( const auto & resource : resources ) mixed.push_back( &resource ); mixed.push_back( &artifact ); mixed.push_back( &artifact ); mixed.push_back( &artifact ); mixed.push_back( &spell ); mixed.push_back( &spell );
++    auto scroll = accept; scroll.clear(); press( scroll, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( scroll, SDL_CONTROLLER_BUTTON_A );
++    if ( run( _( "Resources" ), "", mixed, scroll ) != Dialog::OK || lastMessageScroll <= 0 ) throw std::runtime_error( "Mixed icons did not wrap/scroll" );
++    std::string longText; for ( int i = 0; i < 20; ++i ) longText += item.GetDescription() + "\n";
++    if ( run( _( "Resources" ), longText, mixed, { { 180, touch( SDL_FINGERDOWN, 160, 90 ) }, { 90, touch( SDL_FINGERMOTION, 160, 30 ) }, { 90, touch( SDL_FINGERUP, 160, 30 ) }, { 90, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 90, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != Dialog::OK || lastMessageScroll <= 0 ) throw std::runtime_error( "Illustrated stylus scroll failed" );
++    auto scrolledHold = std::vector<TimedEvent>{}; for ( int i = 0; i < 4; ++i ) press( scrolledHold, SDL_CONTROLLER_BUTTON_DPAD_DOWN );
++    scrolledHold.insert( scrolledHold.end(), held.begin(), held.end() ); const auto heldAfterScroll = nestedInformationReturns;
++    if ( run( item.GetName(), longText, { &artifact }, scrolledHold ) != Dialog::OK || nestedInformationReturns != heldAfterScroll + 1 ) throw std::runtime_error( "Text scrolling moved the fixed artifact hit target" );
++    auto negative = accept; negative.clear(); press( negative, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++    if ( run( item.GetName(), item.GetDescription(), { &artifact }, negative, Dialog::YES | Dialog::NO ) != Dialog::NO ) throw std::runtime_error( "Illustrated negative response differs" );
++    if ( run( item.GetName(), item.GetDescription(), { &artifact }, { { 180, touch( SDL_FINGERDOWN, 88, 190 ) }, { 90, touch( SDL_FINGERUP, 88, 220 ) }, { 90, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 90, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } }, Dialog::OK | Dialog::CANCEL ) != Dialog::CANCEL ) throw std::runtime_error( "Illustrated outside release confirmed" );
++    const auto theme = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    const int evil = run( _( "Resources" ), "", mixed, accept ); Settings::Get().setInterfaceType( theme );
++    if ( evil != Dialog::OK ) throw std::runtime_error( "Evil illustrated confirmation differs" );
++    run( item.GetName(), item.GetDescription(), { &artifact }, accept ); run( haste.GetName(), getSpellDescription( haste, &hero ), { &spell }, accept ); run( "", "", { &gold }, accept );
++    COUT( "3DS ILLUSTRATED MESSAGES SMOKE: PASS resource artifact spell original_descriptions mixed_rows dual_scroll held_after_scroll nested_info negative outside_release evil unchanged_caller_frame_context" )
 +}
 +
 +void Interface3DS::testChestChoice()
@@ -7633,10 +7710,10 @@ index 0000000..3ed00c6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..3275f40
+index 0000000..e68cb38
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,146 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -7739,6 +7816,7 @@ index 0000000..3275f40
 +    bool showBoatPurchase( bool enabled );
 +    void testShipyard();
 +    void testNativeMessages();
++    void testIllustratedMessages();
 +    Spell showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page, const std::function<void( const std::string & )> & status );
 +    Spell showSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, bool canCast, size_t & page,
 +                        const std::function<void( const std::string & )> & status, SpellBook::Filter & filter, bool switchFilters );

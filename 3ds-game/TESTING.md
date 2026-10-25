@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.50: original-style illustrated messages
+
+Response messages containing supported static game elements now use the accepted original frame: descriptions on the upper screen, resource/artifact/spell/stat icons and original response buttons below. Icon rows and long descriptions scroll within their own bounds; controls stay fixed. Held icons and B retain nested original information, including after text scrolling. Good/Evil backgrounds are opaque. Information-only messages, wide passive artwork and animations keep their existing layout.
+
+Update only `3ds/fheroes2/fheroes2.3dsx`; translations are unchanged. On New 3DS XL check resource/artifact/spell notifications, holding icons, long descriptions and return to the map. The original caller still applies rewards; actual resource/artifact/spell grants remain manual gameplay checks.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Elements New/Old Russian and New English, plus Messages, Chest, LevelUp and BattleDialogs New Russian. Cases cover mixed rows, long descriptions, held information after scrolling, negative responses, release outside targets, Evil and unchanged caller funds/experience/frame/context. Captures were inspected. ARM build, five-file desktop syntax, 28-group/40-marker infrastructure and clean-baseline patch application passed. Full was not run; physical readability and actual rewards are pending.
+
 ## Preview 0.3.49: original-style plain confirmations
 
 Plain response dialogs without illustration elements now use the accepted flat BUYBUILD/BUYBUILE frame, opaque themed paper/grey background and original localized game buttons. OK, Cancel, OK/Cancel and Yes/No are supported. Short text blocks are vertically centred in the content area; long text scrolls with fixed controls and a visible position indicator. Single buttons are centred; paired buttons share the inset centres and separated large touch targets. Shadows and focus follow the visible buttons. Text and actions stay on the lower screen; the upper game view keeps its existing behaviour. Information-only and illustrated-message layouts retain their current paths.
@@ -68,7 +76,7 @@ Validation (2026-10-24, Azahar 2126.2 MXE): Shipyard passed New/Old Russian and 
 
 The user subsequently authorized emulator validation after the 2026-10-13 host freeze/forced reboot. All existing groups were validated sequentially. For ongoing work use only affected short groups with BelowNormal priority, process deadlines and CPU/memory monitoring; do not automatically run monolithic Full. Stop and investigate failures or excessive host load. Earlier validation records below preserve the history of the incident.
 
-The runner defaults to Startup instead of the complete suite. Available groups: Startup, Messages, Chest, LevelUp, Recruit, Market, Gift, Hero, Army, Spellbook, BattleLog, BattleDialogs, BattleIntegration, Building, Construction, HeroRecruit, CastleOptions, CastleArmy, CastleBuildings, CastleScreen, CastleStereo, MageGuild, SystemExit, Well, Tavern, ThievesGuild, Shipyard and Full. Full retains 39 component markers plus completion as of 0.3.41. Messages no longer calls unrelated groups internally. Army covers split/details, Spellbook covers combat/adventure/full books, BattleDialogs covers hero actions and battle outcomes, and BattleIntegration covers actual Arena/HUD entry points.
+The runner defaults to Startup instead of the complete suite. Available groups: Startup, Messages, Elements, Chest, LevelUp, Recruit, Market, Gift, Hero, Army, Spellbook, BattleLog, BattleDialogs, BattleIntegration, Building, Construction, HeroRecruit, CastleOptions, CastleArmy, CastleBuildings, CastleScreen, CastleStereo, MageGuild, SystemExit, Well, Tavern, ThievesGuild, Shipyard and Full. Full retains 40 component markers plus completion as of 0.3.50. Messages no longer calls unrelated groups internally. Army covers split/details, Spellbook covers combat/adventure/full books, BattleDialogs covers hero actions and battle outcomes, and BattleIntegration covers actual Arena/HUD entry points.
 
 Use `./tools/test-menu-emulator.ps1 -Group Army -PlanOnly` to inspect required checks/captures without launching Azahar or touching the profile. Future separately requested diagnostic commands can omit PlanOnly. Run sequentially. Default deadlines: 90 seconds, 120 for Spellbook/BattleDialogs/BattleIntegration, 360 for Full; these are timeouts, not measured durations.
 

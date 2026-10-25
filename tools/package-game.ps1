@@ -1,5 +1,5 @@
-﻿$ErrorActionPreference = 'Stop'
-$version = '0.3.49'
+$ErrorActionPreference = 'Stop'
+$version = '0.3.50'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -23,6 +23,8 @@ $manifest = [ordered]@{
     shared_review_fixes='Input/render separation; unified RenderEngine factory; required software cursor via Settings/config; named geometry/framebuffer validation; model error logging; null argv guard'
     hardware_shared_review_fixes='0.3.19 accepted by user on New 3DS XL without scenario breakdown; no physical Old 3DS'
     renderer='native RGBA8 framebuffer, 800x480 indexed game frame, 400x240 standard or optional 800x240 high-resolution 2D overview'
+    illustrated_message_style='0.3.50: original Good/Evil frame, upper descriptions, lower static element rows and game buttons; independent bounded scroll, held information after text scrolling; passive/wide/animated layouts unchanged'
+    validation_illustrated_messages='Elements New/Old ru and New en; Messages/Chest/LevelUp/BattleDialogs New ru; monitored short groups, ARM, five-file desktop syntax, 28 groups/40 markers and clean patch; real rewards and console pending'
     native_messages='Common supported showMessage and chest gold/experience choice; native 400x240 information top, 320x240 answers bottom; remaining specialized dialogs retain original layouts'
     hardware_native_messages='0.3.3 pending physical validation; synthetic New/Old emulator checks are not full gameplay'
     emulated_native_messages='Russian New/Old and English New: top information, bottom OK, stylus NO, drag cancellation, long bottom/top scroll, nested resource information, viewport edge restoration and release isolation'
