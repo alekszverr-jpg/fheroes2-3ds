@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.52'
+$version = '0.3.53'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -35,6 +35,9 @@ $manifest = [ordered]@{
     validation_recruitment_style='Recruit New/Old ru and New en; Well/Messages/Elements New ru; bounded monitored groups, visible idle/large quantity/downgrade/rare resources/held scrolling/footer and outside release; physical readability and real hires pending'
     army_style='0.3.52: original Good/Evil frame, upper portrait/stats/cost/properties/effects, separate scroll footer and right track/arrows, lower heading/inset actions; split original OK/Cancel and 128x38 touch targets, manual/fast semantics preserved'
     validation_army_style='Army New/Old ru and New en; CastleArmy/BattleDialogs/Recruit New ru; monitored short groups, upgrade/dismiss/nested info/held scrolling/battle stats and split manual/fast/zero/large cases, footer/drag; real gameplay effects and console readability pending'
+    original_creature_animation='0.3.53: shared upstream RandomMonsterAnimation, original CASTLE_UNIT_DELAY 150ms, fixed body-based scale/anchor and clipped viewport; bounds include all idle variants and movement offsets; army hit/death, well/recruit no death, readonly static; original recruitment itself is static'
+    validation_original_creature_animation='3200 seeded frame/offset comparisons against upstream (four creatures, both death policies), timing/bounds/mirror/reflection/readonly; capture RNG restored; Recruit/Well/Army New/Old ru and New en, CastleScreen/CastleStereo/CastleArmy/BattleDialogs New ru, bounded monitored groups'
+    well_style='0.3.53: original Good/Evil frame, inset actions and six creature slots, upper selected portrait/stats/population/growth, proportional unit cost icons; disabled/empty states and original castle payment/army callbacks preserved'
     native_recruitment='Native 320x240 recruitment: quantity buttons/slider, D-pad, affordable maximum, optional downgrade variants, top creature information; unchanged caller payment/army placement'
     recruitment_portraits='104x90 original creature sprites and idle frames, fixed scale per variant; stylus/D-pad scrolling while portrait-held information is open; release closes without purchase'
     hardware_recruitment_feedback='User tested 0.3.8 on New 3DS XL: portraits too small and held tooltip could not scroll; other recruitment behavior reported working without scenario breakdown. 0.3.11 accepted on New 3DS XL without detailed scenario breakdown'

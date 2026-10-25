@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.52
+# fheroes2 for Nintendo 3DS — preview 0.3.53
+
+## Preview 0.3.53: original-style well and original creature animation
+
+The well now uses the accepted original Good/Evil frame, inset actions and a six-creature grid. Its upper screen retains a large selected-creature portrait, original population/growth/stat sources and proportionally scaled unit-cost icons. The lower screen keeps selection, individual recruitment and Max; long names fit their available space, with the selected creature's full title above. Empty/unbuilt states remain disabled as before.
+
+Recruitment, interactive army cards and the well now share the upstream RandomMonsterAnimation implementation and CASTLE_UNIT_DELAY (150 ms), replacing the custom standing/idle loop. Original movement, melee, ranged and idle selection/return offsets are used. Army cards retain upstream hit/death animations; the well and animated recruitment use the no-death well policy. Upstream recruitment itself is static; the port deliberately keeps its accepted animated portrait. Readonly/held army cards stay static as upstream. Scale/anchor are based on the standing body and remain fixed across all reachable frames. Wide attacks/flight frames are clipped to the portrait viewport, keeping creatures readable and neighbouring text clear. All idle variants are included in bound checks. The native viewport still scales the original sprites; this is not a pixel-identical desktop layout.
+
+Validation: monitored short Azahar 2126.2 MXE runs passed Recruit, Well and Army on New/Old Russian and New English, plus CastleScreen, CastleStereo, CastleArmy and BattleDialogs New Russian. A required portrait check compares 400 frames and offsets per creature for four creatures and both death policies against the upstream class with identical RNG seeds (3200 steps), tests timing, fixed bounds, readonly and mirror/reflection drawing. Measurement initially consumed a random idle choice; the comparison caught it, and raw idle enumeration removed the RNG side effect. Capture fixtures select a reproducible original animated sequence and restore RNG state; production selection remains untouched. Well tests cover all six races/upgrades, large creature/long castle name, drag/hold/footer rejection, visible animation, exact individual/Max payment/population/army totals and flat/stereo return. ARM build, four-file desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL leave portraits open to check the varied animation, fixed scale and readability; test Well individual/Max hiring, exact payment/population/army changes, cancellation and town return. Emulator checks do not replace hardware validation.
 
 ## Preview 0.3.52: original-style army cards and split controls
 

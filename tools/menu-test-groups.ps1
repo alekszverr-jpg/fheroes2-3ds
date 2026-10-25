@@ -4,7 +4,7 @@ $menuTestGroups = [ordered]@{
     Elements = @{ Markers = @('3DS ILLUSTRATED MESSAGES SMOKE: PASS'); Captures = @('message-resource-bottom.bmp','message-artifact-top.bmp','message-artifact-bottom.bmp','message-spell-top.bmp','message-spell-bottom.bmp','message-mixed-evil-long-bottom.bmp','message-mixed-long-top.bmp') }
     Chest = @{ Markers = @('3DS CHEST SMOKE: PASS'); Captures = @('chest-top.bmp','chest-bottom.bmp','chest-evil-top.bmp','chest-evil-bottom.bmp','chest-long-top.bmp') }
     LevelUp = @{ Markers = @('3DS LEVEL UP SMOKE: PASS'); Captures = @('level-choice-top.bmp','level-choice-bottom.bmp','level-single-top.bmp','level-single-bottom.bmp','level-primary-top.bmp','level-primary-bottom.bmp','level-choice-evil-top.bmp','level-choice-evil-bottom.bmp','level-choice-long-top.bmp') }
-    Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp','recruit-top.bmp','recruit-large-top.bmp') }
+    Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS','3DS ORIGINAL PORTRAITS: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp','recruit-top.bmp','recruit-large-top.bmp') }
     Market = @{ Markers = @('3DS MARKET SMOKE: PASS'); Captures = @('market-top.bmp','market-bottom.bmp') }
     Gift = @{ Markers = @('3DS GIFT SMOKE: PASS'); Captures = @('gift-top.bmp','gift-bottom.bmp') }
     Hero = @{ Markers = @('3DS HERO SMOKE: PASS'); Captures = @('hero-army-top.bmp','hero-army-bottom.bmp','hero-artifacts-top.bmp','hero-artifacts-bottom.bmp','hero-skills-top.bmp','hero-skills-bottom.bmp') }
@@ -20,7 +20,7 @@ $menuTestGroups = [ordered]@{
     Shipyard = @{ Markers = @('3DS SHIPYARD SMOKE: PASS'); Captures = @('shipyard-original.bmp','shipyard-top.bmp','shipyard-bottom.bmp','shipyard-disabled-bottom.bmp','shipyard-evil-top.bmp','shipyard-evil-bottom.bmp','shipyard-pressed-bottom.bmp') }
     ThievesGuild = @{ Markers = @('3DS THIEVES GUILD SMOKE: PASS'); Captures = @('thieves-top.bmp','thieves-bottom.bmp','thieves-locked-top.bmp','thieves-heroes-top.bmp','oracle-top.bmp') }
     Tavern = @{ Markers = @('3DS TAVERN SMOKE: PASS'); Captures = @('tavern-top.bmp','tavern-bottom.bmp','tavern-idle-bottom.bmp','tavern-scrolled-top.bmp') }
-    Well = @{ Markers = @('3DS WELL SMOKE: PASS'); Captures = @('well-top.bmp','well-bottom.bmp','well-idle-top.bmp') }
+    Well = @{ Markers = @('3DS WELL SMOKE: PASS'); Captures = @('well-top.bmp','well-bottom.bmp','well-idle-top.bmp','well-evil-top.bmp','well-evil-bottom.bmp','well-empty-top.bmp','well-empty-bottom.bmp','well-large-top.bmp','well-large-bottom.bmp') }
     SystemExit = @{ Markers = @('3DS SYSTEM EXIT SMOKE: PASS'); Captures = @() }
     CastleScreen = @{ Markers = @('3DS CASTLE MAIN SMOKE: PASS'); Captures = @('castle-main-top.bmp','castle-main-bottom.bmp') }
     CastleArmy = @{ Markers = @('3DS CASTLE ARMY SMOKE: PASS'); Captures = @('castle-army-top.bmp','castle-army-bottom.bmp') }

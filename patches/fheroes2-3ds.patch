@@ -3549,13 +3549,14 @@ index 0000000..7bc2313
 +};
 diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
 new file mode 100644
-index 0000000..5c5da39
+index 0000000..7d83e30
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_army.cpp
-@@ -0,0 +1,387 @@
+@@ -0,0 +1,348 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
++#include "ui_3ds_portrait.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -3640,45 +3641,7 @@ index 0000000..5c5da39
 +            display.render();
 +        }
 +    };
-+    class Portrait
-+    {
-+    public:
-+        Portrait( const Troop & troop, bool animated ) : _icn( troop.GetMonsterSprite() ), _mirror( troop.isModes( Battle::CAP_MIRRORIMAGE ) )
-+        {
-+            const AnimationReference reference( troop.GetID() );
-+            const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
-+            if ( standing.empty() ) throw std::runtime_error( "Army card has no standing frame" );
-+            _frames.assign( 12, standing.front() );
-+            if ( animated ) {
-+                const auto & idle = reference.getAnimationVector( Monster_Info::IDLE );
-+                _frames.insert( _frames.end(), idle.begin(), idle.end() );
-+            }
-+            const auto & first = Assets::getImage( _icn, _frames.front() );
-+            int32_t left = first.x(), top = first.y(), right = left + first.width(), bottom = top + first.height();
-+            for ( const int frame : _frames ) {
-+                const auto & sprite = Assets::getImage( _icn, frame );
-+                left = std::min( left, sprite.x() ); top = std::min( top, sprite.y() );
-+                right = std::max( right, sprite.x() + sprite.width() ); bottom = std::max( bottom, sprite.y() + sprite.height() );
-+            }
-+            _bounds = { left, top, right - left, bottom - top };
-+        }
-+        void draw( Image & output, const Rect & area, size_t frame, bool reflected ) const
-+        {
-+            Image icon( _bounds.width, _bounds.height ); icon.reset();
-+            Sprite sprite = Assets::getImage( _icn, _frames[frame % _frames.size()] );
-+            if ( _mirror ) ApplyPalette( sprite, PAL::GetPalette( PAL::PaletteType::MIRROR_IMAGE ) );
-+            Blit( sprite, icon, sprite.x() - _bounds.x, sprite.y() - _bounds.y );
-+            const double scale = std::min( double( area.width ) / icon.width(), double( area.height ) / icon.height() );
-+            Image resized( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
-+            resized.reset(); Resize( icon, resized );
-+            Blit( resized, output, area.x + ( area.width - resized.width() ) / 2, area.y + ( area.height - resized.height() ) / 2, reflected );
-+        }
-+    private:
-+        int _icn;
-+        bool _mirror;
-+        Rect _bounds;
-+        std::vector<int> _frames;
-+    };
++
 +}
 +
 +int Interface3DS::showArmyInfo( const Troop & troop, const int flags, const bool reflected )
@@ -3744,7 +3707,7 @@ index 0000000..5c5da39
 +        }
 +    }
 +    Image content;
-+    const Portrait portrait( troop, interactive );
++    Interface3DS::MonsterPortrait portrait( troop, true, interactive, troop.isModes( Battle::CAP_MIRRORIMAGE ) );
 +    const Rect portraitArea{ 0, 4, 132, resources.empty() ? 146 : 100 };
 +    std::vector<int> actions;
 +    if ( interactive && ( flags & Dialog::UPGRADE ) ) actions.push_back( Dialog::UPGRADE );
@@ -3763,15 +3726,14 @@ index 0000000..5c5da39
 +    int scroll = 0, selected = int( actions.size() ) - 1, pressed = -1, result = Dialog::ZERO;
 +    bool closed = false, down = !interactive && Platform3DS::isPhysicalTouchHeld(), moved = false;
 +    Point start = Platform3DS::physicalTouchPosition(), last = start;
-+    Uint32 began = SDL_GetTicks(), animationTick = began;
-+    size_t frame = 0;
++    Uint32 began = SDL_GetTicks();
 +    const CardScope scope( top, interactive ? &bottom : nullptr );
 +    const auto draw = [&]() {
 +        top = topBackground;
 +        const std::string title = std::string( troop.GetName() ) + " (" + std::to_string( troop.GetCount() ) + ")";
 +        Text( title, Text( title, FontType::normalYellow() ).height( contentWidth ) <= 17 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 24, 20, contentWidth, top );
 +        Copy( contentBase, content );
-+        portrait.draw( content, portraitArea, frame, reflected );
++        portrait.draw( content, portraitArea, reflected );
 +        Copy( content, 0, scroll, top, 24, 40, contentWidth, viewHeight );
 +        if ( height > viewHeight ) {
 +            Text( std::to_string( ( scroll + 31 ) / 32 + 1 ) + "/" + std::to_string( ( height - viewHeight + 31 ) / 32 + 1 ), FontType::smallYellow() ).draw( 24, 205, contentWidth, top );
@@ -3856,8 +3818,7 @@ index 0000000..5c5da39
 +            scroll = std::clamp( scroll, 0, std::max( 0, height - viewHeight ) );
 +        }
 +        if ( interactive && down && !moved && pressed >= 0 && SDL_GetTicks() - began >= 550 ) { information( pressed ); redraw = true; }
-+        const Uint32 now = SDL_GetTicks();
-+        if ( interactive && now - animationTick >= 75 ) { frame += ( now - animationTick ) / 75; animationTick = now; redraw = true; }
++        if ( portrait.advance( SDL_GetTicks() ) ) redraw = true;
 +        if ( redraw && !closed ) draw();
 +    }
 +    if ( Platform3DS::smokeTest() && scroll > 0 && !Save( top, "sdmc:/3ds/fheroes2/army-info-scrolled-top.bmp" ) )
@@ -6145,13 +6106,14 @@ index 0000000..289287d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..c02dbcf
+index 0000000..f1f5c6a
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
-@@ -0,0 +1,1660 @@
+@@ -0,0 +1,1631 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
++#include "ui_3ds_portrait.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <cmath>
@@ -7034,30 +6996,11 @@ index 0000000..c02dbcf
 +    };
 +    const Rect slider{ 24, 158, 272, 22 };
 +    const Rect portraitArea{ 24, 38, 96, 90 };
-+    std::vector<int> portraitFrames;
-+    Rect portraitBounds;
-+    size_t portraitFrame = 0;
-+    Uint32 portraitTick = SDL_GetTicks();
++    std::unique_ptr<Interface3DS::MonsterPortrait> portrait;
 +    Image firstPortrait;
 +    bool capturedIdle = false;
 +    const auto preparePortrait = [&]() {
-+        const AnimationReference reference( variants[variant].GetID() );
-+        const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
-+        if ( standing.empty() ) throw std::runtime_error( "Recruit portrait has no standing frame" );
-+        portraitFrames.assign( 12, standing.front() );
-+        const auto & idle = reference.getAnimationVector( Monster_Info::IDLE );
-+        portraitFrames.insert( portraitFrames.end(), idle.begin(), idle.end() );
-+        const int icn = variants[variant].GetMonsterSprite();
-+        const auto & first = Assets::getImage( icn, portraitFrames.front() );
-+        int32_t left = first.x(), top = first.y(), right = left + first.width(), bottom = top + first.height();
-+        for ( const int frame : portraitFrames ) {
-+            const auto & sprite = Assets::getImage( icn, frame );
-+            left = std::min( left, sprite.x() ); top = std::min( top, sprite.y() );
-+            right = std::max( right, sprite.x() + sprite.width() ); bottom = std::max( bottom, sprite.y() + sprite.height() );
-+        }
-+        portraitBounds = { left, top, right - left, bottom - top };
-+        portraitFrame = 0;
-+        portraitTick = SDL_GetTicks();
++        portrait = std::make_unique<Interface3DS::MonsterPortrait>( variants[variant], false );
 +    };
 +    preparePortrait();
 +    int pressed = -1;
@@ -7083,16 +7026,7 @@ index 0000000..c02dbcf
 +        StringReplace( title, "%{name}", variants[variant].GetMultiName() );
 +        const Text titleText( title, FontType::normalYellow() );
 +        Text( title, titleText.height( 272 ) <= 17 ? FontType::normalYellow() : FontType::smallYellow() ).draw( 24, 18, 272, window );
-+        const Sprite & creature = Assets::getImage( variants[variant].GetMonsterSprite(), portraitFrames[portraitFrame] );
-+        Image icon( portraitBounds.width, portraitBounds.height );
-+        icon.reset();
-+        Blit( creature, icon, creature.x() - portraitBounds.x, creature.y() - portraitBounds.y );
-+        const double scale = std::min( double( portraitArea.width ) / icon.width(), double( portraitArea.height ) / icon.height() );
-+        const int iconWidth = std::max( 1, int( icon.width() * scale ) ), iconHeight = std::max( 1, int( icon.height() * scale ) );
-+        Image scaledIcon( iconWidth, iconHeight );
-+        scaledIcon.reset();
-+        Resize( icon, scaledIcon );
-+        Blit( scaledIcon, window, portraitArea.x + ( portraitArea.width - iconWidth ) / 2, portraitArea.y + ( portraitArea.height - iconHeight ) / 2 );
++        portrait->draw( window, portraitArea );
 +        Blit( costCard, window, 156, 38 );
 +        addGradientShadow( costCard, window, { 156, 38 }, { -3, 3 } );
 +        const Monster & monster = variants[variant];
@@ -7293,11 +7227,7 @@ index 0000000..c02dbcf
 +        if ( down && !moved && !sliding && ( portraitArea & start ) && SDL_GetTicks() - began >= 550 )
 +            information();
 +        if ( !closed ) {
-+            const Uint32 now = SDL_GetTicks();
-+            if ( now - portraitTick >= 75 ) {
-+                portraitFrame = ( portraitFrame + ( now - portraitTick ) / 75 ) % portraitFrames.size();
-+                portraitTick = now;
-+            }
++            portrait->advance( SDL_GetTicks() );
 +            draw();
 +        }
 +    }
@@ -7308,6 +7238,7 @@ index 0000000..c02dbcf
 +void Interface3DS::testRecruit()
 +{
 +    using namespace fheroes2;
++    Interface3DS::testMonsterPortraits();
 +    struct RestoreFunds
 +    {
 +        Kingdom & kingdom;
@@ -7355,6 +7286,7 @@ index 0000000..c02dbcf
 +        return result;
 +    };
 +    const Monster peasant( Monster::PEASANT );
++    const Interface3DS::PortraitTestRandomScope portraitRandom( peasant, false );
 +    setFunds( peasant.GetCost() * 3 );
 +    Platform3DS::requestCapture();
 +    captureRecruitPortrait = true;
@@ -9371,6 +9303,196 @@ index 0000000..127d07b
 +    COUT( "3DS GIFT SMOKE: PASS multi_recipients budgets gold_step min_max slider controller recipient_reset empty_disabled drag_cancel nested_evil signed_limits real_cancel unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
+diff --git a/src/fheroes2/gui/ui_3ds_portrait.cpp b/src/fheroes2/gui/ui_3ds_portrait.cpp
+new file mode 100644
+index 0000000..51414c6
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_portrait.cpp
+@@ -0,0 +1,142 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "ui_3ds_portrait.h"
++#if defined( __3DS__ )
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <stdexcept>
++#include <SDL.h>
++#include "game_assets.h"
++#include "bin_info.h"
++#include "game_delays.h"
++#include "logging.h"
++#include "monster.h"
++#include "pal.h"
++namespace Interface3DS
++{
++    MonsterPortrait::MonsterPortrait( const Monster & monster, const bool includeDeath, const bool animated, const bool mirror )
++        : _animation( monster, includeDeath ), _tick( SDL_GetTicks() ), _animated( animated ), _mirror( mirror )
++    {
++        if ( !animated ) _animation.reset();
++        const AnimationReference reference( monster.GetID() );
++        const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
++        const auto & body = Assets::getImage( _animation.icnFile(), standing.front() );
++        _bodyBounds = { body.x(), body.y(), body.width(), body.height() };
++        const auto & first = Assets::getImage( _animation.icnFile(), _animation.frameId() );
++        int32_t left = first.x() - _animation.offset(), top = first.y();
++        int32_t right = left + first.width(), bottom = top + first.height();
++        // Match all states reachable by RandomMonsterAnimation, including return/movement offsets.
++        for ( const int state : { Monster_Info::STATIC, Monster_Info::MOVE_START, Monster_Info::MOVING,
++            Monster_Info::MOVE_END, Monster_Info::FLY_UP, Monster_Info::FLY_LAND, Monster_Info::MELEE_TOP, Monster_Info::MELEE_TOP_END,
++            Monster_Info::MELEE_FRONT, Monster_Info::MELEE_FRONT_END, Monster_Info::MELEE_BOT, Monster_Info::MELEE_BOT_END,
++            Monster_Info::RANG_TOP, Monster_Info::RANG_TOP_END, Monster_Info::RANG_FRONT, Monster_Info::RANG_FRONT_END,
++            Monster_Info::RANG_BOT, Monster_Info::RANG_BOT_END, Monster_Info::WNCE, Monster_Info::KILL } ) {
++            if ( !animated && state != Monster_Info::STATIC ) continue;
++            if ( !includeDeath && ( state == Monster_Info::WNCE || state == Monster_Info::KILL ) ) continue;
++            const auto & frames = reference.getAnimationVector( state );
++            const auto offsets = reference.getAnimationOffset( state );
++            for ( size_t i = 0; i < frames.size(); ++i ) {
++                const auto & sprite = Assets::getImage( _animation.icnFile(), frames[i] );
++                const int32_t x = sprite.x() - ( state == Monster_Info::IDLE || i >= offsets.size() ? 0 : offsets[i] );
++                left = std::min( left, x ); top = std::min( top, sprite.y() );
++                right = std::max( right, x + sprite.width() ); bottom = std::max( bottom, sprite.y() + sprite.height() );
++            }
++        }
++        // Enumerate every idle variant without getAnimationVector(IDLE), which consumes RNG.
++        // Layout measurements must not perturb the original random animation stream.
++        if ( animated ) {
++            const auto info = Bin_Info::GetMonsterInfo( monster.GetID() );
++            for ( uint32_t state = Bin_Info::MonsterAnimInfo::IDLE1; state < Bin_Info::MonsterAnimInfo::IDLE1 + info.idleAnimationCount; ++state ) {
++                for ( const int frame : info.animationFrames[state] ) {
++                    const auto & sprite = Assets::getImage( _animation.icnFile(), frame );
++                    left = std::min( left, sprite.x() ); top = std::min( top, sprite.y() );
++                    right = std::max( right, sprite.x() + sprite.width() ); bottom = std::max( bottom, sprite.y() + sprite.height() );
++                }
++            }
++        }
++        _bounds = { left, top, right - left, bottom - top };
++        _tick = SDL_GetTicks();
++    }
++    bool MonsterPortrait::advance( const uint32_t now )
++    {
++        if ( !_animated || now - _tick < Game::getAnimationDelayValue( Game::DelayType::CASTLE_UNIT_DELAY ) ) return false;
++        // Original castle dialogs advance once per passed delay rather than fast-forwarding missed frames.
++        _tick = now; _animation.increment(); return true;
++    }
++    void MonsterPortrait::draw( fheroes2::Image & output, const fheroes2::Rect & area, const bool reflected ) const
++    {
++        using namespace fheroes2;
++        Sprite sprite = Assets::getImage( _animation.icnFile(), _animation.frameId() );
++        if ( _mirror ) ApplyPalette( sprite, PAL::GetPalette( PAL::PaletteType::MIRROR_IMAGE ) );
++        const int boundX = sprite.x() - _animation.offset() - _bounds.x, boundY = sprite.y() - _bounds.y;
++        if ( boundX < 0 || boundY < 0 || boundX + sprite.width() > _bounds.width || boundY + sprite.height() > _bounds.height )
++            throw std::runtime_error( "Creature animation exceeds its fixed native bounds" );
++        // Keep the body readable. Like the original dialog ROI, the portrait viewport clips
++        // wide attacks/flight frames instead of shrinking the creature to fit their full extent.
++        const double scale = std::min( double( area.width ) / _bodyBounds.width, double( area.height ) / _bodyBounds.height );
++        Image resized( std::max( 1, int( sprite.width() * scale ) ), std::max( 1, int( sprite.height() * scale ) ) );
++        resized.reset(); Resize( sprite, resized );
++        Image viewport( area.width, area.height ); viewport.reset();
++        Point out{ ( area.width - int( _bodyBounds.width * scale ) ) / 2 + int( std::lround( ( sprite.x() - _animation.offset() - _bodyBounds.x ) * scale ) ),
++                   ( area.height - int( _bodyBounds.height * scale ) ) / 2 + int( std::lround( ( sprite.y() - _bodyBounds.y ) * scale ) ) };
++        Point in{ 0, 0 }; Size size{ resized.width(), resized.height() };
++        if ( FitToRoi( resized, in, viewport, out, size, { 0, 0, area.width, area.height } ) )
++            Blit( resized, in, viewport, out, size );
++        Blit( viewport, output, area.x, area.y, reflected );
++    }
++    PortraitTestRandomScope::PortraitTestRandomScope( const Monster & monster, const bool includeDeath )
++        : _saved( Rand::CurrentThreadRandomDevice() )
++    {
++        auto & rng = Rand::CurrentThreadRandomDevice();
++        for ( uint64_t seed = 0; seed < 256; ++seed ) {
++            rng = Rand::PCG32( seed );
++            fheroes2::RandomMonsterAnimation probe( monster, includeDeath );
++            const int first = probe.frameId();
++            for ( int i = 0; i < 10; ++i ) {
++                probe.increment();
++                if ( probe.frameId() != first ) { rng = Rand::PCG32( seed ); return; }
++            }
++        }
++        rng = _saved;
++        throw std::runtime_error( "Cannot select an original animated capture sequence" );
++    }
++    PortraitTestRandomScope::~PortraitTestRandomScope() { Rand::CurrentThreadRandomDevice() = _saved; }
++    void testMonsterPortraits()
++    {
++        using namespace fheroes2;
++        struct RestoreRandom {
++            Rand::PCG32 state = Rand::CurrentThreadRandomDevice();
++            ~RestoreRandom() { Rand::CurrentThreadRandomDevice() = state; }
++        } restore;
++        auto & rng = Rand::CurrentThreadRandomDevice();
++        const uint32_t delay = uint32_t( Game::getAnimationDelayValue( Game::DelayType::CASTLE_UNIT_DELAY ) );
++        if ( delay != 150 ) throw std::runtime_error( "Unexpected original castle animation interval" );
++        Image canvas( 132, 146 );
++        for ( const int id : { Monster::PEASANT, Monster::BLACK_DRAGON, Monster::LICH, Monster::CYCLOPS } ) {
++            for ( const bool death : { false, true } ) {
++                rng = Rand::PCG32( uint64_t( 123 ) );
++                RandomMonsterAnimation original( Monster( id ), death );
++                std::vector<std::pair<int, int>> expected;
++                for ( int i = 0; i < 400; ++i ) { expected.emplace_back( original.frameId(), original.offset() ); original.increment(); }
++                rng = Rand::PCG32( uint64_t( 123 ) );
++                MonsterPortrait portrait( Monster( id ), death );
++                uint32_t now = SDL_GetTicks();
++                if ( portrait.advance( now ) ) throw std::runtime_error( "Portrait advanced before the original interval" );
++                for ( int i = 0; i < 400; ++i ) {
++                    if ( portrait.frameId() != expected[i].first || portrait.offset() != expected[i].second )
++                        throw std::runtime_error( "Native portrait differs from the original random sequence" );
++                    canvas.reset(); portrait.draw( canvas, { 0, 0, 132, 146 }, i % 2 != 0 );
++                    now += delay;
++                    if ( !portrait.advance( now ) || portrait.advance( now ) ) throw std::runtime_error( "Portrait frame timing differs" );
++                }
++            }
++            MonsterPortrait still( Monster( id ), true, false, true );
++            const int frame = still.frameId(), offset = still.offset();
++            if ( still.advance( SDL_GetTicks() + 100000 ) || still.frameId() != frame || still.offset() != offset )
++                throw std::runtime_error( "Readonly portrait animated" );
++            canvas.reset(); still.draw( canvas, { 0, 0, 132, 146 } );
++        }
++        COUT( "3DS ORIGINAL PORTRAITS: PASS original_sequence_400_frames_four_monsters_both_death_policies 150ms fixed_bounds static_readonly reflected_mirror" )
++    }
++}
++#endif
+diff --git a/src/fheroes2/gui/ui_3ds_portrait.h b/src/fheroes2/gui/ui_3ds_portrait.h
+new file mode 100644
+index 0000000..dd05fd8
+--- /dev/null
++++ b/src/fheroes2/gui/ui_3ds_portrait.h
+@@ -0,0 +1,36 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#if defined( __3DS__ )
++#include <cstdint>
++#include "image.h"
++#include "monster_anim.h"
++#include "rand.h"
++namespace Interface3DS
++{
++    // Native viewport around the original random creature animation; scale/anchor stay fixed.
++    class MonsterPortrait final
++    {
++    public:
++        MonsterPortrait( const Monster & monster, bool includeDeath, bool animated = true, bool mirror = false );
++        bool advance( uint32_t now );
++        void draw( fheroes2::Image & output, const fheroes2::Rect & area, bool reflected = false ) const;
++        int frameId() const { return _animation.frameId(); }
++        int offset() const { return _animation.offset(); }
++    private:
++        fheroes2::RandomMonsterAnimation _animation;
++        fheroes2::Rect _bounds, _bodyBounds;
++        uint32_t _tick;
++        bool _animated, _mirror;
++    };
++    void testMonsterPortraits();
++    // Deterministic representative captures without changing production random selection.
++    class PortraitTestRandomScope final
++    {
++    public:
++        PortraitTestRandomScope( const Monster & monster, bool includeDeath );
++        ~PortraitTestRandomScope();
++    private:
++        Rand::PCG32 _saved;
++    };
++}
++#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 new file mode 100644
 index 0000000..87f1231
@@ -10561,12 +10683,14 @@ index 0000000..bdca867
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_well.cpp b/src/fheroes2/gui/ui_3ds_well.cpp
 new file mode 100644
-index 0000000..54b07af
+index 0000000..4ac30ba
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_well.cpp
-@@ -0,0 +1,307 @@
+@@ -0,0 +1,326 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
++#include "ui_3ds_portrait.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -10606,7 +10730,7 @@ index 0000000..54b07af
 +    bool captureWellAnimation = false;
 +    unsigned wellAnimationChanges = 0;
 +    uint32_t dwellingId( int slot ) { return uint32_t( DWELLING_MONSTER1 ) << slot; }
-+    Rect tileArea( int slot ) { return { 8 + slot % 3 * 104, 34 + slot / 3 * 80, 96, 74 }; }
++    Rect tileArea( int slot ) { return { 24 + slot % 3 * 92, 40 + slot / 3 * 72, 86, 66 }; }
 +    class WellScope
 +    {
 +    public:
@@ -10629,44 +10753,31 @@ index 0000000..54b07af
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t background = GetColorId( 35, 29, 24 );
++    const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil );
++    const Image bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +    Image top( 400, 240 ), bottom( 320, 240 ), firstPortrait;
-+    const Rect portraitArea{ 8, 43, 128, 150 };
-+    const std::array<Rect, 3> controls{ Rect{ 8, 205, 96, 27 }, { 112, 205, 96, 27 }, { 216, 205, 96, 27 } };
++    const Rect portraitArea{ 24, 43, 120, 140 };
++    const std::array<Rect, 3> controls{ Rect{ 24, 180, 86, 38 }, { 116, 180, 86, 38 }, { 208, 180, 86, 38 } };
 +    std::string recruitLabel = _( "Recruit %{name}" ); StringReplace( recruitLabel, "%{name}", "" );
 +    while ( !recruitLabel.empty() && recruitLabel.back() == ' ' ) recruitLabel.pop_back();
 +    const std::array<std::string, 3> labels{ recruitLabel, _( "Max" ), _( "Exit" ) };
 +    std::array<std::unique_ptr<ButtonBase>, 3> buttons;
 +    for ( int i = 0; i < 3; ++i ) {
 +        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", { controls[i].width - 10, controls[i].height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        Text text( labels[i], FontType::normalWhite() ); text.fitToOneRow( released.width() - 8 );
++        makeButtonSprites( released, pressed, "", { controls[i].width - 12, 18 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++        Text text( labels[i], Text( labels[i], FontType::normalWhite() ).width() <= released.width() - 8 ? FontType::normalWhite() : FontType::smallWhite() );
++        text.fitToOneRow( released.width() - 8 );
 +        text.draw( 4, ( released.height() - text.height() ) / 2, released.width() - 8, released );
 +        text.draw( 3, ( pressed.height() - text.height() ) / 2 + 1, pressed.width() - 8, pressed );
-+        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x, controls[i].y, std::move( released ), std::move( pressed ) );
++        buttons[i] = std::make_unique<ButtonSprite>( controls[i].x + ( controls[i].width - released.width() ) / 2, 186, std::move( released ), std::move( pressed ) );
 +    }
 +    int selected = 0, focus = 0, pressed = -1;
-+    bool down = false, moved = false, closed = false, captureIdle = false;
++    bool down = false, moved = false, closed = false, captureIdle = false, capturedLarge = false;
 +    Point start; Uint32 began = 0;
-+    std::vector<int> frames;
-+    Rect bounds;
-+    size_t frame = 0;
-+    Uint32 tick = SDL_GetTicks();
++    std::unique_ptr<Interface3DS::MonsterPortrait> portrait;
 +    const auto preparePortrait = [&]() {
 +        const Monster monster( castle.GetRace(), castle.GetActualDwelling( dwellingId( selected ) ) );
-+        const AnimationReference reference( monster.GetID() );
-+        const auto & standing = reference.getAnimationVector( Monster_Info::STAND_STILL );
-+        if ( standing.empty() ) throw std::runtime_error( "Well portrait has no standing frame" );
-+        frames.assign( 12, standing.front() );
-+        const auto & idle = reference.getAnimationVector( Monster_Info::IDLE );
-+        frames.insert( frames.end(), idle.begin(), idle.end() );
-+        const auto & first = Assets::getImage( monster.GetMonsterSprite(), frames.front() );
-+        int32_t left = first.x(), upper = first.y(), right = left + first.width(), lower = upper + first.height();
-+        for ( int index : frames ) {
-+            const auto & sprite = Assets::getImage( monster.GetMonsterSprite(), index );
-+            left = std::min( left, sprite.x() ); upper = std::min( upper, sprite.y() );
-+            right = std::max( right, sprite.x() + sprite.width() ); lower = std::max( lower, sprite.y() + sprite.height() );
-+        }
-+        bounds = { left, upper, right - left, lower - upper }; frame = 0; tick = SDL_GetTicks();
++        portrait = std::make_unique<Interface3DS::MonsterPortrait>( monster, false );
 +    };
 +    const auto select = [&]( int index ) { if ( selected != index ) { selected = index; preparePortrait(); } };
 +    const auto available = [&]( int index ) { return castle.isBuild( dwellingId( index ) ) && castle.getMonstersInDwelling( dwellingId( index ) ) > 0; };
@@ -10689,17 +10800,10 @@ index 0000000..54b07af
 +    preparePortrait();
 +    const WellScope scope( top, bottom );
 +    const auto draw = [&]() {
-+        top.fill( background ); bottom.fill( background );
-+        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
-+        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
++        top = topBackground; bottom = bottomBackground;
 +        const Monster monster( castle.GetRace(), castle.GetActualDwelling( dwellingId( selected ) ) );
-+        Text title( monster.GetMultiName(), FontType::normalYellow() ); title.fitToOneRow( 384 ); title.draw( 8, 8, 384, top );
-+        Image portrait( bounds.width, bounds.height ); portrait.reset();
-+        const auto & sprite = Assets::getImage( monster.GetMonsterSprite(), frames[frame] );
-+        Blit( sprite, portrait, sprite.x() - bounds.x, sprite.y() - bounds.y );
-+        const double scale = std::min( double( portraitArea.width ) / bounds.width, double( portraitArea.height ) / bounds.height );
-+        Image scaled( std::max( 1, int( bounds.width * scale ) ), std::max( 1, int( bounds.height * scale ) ) ); scaled.reset(); Resize( portrait, scaled );
-+        Blit( scaled, top, portraitArea.x + ( portraitArea.width - scaled.width() ) / 2, portraitArea.y + ( portraitArea.height - scaled.height() ) / 2 );
++        Text title( monster.GetMultiName(), FontType::normalYellow() ); title.fitToOneRow( 352 ); title.draw( 24, 20, 352, top );
++        portrait->draw( top, portraitArea );
 +        std::string stats = std::string( _( "Attack" ) ) + ": " + std::to_string( monster.GetAttack() )
 +            + "\n" + _( "Defense" ) + ": " + std::to_string( monster.GetDefense() )
 +            + "\n" + _( "Damage" ) + ": " + std::to_string( monster.GetDamageMin() ) + "-" + std::to_string( monster.GetDamageMax() )
@@ -10712,16 +10816,19 @@ index 0000000..54b07af
 +                + "\n" + _( "Growth" ) + ": +" + std::to_string( growth ) + " / " + _( "week" );
 +        }
 +        else stats += "\n" + castle.GetStringBuilding( castle.GetActualDwelling( dwellingId( selected ) ) );
-+        Text( stats, FontType::normalWhite() ).draw( 144, 39, 248, top );
++        Text( stats, FontType::normalWhite() ).draw( 152, 43, 224, top );
 +        int resources = 0; const Funds cost = monster.GetCost();
 +        for ( int resource = Resource::WOOD; resource <= Resource::GOLD; resource <<= 1 ) if ( cost.Get( resource ) ) ++resources;
 +        int x = ( 400 - resources * 78 ) / 2;
 +        for ( int resource = Resource::WOOD; resource <= Resource::GOLD; resource <<= 1 ) if ( cost.Get( resource ) ) {
 +            const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( resource ) );
-+            Image resourceIcon( 24, 24 ); resourceIcon.reset(); Resize( icon, resourceIcon );
-+            Blit( resourceIcon, top, x, 206 ); Text( std::to_string( cost.Get( resource ) ), FontType::normalWhite() ).draw( x + 30, 212, top ); x += 78;
++            const double resourceScale = std::min( 32.0 / icon.width(), 24.0 / icon.height() );
++            Image resourceIcon( std::max( 1, int( icon.width() * resourceScale ) ), std::max( 1, int( icon.height() * resourceScale ) ) );
++            resourceIcon.reset(); Resize( icon, resourceIcon );
++            Blit( resourceIcon, top, x, 190 + ( 24 - resourceIcon.height() ) / 2 );
++            Text( std::to_string( cost.Get( resource ) ), FontType::normalWhite() ).draw( x + 36, 196, top ); x += 78;
 +        }
-+        Text name( castle.GetName(), FontType::normalYellow() ); name.fitToOneRow( 304 ); name.draw( 8, 8, 304, bottom );
++        Text name( castle.GetName(), FontType::normalYellow() ); name.fitToOneRow( 272 ); name.draw( 24, 18, 272, bottom );
 +        for ( int i = 0; i < 6; ++i ) {
 +            const auto area = tileArea( i ); const uint32_t dwelling = dwellingId( i );
 +            Fill( bottom, area.x, area.y, area.width, area.height, background );
@@ -10730,16 +10837,20 @@ index 0000000..54b07af
 +            const auto & icon = Assets::getImage( ICN::MONS32, item.GetSpriteIndex() );
 +            Blit( icon, bottom, area.x + ( area.width - icon.width() ) / 2, area.y + 3 );
 +            Text label( item.GetMultiName(), castle.isBuild( dwelling ) ? FontType::smallWhite() : FontType::smallYellow() );
-+            label.fitToOneRow( 88 ); label.draw( area.x + 4, area.y + 40, 88, bottom );
-+            Text( castle.isBuild( dwelling ) ? std::to_string( castle.getMonstersInDwelling( dwelling ) ) : "-", FontType::normalYellow() ).draw( area.x + 4, area.y + 53, 88, bottom );
++            label.fitToOneRow( 78 ); label.draw( area.x + 4, area.y + 36, 78, bottom );
++            Text( castle.isBuild( dwelling ) ? std::to_string( castle.getMonstersInDwelling( dwelling ) ) : "-", FontType::normalYellow() ).draw( area.x + 4, area.y + 48, 78, bottom );
 +        }
-+        Text hint( "A: " + recruitLabel + "   Y: " + _( "Max" ), FontType::smallWhite() ); hint.fitToOneRow( 304 ); hint.draw( 8, 192, 304, bottom );
 +        for ( int i = 0; i < 3; ++i ) {
 +            if ( allowed( i + 6 ) ) buttons[i]->enable(); else buttons[i]->disable();
 +            if ( down && !moved && pressed == i + 6 ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +        }
 +        DrawRect( bottom, focus < 6 ? tileArea( focus ) : controls[focus - 6], GetColorId( 160, 220, 255 ) );
 +        Display::instance().render();
++        if ( Platform3DS::smokeTest() && selected == 5 && !capturedLarge ) {
++            if ( !Save( top, "sdmc:/3ds/fheroes2/well-large-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/well-large-bottom.bmp" ) )
++                throw std::runtime_error( "Cannot save large well creature" );
++            capturedLarge = true;
++        }
 +        if ( captureWellAnimation ) {
 +            Image current( portraitArea.width, portraitArea.height ); Copy( top, portraitArea.x, portraitArea.y, current, 0, 0, current.width(), current.height() );
 +            if ( firstPortrait.empty() ) {
@@ -10752,7 +10863,25 @@ index 0000000..54b07af
 +            }
 +        }
 +    };
-+    draw(); COUT( "3DS well: panel ready" )
++    if ( Platform3DS::smokeTest() ) {
++        for ( size_t i = 0; i < buttons.size(); ++i ) {
++            const auto area = buttons[i]->area(); const auto hit = controls[i];
++            if ( area.x < hit.x || area.x + area.width > hit.x + hit.width || area.y < hit.y || area.y + area.height > hit.y + hit.height )
++                throw std::runtime_error( "Well action crosses its inset target" );
++        }
++        for ( int i = 0; i < 6; ++i ) {
++            const auto area = tileArea( i );
++            if ( area.x < 24 || area.x + area.width > 296 || area.y < 40 || area.y + area.height > 180 )
++                throw std::runtime_error( "Well creature tile crosses the classic frame" );
++        }
++    }
++    draw();
++    if ( Platform3DS::smokeTest() ) {
++        const std::string kind = evil ? "evil" : !castle.isBuild( DWELLING_MONSTER1 ) ? "empty" : "layout";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/well-" + kind + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/well-" + kind + "-bottom.bmp" ) )
++            throw std::runtime_error( "Cannot save well layout" );
++    }
++    COUT( "3DS well: panel ready" )
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        bool redraw = false; Platform3DS::PanelInput input;
@@ -10785,8 +10914,7 @@ index 0000000..54b07af
 +                down = false; pressed = -1;
 +            }
 +        }
-+        const Uint32 now = SDL_GetTicks();
-+        if ( now - tick >= 75 ) { frame = ( frame + ( now - tick ) / 75 ) % frames.size(); tick = now; redraw = true; }
++        if ( portrait->advance( SDL_GetTicks() ) ) redraw = true;
 +        if ( redraw && !closed ) draw();
 +    }
 +}
@@ -10830,14 +10958,26 @@ index 0000000..54b07af
 +        std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
 +        run( castle, steps, action ); if ( requests != 2 || last != -1 ) throw std::runtime_error( "Well controller recruitment dispatch differs" );
 +    }
++    {
++        auto longMetadata = metadata; longMetadata.customName = "A deliberately long castle name for the touchscreen layout";
++        Castle large( 0, 0, Race::WRLK ); large.SetColor( PlayerColor::BLUE ); large.loadFromResurrectionMap( longMetadata );
++        std::vector<int> selectedRequests;
++        std::vector<Step> largeSteps{ { 150, touch( SDL_FINGERDOWN, 250, 145 ) }, { 90, touch( SDL_FINGERUP, 250, 145 ) },
++            { 150, touch( SDL_FINGERDOWN, 250, 145 ) }, { 90, touch( SDL_FINGERUP, 250, 145 ) } };
++        press( largeSteps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER );
++        run( large, largeSteps, [&]( int id ) { selectedRequests.push_back( id ); } );
++        if ( selectedRequests != std::vector<int>{ 5 } ) throw std::runtime_error( "Well sixth creature selection differs" );
++    }
 +    Castle castle( 0, 0, Race::KNGT ); castle.SetColor( PlayerColor::BLUE ); castle.loadFromResurrectionMap( metadata );
 +    std::vector<int> requests; const auto action = [&]( int id ) { requests.push_back( id ); };
 +    std::vector<Step> steps{ { 150, touch( SDL_FINGERDOWN, 150, 70 ) }, { 90, touch( SDL_FINGERUP, 150, 70 ) }, { 150, touch( SDL_FINGERDOWN, 150, 70 ) }, { 90, touch( SDL_FINGERUP, 150, 70 ) },
-+        { 150, touch( SDL_FINGERDOWN, 160, 218 ) }, { 90, touch( SDL_FINGERUP, 160, 218 ) } };
++        { 150, touch( SDL_FINGERDOWN, 160, 198 ) }, { 90, touch( SDL_FINGERUP, 160, 198 ) } };
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action );
 +    if ( requests != std::vector<int>{ 1, -1 } ) throw std::runtime_error( "Well touch select/recruit/max differs" );
-+    requests.clear(); steps = { { 150, touch( SDL_FINGERDOWN, 55, 218 ) }, { 80, touch( SDL_FINGERMOTION, 180, 50 ) }, { 80, touch( SDL_FINGERUP, 180, 50 ) } };
++    requests.clear(); steps = { { 150, touch( SDL_FINGERDOWN, 55, 198 ) }, { 80, touch( SDL_FINGERMOTION, 180, 50 ) }, { 80, touch( SDL_FINGERUP, 180, 50 ) } };
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); if ( !requests.empty() ) throw std::runtime_error( "Well drag recruited" );
++    steps = { { 150, touch( SDL_FINGERDOWN, 55, 226 ) }, { 90, touch( SDL_FINGERUP, 55, 226 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); if ( !requests.empty() ) throw std::runtime_error( "Well footer recruited" );
 +    steps = { { 150, touch( SDL_FINGERDOWN, 50, 65 ) }, { 750, touch( SDL_FINGERUP, 50, 65 ) } };
 +    press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); if ( !requests.empty() ) throw std::runtime_error( "Well hold recruited" );
 +    auto unavailable = metadata; unavailable.builtBuildings = { BUILD_CASTLE, BUILD_WELL };
@@ -10866,9 +11006,10 @@ index 0000000..54b07af
 +    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); captureWellAnimation = false; Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
 +    Platform3DS::setStereoTestStrength( 3 ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( empty, steps, action, true );
 +    Settings::Get().setInterfaceType( InterfaceType::EVIL ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( castle, steps, action ); Settings::Get().setInterfaceType( reset.type );
++    const Interface3DS::PortraitTestRandomScope portraitRandom( Monster( castle.GetRace(), castle.GetActualDwelling( DWELLING_MONSTER1 ) ), false );
 +    captureWellAnimation = true; const unsigned before = wellAnimationChanges;
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 1800 ); run( castle, steps, action );
 +    if ( wellAnimationChanges != before + 1 ) throw std::runtime_error( "Well portrait did not visibly animate" );
-+    COUT( "3DS WELL SMOKE: PASS six_races_upgrades original_populations touch_controller_recruit_max_dispatch disabled_empty_unbuilt drag_hold_cancel visible_idle actual_castle_well_recruit_and_hire_all_cancel_payment_population_army flat_stereo evil readonly_state_and_modal_frame_context_release" )
++    COUT( "3DS WELL SMOKE: PASS classic_frame inset_actions large_creature_long_title proportional_resources six_races_upgrades original_populations touch_controller_recruit_max_dispatch disabled_empty_unbuilt drag_hold_cancel visible_idle actual_castle_well_recruit_and_hire_all_cancel_payment_population_army flat_stereo evil readonly_state_and_modal_frame_context_release" )
 +}
 +#endif
