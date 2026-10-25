@@ -10331,12 +10331,13 @@ index 0000000..6035da3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_tavern.cpp b/src/fheroes2/gui/ui_3ds_tavern.cpp
 new file mode 100644
-index 0000000..94b681c
+index 0000000..467965c
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_tavern.cpp
-@@ -0,0 +1,206 @@
+@@ -0,0 +1,233 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <cmath>
@@ -10368,7 +10369,7 @@ index 0000000..94b681c
 +namespace
 +{
 +    using namespace fheroes2;
-+    bool captureTavern = false;
++    bool captureTavern = false, captureTavernShort = false;
 +    unsigned animatedTaverns = 0;
 +    int lastTavernScroll = 0, maximumTavernScroll = 0;
 +    class TavernScope
@@ -10393,9 +10394,13 @@ index 0000000..94b681c
 +    const CursorRestorer hideCursor( false );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    const uint8_t background = GetColorId( 35, 29, 24 );
-+    const Rect textArea{ 16, 40, 360, 184 }, pictureArea{ 8, 30, 304, 162 }, closeArea{ 80, 204, 160, 28 };
++    const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil );
++    const Image bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
++    const Rect textArea{ 24, 40, 352, 164 }, pictureArea{ 24, 24, 272, 150 }, closeArea{ 96, 180, 128, 38 };
++    const int lineHeight = Text( "A", FontType::normalWhite() ).height();
++    const int pageStep = std::max<int32_t>( lineHeight, textArea.height / lineHeight * lineHeight );
 +    Image top( 400, 240 ), bottom( 320, 240 ), content( textArea.width, std::max<int32_t>( 1, rumor.height( textArea.width ) ) );
-+    content.fill( background ); rumor.draw( 0, 0, textArea.width, content );
++    Interface3DS::fillClassicPanelPaper( content, evil ); rumor.draw( 0, 0, textArea.width, content );
 +    Image original( scene.area().width, scene.area().height ); original.fill( background ); scene.draw( original, { 0, 0 } );
 +    if ( original.empty() ) throw std::runtime_error( "Tavern scene is empty" );
 +    const double scale = std::min( double( pictureArea.width ) / original.width(), double( pictureArea.height ) / original.height() );
@@ -10404,32 +10409,37 @@ index 0000000..94b681c
 +    int scroll = 0; bool closed = false, down = false, moved = false, pressed = false, capturedIdle = false;
 +    Point start, last; Image firstScene;
 +    Sprite released, pressedImage;
-+    makeButtonSprites( released, pressedImage, "", { closeArea.width - 10, closeArea.height }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++    makeButtonSprites( released, pressedImage, "", { closeArea.width - 12, 14 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +    Text label( _( "Exit" ), FontType::normalWhite() ); label.fitToOneRow( released.width() - 8 );
 +    label.draw( 4, ( released.height() - label.height() ) / 2, released.width() - 8, released );
 +    label.draw( 3, ( pressedImage.height() - label.height() ) / 2 + 1, pressedImage.width() - 8, pressedImage );
-+    ButtonSprite close( closeArea.x, closeArea.y, std::move( released ), std::move( pressedImage ) );
++    ButtonSprite close( closeArea.x + ( closeArea.width - released.width() ) / 2, 186, std::move( released ), std::move( pressedImage ) );
 +    const TavernScope scope( top, bottom );
 +    const auto draw = [&]() {
-+        top.fill( background ); bottom.fill( background );
-+        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
-+        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
-+        Text heading( title, FontType::normalYellow() ); heading.fitToOneRow( 368 ); heading.draw( 16, 9, 368, top );
++        top = topBackground; bottom = bottomBackground;
++        Text heading( title, FontType::normalYellow() ); heading.fitToOneRow( 352 ); heading.draw( 24, 20, 352, top );
 +        scroll = std::clamp( scroll, 0, maximum );
-+        Fill( top, 12, 36, 368, 192, background );
-+        Copy( content, 0, scroll, top, textArea.x, textArea.y, textArea.width, std::min<int32_t>( textArea.height, content.height() - scroll ) );
++        const int visibleStart = ( scroll + lineHeight - 1 ) / lineHeight * lineHeight;
++        int visibleEnd = std::min<int32_t>( scroll + textArea.height, content.height() );
++        if ( visibleEnd < content.height() ) visibleEnd = visibleEnd / lineHeight * lineHeight;
++        if ( visibleEnd > visibleStart ) Copy( content, 0, visibleStart, top, textArea.x, textArea.y + visibleStart - scroll, textArea.width, visibleEnd - visibleStart );
 +        if ( maximum ) {
-+            Fill( top, 385, 40, 4, 184, GetColorId( 90, 65, 40 ) );
-+            const int32_t thumb = std::max<int32_t>( 12, textArea.height * textArea.height / content.height() );
-+            Fill( top, 384, textArea.y + ( textArea.height - thumb ) * scroll / maximum, 6, thumb, GetColorId( 235, 195, 100 ) );
++            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            const int32_t thumb = std::max<int32_t>( 12, 144 * textArea.height / content.height() );
++            Fill( top, 380, 50 + ( 144 - thumb ) * scroll / maximum, 3, thumb, GetColorId( 235, 195, 100 ) );
++            for ( int dx = -3; dx <= 3; ++dx ) for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
++                SetPixel( top, 381 + dx, 40 + dy, GetColorId( 235, 195, 100 ) ); SetPixel( top, 381 + dx, 203 - dy, GetColorId( 235, 195, 100 ) );
++            }
 +        }
-+        Text lowerTitle( title, FontType::normalYellow() ); lowerTitle.fitToOneRow( 304 ); lowerTitle.draw( 8, 8, 304, bottom );
 +        Resize( original, scaled );
 +        const Point picture{ pictureArea.x + ( pictureArea.width - scaled.width() ) / 2, pictureArea.y + ( pictureArea.height - scaled.height() ) / 2 };
 +        Blit( scaled, bottom, picture.x, picture.y ); DrawRect( bottom, { picture.x - 1, picture.y - 1, scaled.width() + 2, scaled.height() + 2 }, GetColorId( 180, 140, 75 ) );
-+        if ( maximum ) Text( "D-pad", FontType::smallWhite() ).draw( 8, 194, 64, bottom );
 +        if ( down && !moved && pressed ) close.press(); else close.release(); close.draw( bottom );
 +        lastTavernScroll = scroll; maximumTavernScroll = maximum; Display::instance().render();
++        if ( captureTavernShort ) {
++            if ( !Save( top, "sdmc:/3ds/fheroes2/tavern-short-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/tavern-short-bottom.bmp" ) ) throw std::runtime_error( "Cannot save short tavern rumor" );
++            captureTavernShort = false;
++        }
 +        if ( captureTavern ) {
 +            if ( firstScene.empty() ) {
 +                firstScene = original;
@@ -10442,7 +10452,17 @@ index 0000000..94b681c
 +            if ( scroll && !Save( top, "sdmc:/3ds/fheroes2/tavern-scrolled-top.bmp" ) ) throw std::runtime_error( "Cannot save tavern scroll" );
 +        }
 +    };
-+    draw(); COUT( "3DS tavern: panel ready scroll_max=" << maximum )
++    if ( Platform3DS::smokeTest() ) {
++        const auto area = close.area();
++        if ( area.x < closeArea.x || area.x + area.width > closeArea.x + closeArea.width || area.y < closeArea.y || area.y + area.height > closeArea.y + closeArea.height ) throw std::runtime_error( "Tavern close crosses its inset target" );
++        if ( scaled.width() > pictureArea.width || scaled.height() > pictureArea.height ) throw std::runtime_error( "Tavern picture crosses its viewport" );
++    }
++    draw();
++    if ( Platform3DS::smokeTest() && ( evil || rumor.empty() ) ) {
++        const std::string kind = evil ? "evil" : "empty";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/tavern-" + kind + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/tavern-" + kind + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save tavern state" );
++    }
++    COUT( "3DS tavern: panel ready scroll_max=" << maximum )
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        bool redraw = scene.update( original, { 0, 0 } ); Platform3DS::PanelInput input;
@@ -10453,8 +10473,8 @@ index 0000000..94b681c
 +                case Platform3DS::PanelKey::Confirm: case Platform3DS::PanelKey::Cancel: closed = true; break;
 +                case Platform3DS::PanelKey::Up: scroll -= 16; break;
 +                case Platform3DS::PanelKey::Down: scroll += 16; break;
-+                case Platform3DS::PanelKey::Left: scroll -= textArea.height; break;
-+                case Platform3DS::PanelKey::Right: scroll += textArea.height; break;
++                case Platform3DS::PanelKey::Left: scroll -= pageStep; break;
++                case Platform3DS::PanelKey::Right: scroll += pageStep; break;
 +                default: break;
 +                }
 +            }
@@ -10508,18 +10528,25 @@ index 0000000..94b681c
 +    MultiFontText body;
 +    body.add( Text( std::string( _( "A generous tip for the barkeep yields the following rumor:" ) ) + "\n\n", FontType::normalWhite() ) );
 +    const auto rumor = world.getCurrentRumor(); body.add( Text( rumor.text, FontType::normalWhite(), rumor.language ) );
++    captureTavernShort = true;
 +    std::vector<Step> steps; press( steps, SDL_CONTROLLER_BUTTON_A, 1500 ); run( body, steps );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( body, steps );
-+    steps = { { 160, touch( SDL_FINGERDOWN, 150, 218 ) }, { 100, touch( SDL_FINGERUP, 150, 218 ) } }; run( body, steps );
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 198 ) }, { 100, touch( SDL_FINGERUP, 150, 198 ) } }; run( body, steps );
 +    MultiFontText longBody;
 +    longBody.add( Text( std::string( _( "A generous tip for the barkeep yields the following rumor:" ) ) + "\n\n", FontType::normalWhite() ) );
 +    std::string longRumor; for ( int i = 0; i < 16; ++i ) longRumor += rumor.text + "\n\n";
 +    longBody.add( Text( longRumor, FontType::normalWhite(), rumor.language ) );
-+    steps = { { 160, touch( SDL_FINGERDOWN, 150, 218 ) }, { 100, touch( SDL_FINGERMOTION, 150, 50 ) }, { 100, touch( SDL_FINGERUP, 150, 50 ) } };
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 198 ) }, { 100, touch( SDL_FINGERMOTION, 150, 50 ) }, { 100, touch( SDL_FINGERUP, 150, 50 ) } };
 +    press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
-+    if ( lastTavernScroll != 16 || maximumTavernScroll <= 184 ) throw std::runtime_error( "Tavern close-button drag activated or scroll failed" );
++    if ( lastTavernScroll != 16 || maximumTavernScroll <= 164 ) throw std::runtime_error( "Tavern close-button drag activated or scroll failed" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 198 ) }, { 100, touch( SDL_FINGERUP, 150, 226 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps ); if ( lastTavernScroll != 16 ) throw std::runtime_error( "Tavern outside release closed the panel" );
++    steps = { { 160, touch( SDL_FINGERDOWN, 150, 226 ) }, { 100, touch( SDL_FINGERUP, 150, 226 ) } };
++    press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps ); if ( lastTavernScroll != 16 ) throw std::runtime_error( "Tavern footer closed the panel" );
 +    steps = { { 160, touch( SDL_FINGERDOWN, 150, 160 ) }, { 100, touch( SDL_FINGERMOTION, 150, 40 ) }, { 100, touch( SDL_FINGERUP, 150, 40 ) } };
 +    press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps ); if ( lastTavernScroll != 120 ) throw std::runtime_error( "Tavern stylus did not scroll" );
++    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
++    if ( lastTavernScroll <= 0 || lastTavernScroll % Text( "A", FontType::normalWhite() ).height() != 0 ) throw std::runtime_error( "Tavern paging skips a partial text row" );
 +    steps.clear(); for ( int i = 0; i < 20; ++i ) press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, 60 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
 +    if ( lastTavernScroll != maximumTavernScroll ) throw std::runtime_error( "Tavern scroll did not clamp at end" );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_UP ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_LEFT ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
@@ -10529,7 +10556,7 @@ index 0000000..94b681c
 +    mixedLanguage.add( Text( std::string( _( "A generous tip for the barkeep yields the following rumor:" ) ) + "\n\n", FontType::normalWhite() ) );
 +    mixedLanguage.add( Text( "A custom map rumor in English keeps its own language while the tavern introduction follows the interface language.", FontType::normalWhite(), SupportedLanguage::English ) );
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_A ); run( mixedLanguage, steps );
-+    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); captureTavern = false; Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
++    struct Reset { InterfaceType type; ~Reset() { Settings::Get().setInterfaceType( type ); captureTavern = false; captureTavernShort = false; Platform3DS::setStereoTestStrength( -1 ); } } reset{ Settings::Get().getInterfaceType() };
 +    for ( int stereo : { 0, 3 } ) {
 +        Platform3DS::setStereoTestStrength( stereo ); steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_Y ); press( steps, SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( steps, SDL_CONTROLLER_BUTTON_A );
 +        press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER, 1200 ); press( steps, SDL_CONTROLLER_BUTTON_LEFTSHOULDER ); run( body, steps, true );
@@ -10538,7 +10565,7 @@ index 0000000..94b681c
 +    captureTavern = true; const unsigned animatedBefore = animatedTaverns;
 +    steps.clear(); press( steps, SDL_CONTROLLER_BUTTON_DPAD_DOWN, 1500 ); press( steps, SDL_CONTROLLER_BUTTON_A ); run( longBody, steps );
 +    if ( animatedTaverns != animatedBefore + 1 || !lastTavernScroll ) throw std::runtime_error( "Tavern animation/scroll capture did not change" );
-+    COUT( "3DS TAVERN SMOKE: PASS original_animation_and_rumor mixed_language_text touch_controller_close drag_cancel bounded_stylus_dpad_scroll empty evil actual_castle_flat_stereo readonly_state_frame_context_release" )
++    COUT( "3DS TAVERN SMOKE: PASS classic_frame inset_close whole_text_rows original_animation_and_rumor mixed_language_text touch_controller_close drag_cancel bounded_stylus_dpad_scroll empty evil actual_castle_flat_stereo readonly_state_frame_context_release" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_thieves.cpp b/src/fheroes2/gui/ui_3ds_thieves.cpp

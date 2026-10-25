@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.58: original-style tavern
+
+The tavern now uses the accepted original Good/Evil frame on both screens. Its original animated scene fills the lower picture viewport, with a centred inset Close control and separate 128x38 touch target. The upper rumor uses themed paper, whole visible rows and scroll track/arrows. Page movement follows complete rows so paging does not skip the row hidden at the viewport edge. The original AnimationDialogElement, delay, rumor text and optional rumor language are unchanged; short, long, empty and mixed-language content keep their source semantics.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed Tavern New/Old Russian and New English, plus CastleScreen and Messages New Russian. Tests cover visible original animation, real rumor/source/language preservation, A/L/touch closure, close drag cancellation, outside release/footer rejection, line/page/stylus scrolling with bounds and whole-row paging, empty/mixed-language text, Evil, and actual castle flat/stereo entry/return. Funds, heroes, army, rumor, frame and modal/input context remain unchanged. Captures inspected; ARM build, desktop syntax of the changed file, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check scene animation/readability, long-rumor scrolling, Close and return to the town/3D. Explicit mixed-language coverage is a synthetic fixture; real custom-map rumor language remains a manual check. Earlier outstanding hardware cases remain separate.
+
 ## Preview 0.3.57: original-style castle options
 
 Castle options now use the accepted original Good/Evil frame on both screens. Candidate portraits grow from 80x74 to a proportionally fitted 91x84 inside inset cards; formation, Back and Details controls have separate 128x28 touch regions within the frame. Action labels fit without truncation. Empty cards no longer show a selected-candidate highlight. The upper screen retains the original hero portrait, class/level/stats and the source recruitment/formation reason. Missing candidates, no captain and insufficient funds have dedicated validation captures.

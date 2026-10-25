@@ -19,7 +19,7 @@ $menuTestGroups = [ordered]@{
     MageGuild = @{ Markers = @('3DS MAGE GUILD SMOKE: PASS'); Captures = @('mage-guild-top.bmp','mage-guild-bottom.bmp') }
     Shipyard = @{ Markers = @('3DS SHIPYARD SMOKE: PASS'); Captures = @('shipyard-original.bmp','shipyard-top.bmp','shipyard-bottom.bmp','shipyard-disabled-bottom.bmp','shipyard-evil-top.bmp','shipyard-evil-bottom.bmp','shipyard-pressed-bottom.bmp') }
     ThievesGuild = @{ Markers = @('3DS THIEVES GUILD SMOKE: PASS'); Captures = @('thieves-top.bmp','thieves-bottom.bmp','thieves-locked-top.bmp','thieves-heroes-top.bmp','oracle-top.bmp') }
-    Tavern = @{ Markers = @('3DS TAVERN SMOKE: PASS'); Captures = @('tavern-top.bmp','tavern-bottom.bmp','tavern-idle-bottom.bmp','tavern-scrolled-top.bmp') }
+    Tavern = @{ Markers = @('3DS TAVERN SMOKE: PASS'); Captures = @('tavern-top.bmp','tavern-bottom.bmp','tavern-idle-bottom.bmp','tavern-scrolled-top.bmp','tavern-short-top.bmp','tavern-short-bottom.bmp','tavern-evil-top.bmp','tavern-evil-bottom.bmp','tavern-empty-top.bmp') }
     Well = @{ Markers = @('3DS WELL SMOKE: PASS'); Captures = @('well-top.bmp','well-bottom.bmp','well-idle-top.bmp','well-evil-top.bmp','well-evil-bottom.bmp','well-empty-top.bmp','well-empty-bottom.bmp','well-large-top.bmp','well-large-bottom.bmp') }
     SystemExit = @{ Markers = @('3DS SYSTEM EXIT SMOKE: PASS'); Captures = @() }
     CastleScreen = @{ Markers = @('3DS CASTLE MAIN SMOKE: PASS'); Captures = @('castle-main-top.bmp','castle-main-bottom.bmp') }
