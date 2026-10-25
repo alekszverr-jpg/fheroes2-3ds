@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.54: original-style built-building catalog
+
+The built-building catalog now uses the accepted Good/Evil game frame: six original building thumbnails below, selected artwork and description above. Paging arrows, OK and Back sit inside the lower frame with separate inset touch targets. The page number appears in the heading. Upper text has a separate position indicator and visible scroll track/arrows, keeping the footer clear. Text is shown in whole rows at the viewport edges. Touch-up now checks the actual release position, so releasing outside an action does not open a building.
+
+Building ordering/filtering and action identifiers remain unchanged: upgraded dwellings, highest mage-guild level and built-only actions still use the original castle dispatch. This iteration styles the catalog; the main garrison/hero control panel keeps its current layout. Town panorama and stereo rendering are unchanged. Replace only `3ds/fheroes2/fheroes2.3dsx`.
+
+Validation: short monitored Azahar 2126.2 MXE runs passed CastleBuildings New/Old Russian and New English, plus CastleArmy, CastleScreen and CastleStereo New Russian. Tests cover race-specific mappings, filters/empty state, touch/controller selection, pages/disabled previous arrow, hold/drag/footer/outside-release rejection, long text scroll, nested information, Evil, Y/army return and unchanged funds/garrison/frame/context. Captures inspected; ARM build, desktop syntax of the changed file, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run. On New 3DS XL check paging/readability/holding and real entry/return from several building actions; actual building gameplay and earlier open hardware checks remain separate.
+
 ## Preview 0.3.53: original-style well and original creature animation
 
 The well now uses the accepted original Good/Evil frame, inset actions and a six-creature grid. Its upper screen retains a large selected-creature portrait, original population/growth/stat sources and proportionally scaled unit-cost icons. The lower screen keeps selection, individual recruitment and Max; long names fit their available space, with the selected creature's full title above. Empty/unbuilt states remain disabled as before.

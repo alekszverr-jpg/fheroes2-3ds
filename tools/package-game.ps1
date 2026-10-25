@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.53'
+$version = '0.3.54'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -44,6 +44,8 @@ $manifest = [ordered]@{
     marketplace_button_labels='0.3.23 centered by actual sprite dimensions and visible glyph bounds; pressed offset retained; hardware pending'
     grouped_validation='42 independent menu group/model/language combinations and New/Old engine checks passed; New Russian, Old Russian, New English; no monolithic Full run'
     grouped_host_peaks='Sampled Azahar process: 10.9 percent total CPU, 604.3MB working set, 1004.9MB private; previous freeze cause unresolved'
+    castle_building_catalog_style='0.3.54: original Good/Evil frame, six original thumbnails, inset page/action controls and heading page number, upper artwork/description with separate scroll footer/track; actual release point checked; original ordering/filter/action dispatch preserved'
+    validation_castle_building_catalog_style='CastleBuildings New/Old ru and New en; CastleArmy/CastleScreen/CastleStereo New ru, bounded monitored groups; race mappings/filter/pages/held info/long scroll/footer/outside release/nested return; physical real building actions pending'
     native_castle_buildings='Army panel Buildings button; six built entries/page, dwellings first, upgrades/highest guild, original race drawing IDs, upper artwork/description/availability; same Castle::OpenDialog action dispatch'
     validation_castle_buildings='CastleBuildings New/Old Russian and New English plus CastleArmy New/Old passed; filters/six races/touch/controller/pages/hold/drag/scroll/SDL Y nested return and restoration; full castle action dispatch and gameplay effects pending hardware'
     emulated_guild_exit='MageGuild New/Old ru and New en; SystemExit and engine New/Old; CastleScreen/CastleStereo New; synthetic system-close events, real HOME close pending hardware verification'
