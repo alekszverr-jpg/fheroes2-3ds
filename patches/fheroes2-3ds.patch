@@ -722,10 +722,10 @@ index c336081..3eb8688 100644
      LocalEvent & le = LocalEvent::Get();
      const Settings & conf = Settings::Get();
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..c496103 100644
+index f3e8496..b36adba 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
-@@ -22,6 +22,20 @@
+@@ -22,6 +22,21 @@
   ***************************************************************************/
  
  #include "battle_interface.h"
@@ -742,11 +742,12 @@ index f3e8496..c496103 100644
 +#include "save_format_version.h"
 +#include "platform_3ds.h"
 +#include "ui_3ds_dialog.h"
++#include "image_tool.h"
 +#endif
  
  #include <algorithm>
  #include <array>
-@@ -56,6 +70,10 @@
+@@ -56,6 +71,10 @@
  #include "game_hotkeys.h"
  #include "ground.h"
  #include "heroes_base.h"
@@ -757,7 +758,7 @@ index f3e8496..c496103 100644
  #include "interface_list.h"
  #include "localevent.h"
  #include "logging.h"
-@@ -846,6 +864,11 @@ namespace Battle
+@@ -846,6 +865,11 @@ namespace Battle
  
          void AddMessage( std::string str )
          {
@@ -769,7 +770,7 @@ index f3e8496..c496103 100644
              // Check if message string fits the log width.
              fheroes2::Text text( str, fheroes2::FontType::normalWhite() );
              size_t pos = std::string::npos;
-@@ -966,6 +989,9 @@ namespace Battle
+@@ -966,6 +990,9 @@ namespace Battle
              _isLogOpened = opened;
          }
  
@@ -779,7 +780,27 @@ index f3e8496..c496103 100644
          bool isOpenLog() const
          {
              return _isLogOpened;
-@@ -1146,6 +1172,9 @@ Battle::Status::Status()
+@@ -1141,11 +1168,29 @@ Battle::Status::Status()
+ {
+     width = _upperBackground.width();
+     height = _upperBackground.height() + _lowerBackground.height();
++#if defined( __3DS__ )
++    // Keep the original scroll ends and paper pixels instead of squeezing the
++    // 542-pixel status artwork into the native 240-pixel message area.
++    _nativeBackground3DS._disableTransformLayer();
++    _nativeBackground3DS.fill( fheroes2::GetColorId( 70, 45, 25 ) );
++    const std::array<const fheroes2::Sprite *, 2> backgrounds{ &_upperBackground, &_lowerBackground };
++    for ( size_t i = 0; i < backgrounds.size(); ++i ) {
++        const auto & source = *backgrounds[i];
++        const int32_t rows = std::min<int32_t>( 20, source.height() );
++        const int32_t y = int32_t( i ) * 20 + ( 20 - rows ) / 2;
++        fheroes2::Copy( source, 0, 0, _nativeBackground3DS, 0, y, 24, rows );
++        fheroes2::Copy( source, ( source.width() - 192 ) / 2, 0, _nativeBackground3DS, 24, y, 192, rows );
++        fheroes2::Copy( source, source.width() - 24, 0, _nativeBackground3DS, 216, y, 24, rows );
++    }
++#endif
+ }
+ 
  void Battle::Status::setMessage( std::string messageString, const bool top )
  {
      if ( top ) {
@@ -789,20 +810,24 @@ index f3e8496..c496103 100644
          _upperText.set( messageString, fheroes2::FontType::normalWhite() );
          // The text cannot go beyond the text area so it is important to truncate it when necessary.
          _upperText.fitToOneRow( width - offsetForTextBar * 2 );
-@@ -1165,6 +1194,20 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
+@@ -1165,6 +1210,24 @@ void Battle::Status::setMessage( std::string messageString, const bool top )
  
  void Battle::Status::redraw( fheroes2::Image & output ) const
  {
 +#if defined( __3DS__ )
 +    if ( auto * hud = Platform3DS::battleHUDImage() ) {
-+        fheroes2::Resize( _upperBackground, 0, 0, width, _upperBackground.height(), *hud, 40, 0, 240, 20 );
-+        fheroes2::Resize( _lowerBackground, 0, 0, width, _lowerBackground.height(), *hud, 40, 20, 240, 20 );
-+        // Leave padding below the decorative top edge. Full messages remain in the log.
++        hud->fill( fheroes2::GetColorId( 70, 45, 25 ) );
++        fheroes2::Copy( _nativeBackground3DS, 0, 0, *hud, 40, 0, 240, 40 );
++        // Reserve the original scroll ornaments on both sides. Short messages
++        // use the normal font; complete upper messages remain in the journal.
 +        const std::array<std::string, 2> texts{ _upperMessage3DS, _lastMessage };
 +        for ( int i = 0; i < 2; ++i ) {
-+            fheroes2::Text text( texts[i], fheroes2::FontType::smallWhite() );
-+            text.fitToOneRow( 224 );
-+            text.draw( 48, i * 20 + 5, 224, *hud );
++            if ( texts[i].empty() ) continue;
++            fheroes2::Text text( texts[i], fheroes2::FontType::normalWhite() );
++            if ( text.width() > 188 ) text.set( texts[i], fheroes2::FontType::smallWhite() );
++            text.fitToOneRow( 188 );
++            const auto bounds = text.area();
++            text.draw( 66 + ( 188 - bounds.width ) / 2 - bounds.x, i * 20 + 3 + ( 16 - bounds.height ) / 2 - bounds.y, *hud );
 +        }
 +        return;
 +    }
@@ -810,7 +835,7 @@ index f3e8496..c496103 100644
      fheroes2::Copy( _upperBackground, 0, 0, output, x, y, width, _upperBackground.height() );
      fheroes2::Copy( _lowerBackground, 0, 0, output, x, y + _upperBackground.height(), width, _lowerBackground.height() );
  
-@@ -1179,6 +1222,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
+@@ -1179,6 +1242,9 @@ void Battle::Status::redraw( fheroes2::Image & output ) const
  
  void Battle::Status::clear()
  {
@@ -820,7 +845,7 @@ index f3e8496..c496103 100644
      _upperText.set( "", fheroes2::FontType::normalWhite() );
      _lowerText.set( "", fheroes2::FontType::normalWhite() );
      _lastMessage = "";
-@@ -1507,12 +1553,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
+@@ -1507,12 +1573,20 @@ Battle::Interface::Interface( Arena & battleArena, const int32_t tileIndex )
      // Battlefield area excludes the lower part where the status log is located.
      _mainSurface.resize( area.width, battlefieldHeight );
      _battleGround.resize( area.width, battlefieldHeight );
@@ -841,7 +866,7 @@ index f3e8496..c496103 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,19 +1727,327 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,19 +1747,337 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -860,7 +885,10 @@ index f3e8496..c496103 100644
 +        const auto & button = *buttons[i];
 +        const auto & area = nativeAreas[i];
 +        const auto & icon = Assets::getImage( ICN::TEXTBAR, frames[i] + ( button.isPressed() && !Platform3DS::isTouchViewportGesture() ? 1 : 0 ) );
-+        fheroes2::Resize( icon, 0, 0, icon.width(), icon.height(), _battleHUD3DS, area.x, area.y, area.width, area.height );
++        const double scale = std::min( double( area.width ) / icon.width(), double( area.height ) / icon.height() );
++        fheroes2::Image fitted( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
++        fitted.reset(); fheroes2::Resize( icon, fitted );
++        fheroes2::Blit( fitted, _battleHUD3DS, area.x + ( area.width - fitted.width() ) / 2, area.y + ( area.height - fitted.height() ) / 2 );
 +        if ( button.area() & LocalEvent::Get().getMouseCursorPos() ) {
 +            const uint8_t color = fheroes2::GetColorId( 255, 220, 80 );
 +            fheroes2::Fill( _battleHUD3DS, area.x, area.y, area.width, 1, color );
@@ -942,6 +970,11 @@ index f3e8496..c496103 100644
 +        ui.setStatus( _( "Skips the current creature. The current creature ends its turn and does not get to go again until the next round." ), true );
 +        ui.setStatus( _( "Skip this unit" ), false );
 +        ui.Redraw();
++        if ( !fheroes2::Save( ui._battleHUD3DS, "sdmc:/3ds/fheroes2/battle-hud-strip.bmp" ) ) throw std::runtime_error( "Cannot capture battle footer" );
++        ui.setStatus( _( "Skip this unit" ), true ); ui.setStatus( _( "Show logs" ), false ); ui.RedrawInterface();
++        if ( !fheroes2::Save( ui._battleHUD3DS, "sdmc:/3ds/fheroes2/battle-hud-short-strip.bmp" ) ) throw std::runtime_error( "Cannot capture short battle status" );
++        ui.setStatus( _( "Skips the current creature. The current creature ends its turn and does not get to go again until the next round." ), true );
++        ui.setStatus( _( "Skip this unit" ), false ); ui.RedrawInterface();
 +        for ( int row = 0; row < ui.status.height; ++row ) {
 +            if ( std::memcmp( display.image() + ( ui.status.y + row ) * display.width() + ui._interfacePosition.x,
 +                              ui._battleGround.image() + ( ui._battleGround.height() - ui.status.height + row ) * ui._battleGround.width(), ui._battleGround.width() )
@@ -995,6 +1028,8 @@ index f3e8496..c496103 100644
 +        ui.HumanBattleTurn( unit, actions, message );
 +        if ( !ui._buttonSkip.isPressed() || !ui._needRedraw || !actions.empty() )
 +            throw std::runtime_error( "Battle HUD press did not redraw or skipped before release" );
++        ui.RedrawInterface();
++        if ( !fheroes2::Save( ui._battleHUD3DS, "sdmc:/3ds/fheroes2/battle-hud-pressed-strip.bmp" ) ) throw std::runtime_error( "Cannot capture pressed battle footer" );
 +        touch( SDL_FINGERUP, 0, 0 );
 +        ui._needRedraw = false;
 +        ui.HumanBattleTurn( unit, actions, message );
@@ -1169,7 +1204,7 @@ index f3e8496..c496103 100644
  void Battle::Interface::RedrawArmies()
  {
      // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
-@@ -3152,10 +3514,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+@@ -3152,10 +3544,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
              Redraw();
              _needRedraw = false;
          }
@@ -1182,7 +1217,7 @@ index f3e8496..c496103 100644
      }
  
      popup.reset();
-@@ -3170,15 +3534,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3170,15 +3564,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
      LocalEvent & le = LocalEvent::Get();
      Settings & conf = Settings::Get();
  
@@ -1221,7 +1256,7 @@ index f3e8496..c496103 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3468,7 +3855,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3468,7 +3885,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
              msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
  
              if ( le.MouseClickLeft( status ) ) {
@@ -1234,7 +1269,7 @@ index f3e8496..c496103 100644
              }
              else if ( le.isMouseRightButtonPressedInArea( status ) ) {
                  fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
-@@ -3583,7 +3975,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3583,7 +4005,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -1262,20 +1297,21 @@ index f3e8496..c496103 100644
      if ( showGrid != conf.BattleShowGrid() ) {
          // The grid setting has changed. Update for the Battlefield ground.
 diff --git a/src/fheroes2/battle/battle_interface.h b/src/fheroes2/battle/battle_interface.h
-index 303cfda..190bfaa 100644
+index 303cfda..45bc91d 100644
 --- a/src/fheroes2/battle/battle_interface.h
 +++ b/src/fheroes2/battle/battle_interface.h
-@@ -228,6 +228,9 @@ namespace Battle
+@@ -228,6 +228,10 @@ namespace Battle
          const fheroes2::Sprite & _upperBackground;
          const fheroes2::Sprite & _lowerBackground;
          std::string _lastMessage;
 +#if defined( __3DS__ )
 +        std::string _upperMessage3DS;
++        fheroes2::Image _nativeBackground3DS{ 240, 40 };
 +#endif
          StatusListBox * _battleStatusLog{ nullptr };
      };
  
-@@ -341,6 +344,9 @@ namespace Battle
+@@ -341,6 +345,9 @@ namespace Battle
  
          void getPendingActions( Actions & actions );
          void HumanTurn( const Unit & unit, Actions & actions );
@@ -1285,7 +1321,7 @@ index 303cfda..190bfaa 100644
  
          const fheroes2::Rect & GetArea() const
          {
-@@ -508,6 +514,9 @@ namespace Battle
+@@ -508,6 +515,9 @@ namespace Battle
          fheroes2::Button _buttonSettings;
          fheroes2::Button _buttonSkip;
          Status status;

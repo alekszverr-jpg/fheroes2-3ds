@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.74: compact original-style battle footer
+
+The battle footer retains its 40-pixel height and 200-pixel field viewport. Original TEXTBAR scroll ornaments and central paper are copied at their native pixel sizes into a background prepared once per Status instance. The message area reserves both ornaments; short messages use the normal font, with a small-font/ellipsis fallback for long ones. Labels are centered by visible glyph bounds. Complete upper battle messages remain in the journal. Original Auto/Settings/Skip artwork is fitted proportionally into the existing touch cells, with pressed/hover feedback.
+
+Validation: bounded BattleIntegration New/Old Russian and New English, plus BattleLog New Russian. Existing real Arena checks cover touch target mapping, skip dispatch, drag cancellation, held information, opening the journal/settings/hero/book/card/results and restoring frame/HUD/viewport/input. New required captures cover long/short status text and a pressed button. ARM build, desktop syntax, infrastructure, clean patch and package identity checks included; Full was not run. Physical text/button readability and real Auto/Settings/Skip behavior remain to be checked on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check short/long status lines, tapping messages to open the journal, Auto/Settings/Skip, held information and returning from dialogs. Next: inventory the remaining windows and polish specific issues from hardware feedback.
+
 ## Preview 0.3.73: centered battle outcome animation
 
 The original battle outcome/necromancy animation is now the main element above: centered in a 240x132 region and fitted proportionally. The outcome title and original caller-provided explanation/experience follow underneath across the full content width. Split reports use a 192-pixel upper viewport; text prefers the normal title, falling back to compact body/title fonts only when needed to fit below the animation. Longer text remains scrollable without truncation. Without an animation the text starts at the top. The two-column casualties, raised-creature portrait/count and fixed lower controls are preserved.

@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.73
+# fheroes2 for Nintendo 3DS — preview 0.3.74
+
+## Preview 0.3.74: compact original-style battle footer
+
+The battle footer retains its 40-pixel height and 200-pixel field viewport. Original TEXTBAR scroll ornaments and central paper are copied at their native pixel sizes into a background prepared once per Status instance. The message area reserves both ornaments; short messages use the normal font, with a small-font/ellipsis fallback for long ones. Labels are centered by visible glyph bounds. Complete upper battle messages remain in the journal. Original Auto/Settings/Skip artwork is fitted proportionally into the existing touch cells, with pressed/hover feedback.
+
+Validation: bounded BattleIntegration New/Old Russian and New English, plus BattleLog New Russian. Existing real Arena checks cover touch target mapping, skip dispatch, drag cancellation, held information, opening the journal/settings/hero/book/card/results and restoring frame/HUD/viewport/input. New required captures cover long/short status text and a pressed button. ARM build, desktop syntax, infrastructure, clean patch and package identity checks included; Full was not run. Physical text/button readability and real Auto/Settings/Skip behavior remain to be checked on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check short/long status lines, tapping messages to open the journal, Auto/Settings/Skip, held information and returning from dialogs. Next: inventory the remaining windows and polish specific issues from hardware feedback.
 
 ## Preview 0.3.73: centered battle outcome animation
 

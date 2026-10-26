@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.73'
+$version = '0.3.74'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    battle_footer_style='0.3.74: cached original-pixel TEXTBAR scroll ends/paper, dedicated ornament margins, normal-font short status and small/ellipsis long fallback, glyph-centered labels, proportional original Auto/Settings/Skip with feedback; existing 40px footer/200px viewport and touch cells retained'
+    validation_battle_footer_style='BattleIntegration New/Old ru and New en; BattleLog New ru; bounded monitored real Arena input mapping/skip/drag/hold/journal/settings/hero/book/card/results restoration; required long/short/pressed captures; ARM/desktop/infrastructure/patch/package; Full not run, hardware/real Auto pending'
     battle_centered_animation='0.3.73: proportionally fitted original ICN animation centered in 240x132 above full-width outcome/experience, 192-pixel upper split viewport, normal title with adaptive compact text and unclipped overflow scrolling; missing-animation fallback, lower casualties/portrait/actions preserved'
     validation_battle_centered_animation='BattleDialogs and BattleIntegration New/Old ru and New en, six bounded monitored groups; original outcomes/choices/restart, no-animation/long text, independent scroll, creature portrait, real Arena animations and context restoration; RU/EN animated captures, ARM/desktop/infrastructure/patch/package; Full not run, hardware pending'
     battle_split_screens='0.3.72: outcome/animation/experience above, two-column casualties below with independently scrolling details and fixed horizontal Restart/Okay; native name/count and large original-cycle MonsterPortrait skeleton below necromancy event; original caller effects preserved'
