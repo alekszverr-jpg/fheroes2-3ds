@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.60
+# fheroes2 for Nintendo 3DS — preview 0.3.61
+
+## Preview 0.3.61: original-style Thieves Guild and Oracle
+
+Both reports now use the accepted original Good/Evil frame. Four category rows, the page indicator and separate page/Exit controls sit within the lower panel. Upper rankings use original proportionally fitted flags with two players per line so translated color names remain readable. Hero/personality/monster cards for all six players have inset borders and original portraits/icons; missing-hero labels fit on one line. Frames and category backgrounds are cached per opening.
+
+Bounded monitored Azahar runs passed ThievesGuild New/Old Russian and New English, plus CastleScreen New Russian. Existing source checks retain original ranking/tie order, active colors and 0–5 guild disclosure thresholds, hidden hero statistics/personality/creatures, and full Oracle disclosure. Touch/controller navigation, disabled page arrows, page wrap, drag/outside release/footer rejection, empty/Evil reports, actual castle flat/stereo return and Oracle entry pass with unchanged kingdoms/army/frame/context. Captures inspected; ARM build, desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Physical New 3DS XL checks: category/pages, readable rankings/hero cards, locked information with few guilds, Oracle and return to city/3D. Real maps with multiple guilds and earlier outstanding hardware cases remain manual checks.
 
 ## Preview 0.3.60: folded scroll proportions
 

@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.60'
+$version = '0.3.61'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    thieves_guild_style='0.3.61: original Good/Evil frame, cached category backgrounds, inset four rows/page/Exit targets, original proportionate flags with full color labels, inset six-player hero/personality/creature cards and single-line missing labels'
+    validation_thieves_guild_style='ThievesGuild New/Old ru and New en; CastleScreen New ru; bounded monitored groups, original ties/order/active colors and 0-5 guild disclosure gates, Oracle full, hidden info omission, touch/controller/disabled arrows/wrap/drag/outside release/footer, empty/Evil, actual flat/stereo castle and Oracle entry, readonly kingdoms/army/frame/context; real maps/multiple guilds and hardware pending'
     folded_scroll_proportions='0.3.60: original 61x79 folded TOWNWIND fitted to 47x62 and centred in unchanged 128x62 touch card; MageGuild New/Old ru and New en passed; physical visual check pending'
     mage_guild_style='0.3.59: original Good/Evil frame, original open/sealed scrolls, proportionally fitted spell icons and race guild artwork, inset level/castle/Exit controls, whole visible description rows and separate scroll track/arrows; cached frame/art/scroll backgrounds'
     validation_mage_guild_style='MageGuild New/Old ru and New en; CastleScreen/CastleStereo New ru; bounded monitored groups, six races/built levels/library, original spells and readonly funds, touch navigation/Exit, controller selection, exact long-description stylus/D-pad scroll, outside-release/footer/Close-drag rejection, Evil and actual flat/stereo castle return; real hero learning and hardware pending'
