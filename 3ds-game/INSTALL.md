@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.58
+# fheroes2 for Nintendo 3DS — preview 0.3.59
+
+## Preview 0.3.59: original-style Mage Guild
+
+The Mage Guild now uses the accepted original Good/Evil frame on both screens. The lower panel retains the original open/sealed scroll artwork and proportionally fitted spell icons, with four inset cards, level indicator, castle arrows and separate level/Exit controls. The upper panel keeps the race-specific guild building and original spell description, with whole visible text rows and a dedicated scroll track/arrows. Frames, building artwork and scroll backgrounds are prepared once per panel.
+
+Validation: bounded monitored Azahar runs passed MageGuild New/Old Russian and New English, plus CastleScreen and CastleStereo New Russian. Checks cover all six races/built levels/library slots, original spells and unchanged funds, touch castle navigation/Exit, controller selection, exact stylus and D-pad scrolling of a real long spell description, rejected outside release/footer/Close drag, Evil and actual flat/stereo castle return. Captures inspected; ARM build, desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check spell selection, Y/level arrows, long descriptions, library/empty slots, town navigation and return to the panorama/3D. Real hero spell learning and previously outstanding hardware cases remain separate manual checks.
 
 ## Preview 0.3.58: original-style tavern
 
