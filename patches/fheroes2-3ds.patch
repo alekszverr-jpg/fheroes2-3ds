@@ -3920,10 +3920,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..7c4196f
+index 0000000..10effe5
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,311 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -3963,7 +3963,8 @@ index 0000000..7c4196f
 +    using namespace fheroes2;
 +    using Platform3DS::PanelInputType;
 +    using Platform3DS::PanelKey;
-+    uint8_t backgroundColor() { return GetColorId( 35, 29, 24 ); }
++    constexpr int reportWidth = 348, reportViewHeight = 180;
++    constexpr int animationX = 180, animationWidth = 168, animationHeight = 104;
 +    int lastScroll = 0;
 +    unsigned animationChanges = 0;
 +    class ReportScope {
@@ -3984,29 +3985,36 @@ index 0000000..7c4196f
 +    {
 +        const CursorRestorer hideCursor( false );
 +        Image top( 400, 240 ), bottom( 320, 240 ), frame;
-+        constexpr int viewHeight = 204;
++        constexpr int viewHeight = reportViewHeight;
 +        const bool evil = Settings::Get().isEvilInterfaceEnabled();
++        const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil ), bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
++        Image contentBackground; Copy( content, contentBackground );
 +        std::vector<std::unique_ptr<ButtonBase>> buttons;
-+        const int firstY = 240 - int( labels.size() ) * 36 - 8;
++        const int firstY = 190 - ( int( labels.size() ) - 1 ) * 36;
 +        for ( size_t i = 0; i < labels.size(); ++i ) {
 +            Sprite released, pressed;
-+            makeButtonSprites( released, pressed, "", { 194, 28 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++            makeButtonSprites( released, pressed, "", { 188, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +            Text text( labels[i], FontType::normalWhite() );
 +            if ( text.width() > 188 ) text.set( labels[i], FontType::smallWhite() );
-+            text.draw( 4, ( released.height() - text.height( 188 ) ) / 2, 188, released );
-+            text.draw( 3, ( pressed.height() - text.height( 188 ) ) / 2 + 1, 188, pressed );
-+            buttons.emplace_back( std::make_unique<ButtonSprite>( 60, firstY + int( i ) * 36, std::move( released ), std::move( pressed ) ) );
++            text.fitToOneRow( 188 );
++            const auto bounds = text.area();
++            text.draw( ( released.width() - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
++            text.draw( ( pressed.width() - bounds.width ) / 2 - bounds.x - 1, ( pressed.height() - bounds.height ) / 2 - bounds.y + 1, pressed );
++            const int x = ( 320 - released.width() ) / 2;
++            buttons.emplace_back( std::make_unique<ButtonSprite>( x, firstY + int( i ) * 36, std::move( released ), std::move( pressed ) ) );
 +            if ( !enabled[i] ) buttons.back()->disable();
 +        }
 +        const ReportScope scope( top, bottom );
 +        int scroll = 0, selected = int( labels.size() ) - 1, pressed = -1, result = int( labels.size() ) - 1;
 +        bool down = false, moved = false, closed = false; Point start, last;
 +        const auto draw = [&]() {
-+            top.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
-+            Copy( content, 0, scroll, top, 12, 8, 376, std::min<int32_t>( viewHeight, content.height() - scroll ) );
-+            Interface3DS::drawPanelScrollBar( top, { 389, 8, 5, viewHeight }, scroll, viewHeight, content.height(), evil );
-+            bottom.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
-+            Text( heading, FontType::normalYellow() ).draw( 12, 20, 296, bottom );
++            top = topBackground;
++            Copy( content, 0, scroll, top, 24, 24, reportWidth, std::min<int32_t>( viewHeight, content.height() - scroll ) );
++            Interface3DS::drawPanelScrollBar( top, { 377, 24, 5, viewHeight }, scroll, viewHeight, content.height(), evil );
++            bottom = bottomBackground;
++            Text title( heading, FontType::normalYellow() );
++            if ( title.height( 272 ) > firstY - 32 ) title.set( heading, FontType::smallYellow() );
++            title.drawInRoi( 24, 20, 272, bottom, { 24, 20, 272, firstY - 32 } );
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
 +                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y - 2, area.width, 1, GetColorId( 255, 225, 96 ) ); }
@@ -4015,19 +4023,28 @@ index 0000000..7c4196f
 +        };
 +        const auto tick = [&]() {
 +            if ( !animation || !animation( frame ) ) return false;
-+            Image resized( 180, 108 ); resized.reset();
-+            const double scale = std::min( 180.0 / frame.width(), 108.0 / frame.height() );
++            Image resized;
++            const double scale = std::min( double( animationWidth ) / frame.width(), double( animationHeight ) / frame.height() );
 +            resized.resize( std::max( 1, int( frame.width() * scale ) ), std::max( 1, int( frame.height() * scale ) ) ); resized.reset(); Resize( frame, resized );
-+            Fill( content, 196, 0, 180, 112, backgroundColor() ); Blit( resized, content, 196 + ( 180 - resized.width() ) / 2, 0 );
++            Copy( contentBackground, animationX, 0, content, animationX, 0, animationWidth, animationHeight );
++            Blit( resized, content, animationX + ( animationWidth - resized.width() ) / 2, ( animationHeight - resized.height() ) / 2 );
 +            ++animationChanges; return true;
 +        };
 +        tick(); draw();
 +        if ( Platform3DS::smokeTest() ) {
-+            const std::string name = std::string( "sdmc:/3ds/fheroes2/" ) + capture;
++            const std::string name = std::string( "sdmc:/3ds/fheroes2/" ) + capture + ( evil ? "-evil" : "" );
 +            if ( !Save( top, name + "-top.bmp" ) || !Save( bottom, name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save battle report" );
-+            if ( heading == _( "Battlefield Casualties" ) && !animation && content.height() > 300
++            if ( !evil && heading == _( "Battlefield Casualties" ) && !animation && content.height() > 300
 +                 && ( !Save( top, "sdmc:/3ds/fheroes2/battle-losses-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/battle-losses-bottom.bmp" ) ) )
 +                throw std::runtime_error( "Cannot save casualty layout" );
++            if ( !evil && std::string( capture ) == "battle-surrender" && !enabled.front()
++                 && ( !Save( top, "sdmc:/3ds/fheroes2/battle-surrender-unaffordable-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/battle-surrender-unaffordable-bottom.bmp" ) ) )
++                throw std::runtime_error( "Cannot save unavailable surrender" );
++            if ( content.width() != reportWidth || content.height() < viewHeight ) throw std::runtime_error( "Invalid battle report content size" );
++            for ( const auto & button : buttons ) {
++                const auto & area = button->area();
++                if ( area.x < 24 || area.x + area.width > 296 || area.y < 48 || area.y + area.height > 215 ) throw std::runtime_error( "Battle report control crosses frame" );
++            }
 +        }
 +        auto & events = LocalEvent::Get();
 +        while ( !closed && events.HandleEvents() ) {
@@ -4056,15 +4073,19 @@ index 0000000..7c4196f
 +                    last = input.position;
 +                }
 +                else if ( input.type == PanelInputType::TouchUp ) {
-+                    if ( down && !moved && pressed >= 0 && enabled[pressed] ) { result = pressed; closed = true; }
++                    if ( down && !moved && pressed >= 0 && enabled[pressed] && ( buttons[pressed]->area() & input.position ) ) { result = pressed; closed = true; }
 +                    down = false; pressed = -1;
 +                }
 +            }
 +            if ( redraw && !closed ) draw();
 +        }
++        if ( Platform3DS::smokeTest() && !evil && scroll > 0 && std::string( capture ) == "battle-summary" ) {
++            draw();
++            if ( !Save( top, "sdmc:/3ds/fheroes2/battle-summary-scrolled-top.bmp" ) ) throw std::runtime_error( "Cannot save scrolled battle report" );
++        }
 +        lastScroll = scroll; return result;
 +    }
-+    int paragraph( Image & image, int y, const std::string & text, FontType font = FontType::normalWhite(), int width = 376, int x = 0 ) {
++    int paragraph( Image & image, int y, const std::string & text, FontType font = FontType::normalWhite(), int width = reportWidth, int x = 0 ) {
 +        if ( text.empty() ) return y;
 +        Text value( text, font ); value.draw( x, y, width, image ); return y + value.height( width ) + 8;
 +    }
@@ -4078,10 +4099,11 @@ index 0000000..7c4196f
 +            Image resized( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
 +            resized.reset(); Resize( icon, resized );
 +            Text text( std::string( troop->GetPluralName( troop->GetCount() ) ) + ": " + std::to_string( troop->GetCount() ), FontType::normalWhite() );
-+            const int rowHeight = std::max<int32_t>( 40, text.height( 304 ) );
++            constexpr int textWidth = reportWidth - 64;
++            const int rowHeight = std::max<int32_t>( 40, text.height( textWidth ) );
 +            Blit( resized, image, 10 + ( 36 - resized.width() ) / 2, y + ( rowHeight - resized.height() ) / 2 );
-+            if ( text.width() <= 304 ) text.draw( 60, y + ( rowHeight - text.height() ) / 2, image );
-+            else text.draw( 60, y, 304, image );
++            if ( text.width() <= textWidth ) text.draw( 60, y + ( rowHeight - text.height() ) / 2, image );
++            else text.draw( 60, y, textWidth, image );
 +            y += rowHeight + 8;
 +        }
 +        return y;
@@ -4091,11 +4113,11 @@ index 0000000..7c4196f
 +                                     const bool restart, const std::function<bool( fheroes2::Image & )> & animation )
 +{
 +    using namespace fheroes2;
-+    Image content( 376, 2048 ); content.fill( backgroundColor() );
-+    int y = std::max( 120, paragraph( content, 0, title, FontType::normalYellow(), animation ? 188 : 376 ) );
++    Image content( reportWidth, 2048 ); fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++    int y = std::max( animation ? 112 : 0, paragraph( content, 0, title, FontType::normalYellow(), animation ? 172 : reportWidth ) );
 +    y = paragraph( content, y, body ); y = paragraph( content, y, _( "Battlefield Casualties" ), FontType::normalYellow() );
 +    y = casualties( content, y, attacker, _( "Attacker" ) ); y = casualties( content, y, defender, _( "Defender" ) );
-+    Image full( 376, std::max( 204, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 204, y ) );
++    Image full( reportWidth, std::max( reportViewHeight, y ) ); Copy( content, 0, 0, full, 0, 0, reportWidth, std::max( reportViewHeight, y ) );
 +    return report( full, restart ? std::vector<std::string>{ _( "Restart" ), _( "Okay" ) } : std::vector<std::string>{ _( "Okay" ) },
 +                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, _( "Battlefield Casualties" ), "battle-summary", animation ) == 0 && restart;
 +}
@@ -4106,12 +4128,16 @@ index 0000000..7c4196f
 +    std::string message = _( "Practicing the dark arts of necromancy, you are able to raise %{count} of the enemy's dead to return under your service as %{monster}." );
 +    StringReplace( message, "%{count}", count ); StringReplace( message, "%{monster}", skeleton.GetPluralName( count ) );
 +    const Text title( _( "Necromancy!" ), FontType::normalYellow() ), body( message, FontType::normalWhite() );
-+    const int textY = title.height( 184 ) + 8;
-+    Image content( 376, std::max<int32_t>( 204, textY + body.height( 184 ) + 8 ) ); content.fill( backgroundColor() );
-+    title.draw( 0, 0, 184, content ); body.draw( 0, textY, 184, content );
++    const int textWidth = animation ? 160 : reportWidth;
++    const int textY = title.height( textWidth ) + 8, bodyBottom = textY + body.height( textWidth );
 +    const auto & icon = Assets::getImage( ICN::MONS32, skeleton.GetSpriteIndex() );
-+    Blit( icon, content, 286 - icon.width() / 2, 128 );
-+    Text( std::to_string( count ), FontType::normalWhite() ).draw( 196, 168, 180, content );
++    const int iconY = animation ? 128 : bodyBottom + 8, countY = iconY + icon.height() + 4;
++    const Text amount( std::to_string( count ), FontType::normalWhite() );
++    Image content( reportWidth, std::max<int32_t>( reportViewHeight, std::max<int32_t>( bodyBottom + 8, countY + amount.height() + 8 ) ) );
++    fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++    title.draw( 0, 0, textWidth, content ); body.draw( 0, textY, textWidth, content );
++    Blit( icon, content, ( animation ? 264 : reportWidth / 2 ) - icon.width() / 2, iconY );
++    amount.draw( animation ? 180 : 0, countY, animation ? 168 : reportWidth, content );
 +    const auto initialAnimationChanges = animationChanges;
 +    report( content, { _( "Okay" ) }, { true }, _( "Necromancy!" ), "battle-necromancy", animation );
 +    if ( Platform3DS::smokeTest() && animation && animationChanges - initialAnimationChanges < 2 )
@@ -4121,11 +4147,11 @@ index 0000000..7c4196f
 +void Interface3DS::showBattleArtifact( const Artifact & artifact, const std::string & message )
 +{
 +    using namespace fheroes2;
-+    Image content( 376, 480 ); content.fill( backgroundColor() );
++    Image content( reportWidth, 480 ); fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
 +    int y = paragraph( content, 0, message, FontType::normalYellow() );
-+    const auto & icon = Assets::getImage( ICN::ARTIFACT, artifact.IndexSprite64() ); Blit( icon, content, ( 376 - icon.width() ) / 2, y );
++    const auto & icon = Assets::getImage( ICN::ARTIFACT, artifact.IndexSprite64() ); Blit( icon, content, ( reportWidth - icon.width() ) / 2, y );
 +    y = paragraph( content, y + icon.height() + 8, artifact.GetName() );
-+    Image full( 376, std::max( 204, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 204, y ) );
++    Image full( reportWidth, std::max( reportViewHeight, y ) ); Copy( content, 0, 0, full, 0, 0, reportWidth, std::max( reportViewHeight, y ) );
 +    report( full, { _( "Okay" ) }, { true }, artifact.GetName(), "battle-artifact", {}, [&]() { ArtifactDialogElement( artifact ).showPopup( Dialog::ZERO ); } );
 +}
 +bool Interface3DS::showBattleSurrender( const HeroBase & hero, const uint32_t cost, Kingdom & kingdom )
@@ -4134,15 +4160,15 @@ index 0000000..7c4196f
 +    while ( true ) {
 +        const bool affordable = kingdom.AllowPayment( Funds( Resource::GOLD, cost ) );
 +        const bool market = !affordable && kingdom.GetCountMarketplace();
-+        Image content( 376, 512 ); content.fill( backgroundColor() );
++        Image content( reportWidth, 512 ); fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
 +        std::string title = hero.isCaptain() ? _( "Captain of %{name} states:" ) : _( "%{name} states:" ); StringReplace( title, "%{name}", hero.GetName() );
 +        int y = paragraph( content, 0, title, FontType::normalYellow() );
-+        Image portrait( 120, 112 ); portrait.fill( backgroundColor() ); hero.PortraitRedraw( 0, 0, PORT_BIG, portrait ); Blit( portrait, content, 8, y );
++        const auto portrait = Crop( Assets::getImage( ICN::HEROBKG, 0 ), 48, 30, 103, 95 ); Blit( portrait, content, 8, y ); hero.PortraitRedraw( 9, y + 1, PORT_BIG, content );
 +        std::string text = _( "\"I will accept your surrender and grant you and your troops safe passage for the price of %{price} gold.\"" ); StringReplace( text, "%{price}", cost );
-+        y = std::max( y + 120, paragraph( content, y, text, FontType::normalWhite(), 244, 132 ) );
++        y = std::max( y + 104, paragraph( content, y, text, FontType::normalWhite(), 220, 128 ) );
 +        y = paragraph( content, y, std::string( _( "Gold" ) ) + ": " + std::to_string( kingdom.GetFunds().gold ) );
 +        if ( !affordable ) { text = _( "Not enough gold (%{gold})" ); StringReplace( text, "%{gold}", cost - kingdom.GetFunds().gold ); y = paragraph( content, y, text ); }
-+        Image full( 376, std::max( 204, y ) ); Copy( content, 0, 0, full, 0, 0, 376, std::max( 204, y ) );
++        Image full( reportWidth, std::max( reportViewHeight, y ) ); Copy( content, 0, 0, full, 0, 0, reportWidth, std::max( reportViewHeight, y ) );
 +        const int choice = report( full, { _( "Surrender" ), _( "Marketplace" ), _( "Cancel" ) }, { affordable, market, true }, _( "Surrender" ), "battle-surrender" );
 +        if ( choice == 0 ) return true;
 +        if ( choice != 1 ) return false;
@@ -4184,6 +4210,8 @@ index 0000000..7c4196f
 +    if ( run( [&]() { return summary( false ); }, okay ) || run( [&]() { return summary( true ); }, okay ) || run( [&]() { return summary( true ); }, cancel ) ) throw std::runtime_error( "Summary default/cancel restarted battle" );
 +    if ( run( [&]() { return summary( true ); }, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 1 ) throw std::runtime_error( "Summary restart choice differs" );
 +    if ( run( [&]() { return summary( true ); }, { { 250, touch( SDL_FINGERDOWN, 150, 174 ) }, { 80, touch( SDL_FINGERMOTION, 150, 120 ) }, { 80, touch( SDL_FINGERUP, 150, 120 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Summary drag restarted battle" );
++    if ( run( [&]() { return summary( true ); }, { { 250, touch( SDL_FINGERDOWN, 150, 166 ) }, { 80, touch( SDL_FINGERUP, 20, 20 ) },
++                                                 { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Summary outside release restarted battle" );
 +    run( [&]() { return summary( false ); }, { { 250, touch( SDL_FINGERDOWN, 150, 160 ) }, { 80, touch( SDL_FINGERMOTION, 150, 20 ) }, { 80, touch( SDL_FINGERUP, 150, 20 ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
 +    if ( lastScroll <= 0 ) throw std::runtime_error( "Summary losses did not scroll" );
 +    if ( run( [&]() { return int( showBattleSummary( _( "Your forces suffer a bitter defeat." ), "", empty, empty, false, {} ) ); }, okay ) ) throw std::runtime_error( "Empty casualties restarted battle" );
@@ -4195,13 +4223,16 @@ index 0000000..7c4196f
 +    if ( run( [&]() { return surrender( 500 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 137 ) }, { 80, touch( SDL_FINGERUP, 150, 137 ) } } ) != 1 ) throw std::runtime_error( "Affordable surrender not accepted" );
 +    if ( run( [&]() { return surrender( 2000 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 137 ) }, { 80, touch( SDL_FINGERUP, 150, 137 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Unaffordable surrender accepted" );
 +    if ( run( [&]() { return surrender( 500 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 137 ) }, { 80, touch( SDL_FINGERMOTION, 150, 170 ) }, { 80, touch( SDL_FINGERUP, 150, 170 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Surrender drag accepted" );
++    if ( run( [&]() { return surrender( 500 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 130 ) }, { 80, touch( SDL_FINGERUP, 20, 20 ) },
++                                                 { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Surrender outside release accepted" );
 +    if ( !( kingdom.GetFunds() == funds ) ) throw std::runtime_error( "Surrender dialog charged gold" );
 +    run( [&]() { showBattleArtifact( Artifact( Artifact::SNAKE_RING ), _( "You have captured an enemy artifact!" ) ); return 0; }, { { 250, key( SDL_CONTROLLER_BUTTON_B, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_B, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    if ( run( [&]() { return summary( true ); }, cancel ) ) throw std::runtime_error( "Evil summary cancel restarted battle" );
 +    run( [&]() { return surrender( 500 ); }, cancel ); Settings::Get().setInterfaceType( previous );
 +    Settings::Get().setInterfaceType( InterfaceType::EVIL ); run( [&]() { return necromancy( 12 ); }, okay ); Settings::Get().setInterfaceType( previous );
 +    COUT( "3DS NECROMANCY SMOKE: PASS count_plural_extremes touch_controller cancel_drag evil unchanged_frame_hud_viewport release_isolation" )
-+    COUT( "3DS BATTLE OUTCOME SMOKE: PASS summary_restart_ok_cancel empty_long_casualties stylus_scroll button_drag surrender_actual_dialog affordable_unaffordable unchanged_funds artifact_info evil unchanged_frame_hud_viewport release_isolation" )
++    COUT( "3DS BATTLE OUTCOME SMOKE: PASS classic_frames themed_paper inset_controls_scrollbar original_proportions summary_restart_ok_cancel empty_long_casualties stylus_scroll button_drag outside_release surrender_actual_dialog affordable_unaffordable unchanged_funds artifact_info evil unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp

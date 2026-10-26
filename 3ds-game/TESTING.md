@@ -1,5 +1,15 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.71: original-style battle reports
+
+Battle results/casualties, surrender, necromancy and captured-artifact dialogs now use the accepted Good/Evil frames and paper on both screens. Upper content is reflowed into 348 pixels with an inset scroll bar; lower actions are centered original-style buttons with clearance above the ornament. Surrender keeps the native portrait and surround. Result/necromancy animations retain their proportions inside a separate 168x104 region; necromancy without animation uses the full text width. Backgrounds and the animation clearing region are prepared at opening.
+
+The original callers still own restart, surrender/payment, rewards and army changes. The dialog returns the same choices and availability. Finger-up must stay inside the pressed button, preventing an outside release from restarting a battle or accepting surrender.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian. Checks cover OK/restart/cancel, long/empty casualties and stylus scrolling, affordable/unaffordable surrender, unchanged gold, drag/outside-release cancellation, artifact information, necromancy counts, Good/Evil, real Arena animation paths and frame/HUD/viewport/input restoration. ARM build, desktop syntax, infrastructure, clean patch and package/binary checks included. Full was not run. Hardware reading, scrolling, real surrender/payment, rewards and battle continuation remain to be checked on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Next visual stage: the compact battle footer.
+
 ## Preview 0.3.70: original-style battle hero actions
 
 The battle hero action menu now fills the lower screen with the accepted Good/Evil frame and paper. A native-size portrait in its original surround, four primary attributes and current/maximum spell points replace the old battlefield fragment. The four actions remain in a 2x2 grid with inset original-style buttons, proportionally fitted VIEWGEN icons and complete labels (two lines for long spell-casting text). The background is prepared once at opening; the upper battlefield remains visible.
