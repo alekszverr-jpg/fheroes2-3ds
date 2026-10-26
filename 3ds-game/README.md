@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.65: scroll bars instead of text position counters
+
+Added a shared passive Good/Evil scroll bar to native messages/held information, illustrated text and element panes, reward/level-up text, building purchase, hero recruitment and spell descriptions. Battle reports now use the same bar without redundant scroll-control captions. Bars appear only when the relevant content exceeds its viewport, show position/visible fraction and reserve a right gutter. Replaced textual scroll position counters everywhere they remained, including army information, construction and built-building descriptions. Existing tavern, Mage Guild and battle-log bars are retained. Actual page indicators (catalog/book/Y pages), mana and other game values remain.
+
+The change affects rendering only: original stylus/D-pad scrolling, bounds, held information, selections/actions and modal restoration are preserved. Short monitored groups are run sequentially, never Full. The exact per-model/language validation matrix is recorded in TESTING.md; it distinguishes New coverage of every changed window from representative Old and English regressions. ARM build, nine-file desktop syntax, 28-group/41-marker infrastructure, source patch and package identity checks are included. Physical New 3DS XL readability remains pending.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check short text without a bar, long information on either screen, beginning/end position, stylus/D-pad movement, and book/catalog pages. Scroll bars are position indicators; the existing panel scroll gestures remain the input method.
+
 ## Preview 0.3.64: original hero army portraits
 
 The hero army now uses the original renderMonsterFrame path: full faction-specific STRIP scenery with the MONH creature portrait, and the complete STRIP horse silhouette for empty slots. Each original 82x93 slot is proportionally fitted to 50x56 inside the existing 50x60 touch target. Ordinary quantities sit at the lower right; very large quantities are fitted completely. This replaces the interim miniature MONS32/dark-well treatment. Other hero tabs and all widget actions remain unchanged.
