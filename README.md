@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.68** restyles the market and resource gifts with original tiles/slider, Good/Evil frames, inset controls and readable balance tables. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.69** restyles the battle journal with Good/Evil frames, themed paper, an inset scroll bar and a centered Close button. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 

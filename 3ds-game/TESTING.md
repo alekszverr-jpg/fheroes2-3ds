@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.69: original-style battle journal
+
+The bottom-screen battle journal now uses the accepted Good/Evil frame and paper, cached at opening. Its wrapped text stays inside a 264x140 region, with the shared scroll bar separated from the decorative frame. Close uses a centered original-style button with room above the bottom ornament. Empty logs show None; short logs do not show a scroll bar. The upper battlefield and existing latest-entry, stylus/D-pad and page-scrolling behavior are preserved. Closing requires the actual finger-up position to stay inside the button.
+
+Validation: bounded BattleLog New/Old Russian and New English, plus BattleIntegration New/Old Russian. Checks include latest/older/newest entries, wrapped text, touch/controller scrolling, empty/short logs, Good/Evil, drag cancellation, release outside Close and frame/context restoration. ARM build, desktop syntax, test infrastructure, clean patch and exact package/binary checks included; Full was not run. Physical reading, long real battle logs and returning to battle still need New 3DS XL verification.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Next: hero action menu and battle result/surrender dialogs, followed by the compact battle footer.
+
 ## Preview 0.3.68: original-style market and resource gifts
 
 Marketplace, Trading Post and resource gifts now use the accepted Good/Evil frames on both screens. Original resource tiles, trading arrow, recipient flags and slider artwork retain their proportions. Resource groups, quantity controls and centered action labels sit inside the frame. The upper screen shows the selected exchange and remaining balances, or a seven-resource gift table with the per-player amount and remaining funds. Long numbers are fitted without truncation; both backgrounds are cached at opening.
