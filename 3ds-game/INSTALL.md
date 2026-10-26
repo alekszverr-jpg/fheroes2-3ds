@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.61
+# fheroes2 for Nintendo 3DS — preview 0.3.62
+
+## Preview 0.3.62: original-style hero, artifacts and skills
+
+The hero window now uses the accepted Good/Evil frame on both screens, the original HEROBKG portrait surround, STRIP army slot texture and HSICONS miniature artifact backgrounds. The lower panel keeps all five army slots, fourteen artifact cells and twelve primary/secondary skill cells inside the frame. Tabs, action controls and footer are separated; hero navigation uses explicit pixel arrows. Complete troop counts are proportionally fitted when necessary. The upper portrait and statistics have inset margins and no large dark placeholder panel. Frames and slot backgrounds are cached per opening.
+
+Bounded monitored Azahar runs passed Hero New/Old Russian and New English, plus CastleArmy New Russian. The original ArmyBar/ArtifactsBar actions still handle move/merge/swap/split, cancelled drag, artifact reorder/book, readonly and formation, hero switching/dismiss confirmation/cancellation/protection, last troop, held information, tab release isolation, primary/secondary information and nested Evil modal restoration. Large counts, layout bounds/non-overlap, all three tabs, frame/modal/input context and complete labels are covered by checks/captures. ARM build, desktop syntax, 28-group/41-marker infrastructure and clean-baseline patch application passed. Full was not run.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On physical New 3DS XL check tab readability/touch, real army and artifact actions, skill/held information, book, hero arrows and return to the castle/map. Earlier hardware checks remain separate. Next visual stage: spellbook.
 
 ## Preview 0.3.61: original-style Thieves Guild and Oracle
 

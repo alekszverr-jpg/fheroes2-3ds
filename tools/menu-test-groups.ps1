@@ -7,7 +7,7 @@ $menuTestGroups = [ordered]@{
     Recruit = @{ Markers = @('3DS RECRUIT SMOKE: PASS','3DS ORIGINAL PORTRAITS: PASS'); Captures = @('recruit-static.bmp','recruit-idle.bmp','recruit-large.bmp','recruit-top.bmp','recruit-large-top.bmp') }
     Market = @{ Markers = @('3DS MARKET SMOKE: PASS'); Captures = @('market-top.bmp','market-bottom.bmp') }
     Gift = @{ Markers = @('3DS GIFT SMOKE: PASS'); Captures = @('gift-top.bmp','gift-bottom.bmp') }
-    Hero = @{ Markers = @('3DS HERO SMOKE: PASS'); Captures = @('hero-army-top.bmp','hero-army-bottom.bmp','hero-artifacts-top.bmp','hero-artifacts-bottom.bmp','hero-skills-top.bmp','hero-skills-bottom.bmp') }
+    Hero = @{ Markers = @('3DS HERO SMOKE: PASS'); Captures = @('hero-army-top.bmp','hero-army-bottom.bmp','hero-artifacts-top.bmp','hero-artifacts-bottom.bmp','hero-skills-top.bmp','hero-skills-bottom.bmp','hero-evil-top.bmp','hero-evil-bottom.bmp','hero-readonly-top.bmp','hero-readonly-bottom.bmp') }
     Army = @{ Markers = @('3DS ARMY SPLIT SMOKE: PASS','3DS ARMY INFO SMOKE: PASS'); Captures = @('army-split-bottom.bmp','army-info-top.bmp','army-info-bottom.bmp','army-info-no-upgrade-top.bmp','army-info-no-upgrade-bottom.bmp','army-info-battle-top.bmp','army-info-scrolled-top.bmp','army-info-halfling-top.bmp') }
     Spellbook = @{ Markers = @('3DS COMBAT SPELLBOOK SMOKE: PASS','3DS ADVENTURE SPELLBOOK SMOKE: PASS'); Captures = @('spellbook-top.bmp','spellbook-bottom.bmp','spellbook-adventure-cast-top.bmp','spellbook-adventure-cast-bottom.bmp','spellbook-library-top.bmp','spellbook-library-bottom.bmp') }
     BattleLog = @{ Markers = @('3DS BATTLE LOG SMOKE: PASS'); Captures = @('battle-log-bottom.bmp','battle-log-scrolled-bottom.bmp') }
