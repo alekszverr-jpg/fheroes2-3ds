@@ -3920,10 +3920,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..b10df42
+index 0000000..b81244e
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,377 @@
+@@ -0,0 +1,385 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -3965,7 +3965,8 @@ index 0000000..b10df42
 +    using Platform3DS::PanelInputType;
 +    using Platform3DS::PanelKey;
 +    constexpr int reportWidth = 348, reportViewHeight = 180;
-+    constexpr int animationX = 180, animationWidth = 168, animationHeight = 104;
++    constexpr int centeredViewHeight = 192;
++    constexpr int animationWidth = 240, animationHeight = 132, animationX = ( reportWidth - animationWidth ) / 2;
 +    int lastScroll = 0, lastTopScroll = 0, lastBottomScroll = 0, lastBottomMaximum = 0;
 +    unsigned animationChanges = 0, lastPortraitChanges = 0;
 +    class ReportScope {
@@ -3987,7 +3988,8 @@ index 0000000..b10df42
 +    {
 +        const CursorRestorer hideCursor( false );
 +        Image top( 400, 240 ), bottom( 320, 240 ), frame;
-+        constexpr int viewHeight = reportViewHeight;
++        const int viewHeight = details ? centeredViewHeight : reportViewHeight;
++        const int topY = details ? 16 : 24;
 +        const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +        const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil ), bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +        Image contentBackground; Copy( content, contentBackground );
@@ -4017,8 +4019,8 @@ index 0000000..b10df42
 +        bool down = false, moved = false, closed = false; Point start, last;
 +        const auto draw = [&]() {
 +            top = topBackground;
-+            Copy( content, 0, scroll, top, 24, 24, reportWidth, std::min<int32_t>( viewHeight, content.height() - scroll ) );
-+            Interface3DS::drawPanelScrollBar( top, { 377, 24, 5, viewHeight }, scroll, viewHeight, content.height(), evil );
++            Copy( content, 0, scroll, top, 24, topY, reportWidth, std::min<int32_t>( viewHeight, content.height() - scroll ) );
++            Interface3DS::drawPanelScrollBar( top, { 377, topY, 5, viewHeight }, scroll, viewHeight, content.height(), evil );
 +            bottom = bottomBackground;
 +            Text title( heading, FontType::normalYellow() );
 +            if ( title.height( 272 ) > firstY - 32 ) title.set( heading, FontType::smallYellow() );
@@ -4123,6 +4125,21 @@ index 0000000..b10df42
 +        if ( text.empty() ) return y;
 +        Text value( text, font ); value.draw( x, y, width, image ); return y + value.height( width ) + 8;
 +    }
++    Image outcomeContent( const std::string & title, const std::string & body, const bool animated ) {
++        Text heading( title, FontType::normalYellow() ), description( body, FontType::normalWhite() );
++        const int textY = animated ? animationHeight + 4 : 0;
++        const int gap = title.empty() || body.empty() ? 0 : 4;
++        const auto height = [&]() { return heading.height( reportWidth ) + gap + description.height( reportWidth ); };
++        // Prefer the original normal title; compact only text which would otherwise push
++        // the outcome/experience below the visible area beneath the centered animation.
++        if ( animated && height() > centeredViewHeight - textY ) description.set( body, FontType::smallWhite() );
++        if ( animated && height() > centeredViewHeight - textY ) heading.set( title, FontType::smallYellow() );
++        Image content( reportWidth, std::max<int32_t>( centeredViewHeight, textY + height() ) );
++        Interface3DS::fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++        if ( !title.empty() ) heading.draw( 0, textY, reportWidth, content );
++        if ( !body.empty() ) description.draw( 0, textY + heading.height( reportWidth ) + gap, reportWidth, content );
++        return content;
++    }
 +    int casualties( Image & image, const Troops & troops, const char * side, const int x ) {
 +        constexpr int columnWidth = 126, textWidth = 98;
 +        const Text heading( side, FontType::smallYellow() );
@@ -4151,11 +4168,7 @@ index 0000000..b10df42
 +{
 +    using namespace fheroes2;
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
-+    const int titleHeight = Text( title, FontType::normalYellow() ).height( animation ? 172 : reportWidth ) + 8;
-+    const int bodyHeight = body.empty() ? 0 : Text( body, FontType::normalWhite() ).height( reportWidth ) + 8;
-+    Image content( reportWidth, std::max( reportViewHeight, std::max( animation ? 112 : 0, titleHeight ) + bodyHeight ) ); fillClassicPanelPaper( content, evil );
-+    int y = std::max( animation ? 112 : 0, paragraph( content, 0, title, FontType::normalYellow(), animation ? 172 : reportWidth ) );
-+    y = paragraph( content, y, body );
++    Image content = outcomeContent( title, body, bool( animation ) );
 +    Image losses( 264, 2048 ); fillClassicPanelPaper( losses, evil );
 +    const int attackerHeight = casualties( losses, attacker, _( "Attacker" ), 0 );
 +    const int defenderHeight = casualties( losses, defender, _( "Defender" ), 138 );
@@ -4169,12 +4182,7 @@ index 0000000..b10df42
 +    const Monster skeleton( Monster::SKELETON );
 +    std::string message = _( "Practicing the dark arts of necromancy, you are able to raise %{count} of the enemy's dead to return under your service as %{monster}." );
 +    StringReplace( message, "%{count}", count ); StringReplace( message, "%{monster}", skeleton.GetPluralName( count ) );
-+    const Text title( _( "Necromancy!" ), FontType::normalYellow() ), body( message, FontType::normalWhite() );
-+    const int textWidth = animation ? 160 : reportWidth;
-+    const int textY = title.height( textWidth ) + 8, bodyBottom = textY + body.height( textWidth );
-+    Image content( reportWidth, std::max( reportViewHeight, bodyBottom + 8 ) );
-+    fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
-+    title.draw( 0, 0, textWidth, content ); body.draw( 0, textY, textWidth, content );
++    Image content = outcomeContent( _( "Necromancy!" ), message, bool( animation ) );
 +    Image details( 264, 140 ); fillClassicPanelPaper( details, Settings::Get().isEvilInterfaceEnabled() );
 +    Text( skeleton.GetPluralName( count ), FontType::normalYellow() ).draw( 0, 0, 264, details );
 +    Text( std::to_string( count ), FontType::normalWhite() ).draw( 0, 122, 264, details );

@@ -1,5 +1,13 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.73: centered battle outcome animation
+
+The original battle outcome/necromancy animation is now the main element above: centered in a 240x132 region and fitted proportionally. The outcome title and original caller-provided explanation/experience follow underneath across the full content width. Split reports use a 192-pixel upper viewport; text prefers the normal title, falling back to compact body/title fonts only when needed to fit below the animation. Longer text remains scrollable without truncation. Without an animation the text starts at the top. The two-column casualties, raised-creature portrait/count and fixed lower controls are preserved.
+
+Validation: bounded BattleDialogs and BattleIntegration on New/Old Russian and New English (six groups). These cover original choices/availability/restart, normal and long text, missing animation, independent two-screen scrolling, raised portrait, real Arena outcome/necromancy animation paths and frame/HUD/input restoration. Russian/English animated captures inspected. ARM build, desktop syntax, infrastructure, clean patch and exact package identity checks included; Full was not run. Hardware readability, actual experience/rewards and continuation remain pending on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check victory, defeat, retreat and your hero's surrender: the appropriate original animation should be centered above the result/experience; losses/buttons remain below. These are ICN animations from the original game resources, not separate video files. Next visual stage remains the compact battle footer.
+
 ## Preview 0.3.72: two-screen battle results and necromancy
 
 Battle results now keep the outcome, original animation and caller-provided experience text above. The lower screen shows attacker/defender casualties in two columns, with original creature icons, full wrapped names and counts. Five ordinary rows per side fit without scrolling in the tested Russian/English layouts; longer lists scroll above the fixed footer. Restart and Okay share a horizontal footer when both are present. Upper text and lower casualties have separate scroll positions. D-pad scrolls overflowing casualties first; if only upper text overflows it scrolls that instead. Y switches the scroll target when both overflow. Stylus dragging scrolls the lower list, or upper text when the lower content fits.
