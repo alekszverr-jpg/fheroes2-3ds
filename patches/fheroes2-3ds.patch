@@ -9816,10 +9816,10 @@ index 0000000..dd05fd8
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 new file mode 100644
-index 0000000..8157a29
+index 0000000..9dd33e1
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_spellbook.cpp
-@@ -0,0 +1,604 @@
+@@ -0,0 +1,635 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -9908,37 +9908,53 @@ index 0000000..8157a29
 +    using namespace fheroes2;
 +    const CursorRestorer hideCursor( false );
 +    Image top, bottom( 320, 240 );
-+    const auto crop = Platform3DS::viewport();
-+    Copy( Display::instance(), crop.x, crop.y, bottom, 0, 0, 320, Platform3DS::detailHeight() );
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
-+    StandardWindow::renderBackgroundImage( bottom, { 0, 116, 320, 124 }, 0, evil );
-+    Text title( hero.GetName(), FontType::normalYellow() ); title.fitToOneRow( 304 ); title.draw( 8, 120, 304, bottom );
++    Image background = makeClassicPanelBackground( 320, evil );
++    Text title( hero.GetName(), FontType::normalYellow() ); title.fitToOneRow( 272 ); title.draw( 24, 20, 272, background );
++    const auto portraitFrame = Crop( Assets::getImage( ICN::HEROBKG, 0 ), 48, 30, 103, 95 );
++    Blit( portraitFrame, background, 24, 42 ); hero.PortraitRedraw( 25, 43, PORT_BIG, background );
++    const std::array<int, 4> primary{ Skill::Primary::ATTACK, Skill::Primary::DEFENSE, Skill::Primary::POWER, Skill::Primary::KNOWLEDGE };
++    const std::array<int, 4> values{ hero.GetAttack(), hero.GetDefense(), hero.GetPower(), hero.GetKnowledge() };
++    for ( size_t i = 0; i < primary.size(); ++i ) {
++        const std::string value = std::string( Skill::Primary::String( primary[i] ) ) + ": " + std::to_string( values[i] );
++        Text text( value, FontType::normalWhite() );
++        if ( text.width() > 156 ) text.set( value, FontType::smallWhite() );
++        text.fitToOneRow( 156 ); text.draw( 140, 46 + int( i ) * 18, 156, background );
++    }
++    Text mana( _( "Spell Points" ) + std::string( ": " ) + std::to_string( hero.GetSpellPoints() ) + "/" + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() );
++    mana.fitToOneRow( 156 ); mana.draw( 140, 121, 156, background );
++    const Rect portraitArea{ 24, 42, 103, 95 }, titleArea{ 24, 16, 272, 24 };
 +    const std::array<bool, 4> enabled{ cast, retreat, surrender, true };
 +    const std::array<std::string, 4> labels{ _( "Cast Spell" ), _( "Retreat" ), _( "Surrender" ), _( "Exit" ) };
-+    const std::array<Rect, 4> areas{ Rect{ 6, 140, 150, 44 }, { 164, 140, 150, 44 }, { 6, 188, 150, 44 }, { 164, 188, 150, 44 } };
++    std::array<Rect, 4> areas{ Rect{ 24, 142, 132, 32 }, { 164, 142, 132, 32 }, { 24, 182, 132, 32 }, { 164, 182, 132, 32 } };
 +    std::vector<std::unique_ptr<ButtonBase>> buttons;
 +    for ( size_t i = 0; i < areas.size(); ++i ) {
 +        Sprite released, pressed;
-+        makeButtonSprites( released, pressed, "", { 144, 38 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
++        makeButtonSprites( released, pressed, "", { areas[i].width - 12, areas[i].height }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +        const auto & icon = Assets::getImage( ICN::VIEWGEN, 9 + int( i ) * 2 );
-+        Image thumbnail( 28, 28 ); thumbnail.reset(); Resize( icon, thumbnail );
-+        Blit( thumbnail, released, 5, 5 ); Blit( thumbnail, pressed, 4, 6 );
-+        Text label( labels[i], FontType::smallWhite() );
-+        label.draw( 36, ( released.height() - label.height( 106 ) ) / 2, 106, released );
-+        label.draw( 35, ( pressed.height() - label.height( 106 ) ) / 2 + 1, 106, pressed );
-+        buttons.emplace_back( std::make_unique<ButtonSprite>( areas[i].x, areas[i].y, std::move( released ), std::move( pressed ) ) );
++        const double scale = std::min( 24.0 / icon.width(), 24.0 / icon.height() );
++        Image thumbnail( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) ); thumbnail.reset(); Resize( icon, thumbnail );
++        const int iconX = 5 + ( 24 - thumbnail.width() ) / 2, iconY = ( released.height() - thumbnail.height() ) / 2;
++        Blit( thumbnail, released, iconX, iconY ); Blit( thumbnail, pressed, iconX - 1, iconY + 1 );
++        const int labelWidth = released.width() - 38;
++        Text label( labels[i], FontType::normalWhite() );
++        if ( label.width() > labelWidth ) label.set( labels[i], FontType::smallWhite() );
++        if ( label.height( labelWidth ) > released.height() - 6 ) label.fitToOneRow( labelWidth );
++        label.draw( 34, ( released.height() - label.height( labelWidth ) ) / 2, labelWidth, released );
++        label.draw( 33, ( pressed.height() - label.height( labelWidth ) ) / 2 + 1, labelWidth, pressed );
++        buttons.emplace_back( std::make_unique<ButtonSprite>( areas[i].x + 1, areas[i].y, std::move( released ), std::move( pressed ) ) );
++        areas[i] = buttons.back()->area();
 +        if ( !enabled[i] ) buttons.back()->disable();
 +    }
 +    const BookScope scope( top, &bottom, true );
 +    int selected = 3, pressed = -1; bool down = false, moved = false;
 +    Point start; int result = 0; bool closed = false;
 +    const auto draw = [&]() {
++        bottom = background;
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
 +            if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release();
 +            buttons[i]->draw( bottom );
-+            const auto & area = areas[i]; const uint8_t color = selected == int( i ) ? GetColorId( 255, 225, 96 ) : GetColorId( 90, 65, 40 );
-+            Fill( bottom, area.x, area.y, area.width, 1, color ); Fill( bottom, area.x, area.y + area.height - 1, area.width, 1, color );
-+            Fill( bottom, area.x, area.y, 1, area.height, color ); Fill( bottom, area.x + area.width - 1, area.y, 1, area.height, color );
++            if ( selected == int( i ) ) Fill( bottom, areas[i].x, areas[i].y - 2, areas[i].width, 1, GetColorId( 255, 225, 96 ) );
 +        }
 +        Display::instance().render();
 +    };
@@ -9946,7 +9962,11 @@ index 0000000..8157a29
 +        if ( enabled[index] ) { result = index == 3 ? 0 : index + 1; closed = true; }
 +    };
 +    draw();
-+    if ( Platform3DS::smokeTest() && !Save( bottom, "sdmc:/3ds/fheroes2/hero-actions-bottom.bmp" ) ) throw std::runtime_error( "Cannot save hero actions" );
++    if ( Platform3DS::smokeTest() ) {
++        const char * capture = evil ? "hero-actions-evil-bottom.bmp" : cast && retreat && surrender ? "hero-actions-bottom.bmp" : "hero-actions-disabled-bottom.bmp";
++        if ( !Save( bottom, std::string( "sdmc:/3ds/fheroes2/" ) + capture ) ) throw std::runtime_error( "Cannot save hero actions" );
++        for ( const auto & area : areas ) if ( area.x < 24 || area.x + area.width > 296 || area.y < 142 || area.y + area.height > 214 ) throw std::runtime_error( "Hero action crosses frame" );
++    }
 +    auto & events = LocalEvent::Get();
 +    while ( !closed && events.HandleEvents() ) {
 +        Platform3DS::PanelInput input; bool redraw = false;
@@ -9968,8 +9988,9 @@ index 0000000..8157a29
 +            else if ( input.type == PanelInputType::TouchMove && down )
 +                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
 +            else if ( input.type == PanelInputType::TouchUp ) {
-+                if ( down && !moved && pressed >= 0 ) activate( pressed );
-+                else if ( down && !moved && heroScreen && ( Rect{ 0, 116, 320, 24 } & start ) ) { result = 4; closed = true; }
++                if ( down && !moved && pressed >= 0 && ( areas[pressed] & input.position ) ) activate( pressed );
++                else if ( down && !moved && heroScreen && ( ( ( portraitArea & start ) && ( portraitArea & input.position ) )
++                                                          || ( ( titleArea & start ) && ( titleArea & input.position ) ) ) ) { result = 4; closed = true; }
 +                down = false; pressed = -1;
 +            }
 +        }
@@ -9984,8 +10005,8 @@ index 0000000..8157a29
 +    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event e{}; e.type = type; e.tfinger.touchId = 1; e.tfinger.fingerId = 0; e.tfinger.x = x / 320.0f; e.tfinger.y = y / 240.0f; return e; };
 +    Heroes hero( Heroes::LORDKILBURN, Race::KNGT );
 +    const auto crop = Platform3DS::viewport(); fheroes2::Image frame; fheroes2::Copy( fheroes2::Display::instance(), frame );
-+    const auto run = [&]( bool enabled, std::vector<TimedEvent> sequence ) {
-+        const int result = runInjectedInput( [&]() { return showBattleHeroActions( hero, enabled, enabled, enabled ); }, std::move( sequence ) );
++    const auto run = [&]( bool enabled, std::vector<TimedEvent> sequence, bool heroScreen = false ) {
++        const int result = runInjectedInput( [&]() { return showBattleHeroActions( hero, enabled, enabled, enabled, heroScreen ); }, std::move( sequence ) );
 +        if ( Platform3DS::viewport() != crop || std::memcmp( frame.image(), fheroes2::Display::instance().image(), frame.width() * frame.height() ) ) throw std::runtime_error( "Hero actions changed frame/viewport" );
 +        return result;
 +    };
@@ -10000,7 +10021,17 @@ index 0000000..8157a29
 +        if ( run( false, { { 250, touch( SDL_FINGERDOWN, x, y ) }, { 80, touch( SDL_FINGERUP, x, y ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } } ) ) throw std::runtime_error( "Disabled hero action activated" );
 +    }
 +    if ( run( true, { { 250, touch( SDL_FINGERDOWN, 70, 162 ) }, { 80, touch( SDL_FINGERMOTION, 70, 180 ) }, { 80, touch( SDL_FINGERUP, 70, 180 ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } } ) ) throw std::runtime_error( "Hero action drag activated" );
-+    COUT( "3DS HERO ACTIONS SMOKE: PASS touch_controller toggle_close disabled_actions drag_cancel unchanged_frame_viewport release_isolation" )
++    if ( run( true, { { 250, touch( SDL_FINGERDOWN, 70, 162 ) }, { 80, touch( SDL_FINGERUP, 10, 10 ) },
++                     { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } } ) ) throw std::runtime_error( "Hero action outside release activated" );
++    for ( const Point position : { Point{ 70, 80 }, Point{ 160, 28 } } )
++        if ( run( true, { { 250, touch( SDL_FINGERDOWN, position.x, position.y ) }, { 80, touch( SDL_FINGERUP, position.x, position.y ) } }, true ) != 4 )
++            throw std::runtime_error( "Hero action portrait/title did not open hero screen" );
++    if ( run( true, { { 250, touch( SDL_FINGERDOWN, 70, 80 ) }, { 80, touch( SDL_FINGERUP, 10, 10 ) },
++                     { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) } }, true ) ) throw std::runtime_error( "Hero portrait outside release activated" );
++    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
++    if ( run( true, { { 250, touch( SDL_FINGERDOWN, 220, 162 ) }, { 80, touch( SDL_FINGERUP, 220, 162 ) } } ) != 2 ) throw std::runtime_error( "Evil hero action changed result" );
++    Settings::Get().setInterfaceType( previous );
++    COUT( "3DS HERO ACTIONS SMOKE: PASS classic_frame original_portrait_stats proportionate_icons inset_controls complete_labels good_evil touch_controller toggle_close disabled_actions drag_cancel outside_release portrait_title unchanged_frame_viewport release_isolation" )
 +}
 +
 +Spell Interface3DS::showCombatSpellBook( const HeroBase & hero, const std::vector<Spell> & spells, const bool canCast,

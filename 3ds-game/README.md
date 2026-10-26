@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.70: original-style battle hero actions
+
+The battle hero action menu now fills the lower screen with the accepted Good/Evil frame and paper. A native-size portrait in its original surround, four primary attributes and current/maximum spell points replace the old battlefield fragment. The four actions remain in a 2x2 grid with inset original-style buttons, proportionally fitted VIEWGEN icons and complete labels (two lines for long spell-casting text). The background is prepared once at opening; the upper battlefield remains visible.
+
+Original action availability, result values and Y/controller navigation are preserved. When the original caller permits viewing the hero, touching the portrait or name returns the existing hero-screen action. Touch-up must remain inside the same button/portrait/name area; an outside release cancels that touch.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian and Spellbook New Russian. Checks cover action results, disabled actions, touch/controller/Y, drag/outside-release cancellation, portrait/name selection, Good/Evil, unchanged upper frame/viewport and modal input restoration. ARM build, desktop syntax, infrastructure, clean patch and package/binary checks included; Full was not run. On New 3DS XL check reading/touch targets, Y open/close, portrait/name, book selection and return to battle. Actual retreat/surrender behavior remains with the original battle caller and needs hardware verification.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Next: battle results and surrender dialogs, then the compact battle footer.
+
 ## Preview 0.3.69: original-style battle journal
 
 The bottom-screen battle journal now uses the accepted Good/Evil frame and paper, cached at opening. Its wrapped text stays inside a 264x140 region, with the shared scroll bar separated from the decorative frame. Close uses a centered original-style button with room above the bottom ornament. Empty logs show None; short logs do not show a scroll bar. The upper battlefield and existing latest-entry, stylus/D-pad and page-scrolling behavior are preserved. Closing requires the actual finger-up position to stay inside the button.
