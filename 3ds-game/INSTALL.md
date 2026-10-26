@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.67
+# fheroes2 for Nintendo 3DS — preview 0.3.68
+
+## Preview 0.3.68: original-style market and resource gifts
+
+Marketplace, Trading Post and resource gifts now use the accepted Good/Evil frames on both screens. Original resource tiles, trading arrow, recipient flags and slider artwork retain their proportions. Resource groups, quantity controls and centered action labels sit inside the frame. The upper screen shows the selected exchange and remaining balances, or a seven-resource gift table with the per-player amount and remaining funds. Long numbers are fitted without truncation; both backgrounds are cached at opening.
+
+Validation: bounded Market/Gift groups on New/Old Russian and New English, with Good/Evil, empty and signed-limit gift captures. Existing checks cover all resource directions/rates, actual marketplace deductions, slider/controller input, disabled/dragged actions, recipient budget/reset, gold steps, nested modal/frame/input restoration and actual gift cancellation. Gift confirmation checks the returned payload; the original caller owns sending resources. ARM build, desktop syntax, infrastructure, clean patch and package identity checks included. Full was not run. Physical readability and real exchanges/gifts remain to be checked on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check the market from a castle and a Trading Post, large values, quantity changes, exchange/cancel and gifts to one/several players. Next visual stage: battle controls, journal and battle dialogs.
 
 ## Preview 0.3.67: original-style spellbook
 

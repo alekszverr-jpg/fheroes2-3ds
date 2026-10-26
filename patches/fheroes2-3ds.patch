@@ -9015,12 +9015,13 @@ index 0000000..7400cc5
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_market.cpp b/src/fheroes2/gui/ui_3ds_market.cpp
 new file mode 100644
-index 0000000..127d07b
+index 0000000..c67d9b8
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_market.cpp
-@@ -0,0 +1,516 @@
+@@ -0,0 +1,544 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
++#include "ui_3ds_style.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <array>
@@ -9068,6 +9069,48 @@ index 0000000..127d07b
 +        value.maximum = std::min( available / value.sell, room / value.buy );
 +        return value;
 +    }
++    void drawNumber( const std::string & value, Image & output, const Rect & area )
++    {
++        const Text text( value, FontType::smallWhite() );
++        if ( value.empty() ) return;
++        Image original( text.width(), text.height() ); original.reset(); text.draw( 0, 0, original );
++        const double scale = std::min( 1.0, std::min( double( area.width ) / original.width(), double( area.height ) / original.height() ) );
++        Image fitted( std::max( 1, int( original.width() * scale ) ), std::max( 1, int( original.height() * scale ) ) ); fitted.reset(); Resize( original, fitted );
++        Blit( fitted, output, area.x + ( area.width - fitted.width() ) / 2, area.y + ( area.height - fitted.height() ) / 2 );
++    }
++    std::unique_ptr<ButtonBase> makeMarketButton( const std::string & label, const Rect & area, const bool evil )
++    {
++        Sprite released, pressed;
++        makeButtonSprites( released, pressed, "", { area.width - 12, 14 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++        Text text( label, FontType::normalWhite() );
++        if ( text.width() > released.width() - 8 ) text.set( label, FontType::smallWhite() );
++        text.fitToOneRow( released.width() - 8 );
++        const auto bounds = text.area();
++        text.draw( ( released.width() - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
++        text.draw( ( pressed.width() - bounds.width ) / 2 - bounds.x - 1, ( pressed.height() - bounds.height ) / 2 - bounds.y + 1, pressed );
++        return std::make_unique<ButtonSprite>( area.x + ( area.width - released.width() ) / 2, area.y, std::move( released ), std::move( pressed ) );
++    }
++    void drawAmountSlider( Image & output, const Rect & area, const uint32_t position, const uint32_t maximum, const bool evil )
++    {
++        const auto & knob = Assets::getImage( evil ? ICN::TRADPOSE : ICN::TRADPOST, 2 );
++        Fill( output, area.x, area.y + 3, area.width, 4, evil ? GetColorId( 50, 50, 55 ) : GetColorId( 50, 40, 30 ) );
++        DrawLine( output, { area.x, area.y + 2 }, { area.x + area.width - 1, area.y + 2 }, evil ? GetColorId( 135, 135, 140 ) : GetColorId( 170, 130, 70 ) );
++        const int x = area.x + ( maximum ? uint64_t( position ) * ( area.width - knob.width() ) / maximum : 0 );
++        Blit( knob, output, x, area.y + ( area.height - knob.height() ) / 2 );
++    }
++    void validateAreas( const std::vector<Rect> & areas, const Rect & slider )
++    {
++        if ( !Platform3DS::smokeTest() ) return;
++        for ( size_t i = 0; i < areas.size(); ++i ) {
++            const auto & area = areas[i];
++            if ( area.x < 24 || area.x + area.width > 296 || area.y < 16 || area.y + area.height > 218 ) throw std::runtime_error( "Market/gift control crosses frame" );
++            if ( area.x < slider.x + slider.width && slider.x < area.x + area.width && area.y < slider.y + slider.height && slider.y < area.y + area.height ) throw std::runtime_error( "Market/gift control overlaps slider" );
++            for ( size_t j = i + 1; j < areas.size(); ++j ) {
++                const auto & other = areas[j];
++                if ( area.x < other.x + other.width && other.x < area.x + area.width && area.y < other.y + other.height && other.y < area.y + area.height ) throw std::runtime_error( "Market/gift controls overlap" );
++            }
++        }
++    }
 +    class MarketScope
 +    {
 +    public:
@@ -9098,25 +9141,18 @@ index 0000000..127d07b
 +    for ( int side = 0; side < 2; ++side ) {
 +        for ( int i = 0; i < 7; ++i ) {
 +            const int column = i == 6 ? 1 : i % 3, row = i == 6 ? 2 : i / 3;
-+            areas[side * 7 + i] = { 12 + side * 160 + column * 42, 28 + row * 42, 40, 40 };
++            areas[side * 7 + i] = { 24 + side * 144 + column * 44, 36 + row * 36, 40, 34 };
 +        }
 +    }
 +    const std::array<std::string, 7> labels{ "-", "+", _( "MIN" ), _( "MAX" ), _( "TRADE" ), _( "GIFT" ), _( "Exit" ) };
 +    std::vector<std::unique_ptr<ButtonBase>> buttons;
 +    for ( int i = 0; i < 7; ++i ) {
-+        Sprite released, pressed;
-+        const int width = i < 4 ? 64 : 90;
-+        makeButtonSprites( released, pressed, "", { width, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        Text text( labels[i], FontType::normalWhite() );
-+        if ( text.width() > width - 4 ) text.set( labels[i], FontType::smallWhite() );
-+        // Button sprites include borders beyond the requested width. Center visible glyphs in the actual sprite.
-+        const Rect textArea = text.area();
-+        text.draw( ( released.width() - textArea.width ) / 2 - textArea.x, ( released.height() - textArea.height ) / 2 - textArea.y, released );
-+        text.draw( ( pressed.width() - textArea.width ) / 2 - textArea.x - 1, ( pressed.height() - textArea.height ) / 2 - textArea.y + 1, pressed );
-+        buttons.emplace_back( std::make_unique<ButtonSprite>( i < 4 ? 12 + i * 76 : 12 + ( i - 4 ) * 100, i < 4 ? 157 : 205, std::move( released ), std::move( pressed ) ) );
-+        areas[14 + i] = buttons.back()->area();
++        const Rect target = i < 4 ? Rect{ 24 + i * 70, 152, 62, 28 } : Rect{ 24 + ( i - 4 ) * 92, 190, i == 6 ? 88 : 86, 28 };
++        buttons.push_back( makeMarketButton( labels[i], target, evil ) ); areas[14 + i] = buttons.back()->area();
 +    }
-+    const Rect slider( 12, 189, 296, 12 );
++    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
++    const Rect slider( 24, 179, 272, 10 );
++    validateAreas( std::vector<Rect>( areas.begin(), areas.end() ), slider );
 +    int from = 0, to = 0, focus = 0, pressed = -1;
 +    uint32_t units = 0;
 +    bool down = false, moved = false, sliding = false, closed = false;
@@ -9156,30 +9192,28 @@ index 0000000..127d07b
 +            throw std::runtime_error( "Cannot capture marketplace" );
 +    };
 +    const auto draw = [&]() {
-+        top.fill( 0 ); bottom.fill( 0 );
-+        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
-+        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
-+        Fill( top, 12, 32, 376, 180, GetColorId( 35, 29, 24 ) );
-+        Text( title, FontType::normalYellow() ).draw( 12, 8, 376, top );
++        top = topBackground; bottom = bottomBackground;
++        Text( title, FontType::normalYellow() ).draw( 24, 20, 352, top );
 +        if ( !from || !to ) {
 +            Text( _( "Please inspect our fine wares. If you feel like offering a trade, click on the items you wish to trade with and for." ), FontType::normalWhite() ).draw( 24, 48, 352, top );
 +        }
 +        else {
 +            for ( int side = 0; side < 2; ++side ) {
-+                const int resource = side ? to : from, x = side ? 208 : 20;
-+                Text( Resource::String( resource ), FontType::normalYellow() ).draw( x, 40, 172, top );
++                const int resource = side ? to : from, x = side ? 204 : 24;
++                Text( Resource::String( resource ), FontType::normalYellow() ).draw( x, 44, 172, top );
 +                const auto & icon = Assets::getImage( ICN::RESOURCE, Resource::getIconIcnIndex( resource ) );
-+                Blit( icon, top, x + ( 172 - icon.width() ) / 2, 66 );
-+                Text( std::to_string( side ? units * current.buy : units * current.sell ), FontType::normalWhite() ).draw( x, 105, 172, top );
-+                Text( std::to_string( funds.Get( resource ) ) + " -> " + std::to_string( int64_t( funds.Get( resource ) ) + ( side ? int64_t( units ) * current.buy : -int64_t( units ) * current.sell ) ), FontType::smallWhite() ).draw( x, 132, 172, top );
++                Blit( icon, top, x + ( 172 - icon.width() ) / 2, 70 );
++                Text( std::to_string( side ? units * current.buy : units * current.sell ), FontType::normalWhite() ).draw( x, 112, 172, top );
++                Text( std::to_string( funds.Get( resource ) ) + " -> " + std::to_string( int64_t( funds.Get( resource ) ) + ( side ? int64_t( units ) * current.buy : -int64_t( units ) * current.sell ) ), FontType::smallWhite() ).draw( x, 138, 172, top );
 +            }
 +            const std::string rate = current.sell ? std::to_string( current.sell ) + " : " + std::to_string( current.buy ) : _( "n/a" );
-+            Text( rate, FontType::normalYellow() ).draw( 20, 156, 360, top );
-+            Text( std::to_string( units ) + " / " + std::to_string( current.maximum ), FontType::normalWhite() ).draw( 20, 180, 360, top );
++            const auto & direction = Assets::getImage( resourceIcn, 0 ); Blit( direction, top, ( 400 - direction.width() ) / 2, 82 );
++            Text( rate, FontType::normalYellow() ).draw( 24, 158, 352, top );
++            Text( std::to_string( units ) + " / " + std::to_string( current.maximum ), FontType::normalWhite() ).draw( 24, 178, 352, top );
 +        }
-+        Text( "D-pad: < >   A   L     ^ + / v -", FontType::smallWhite() ).draw( 12, 220, 376, top );
-+        Text( _( "Your Resources" ), FontType::smallYellow() ).draw( 8, 10, 144, bottom );
-+        Text( _( "Available Trades" ), FontType::smallYellow() ).draw( 168, 10, 144, bottom );
++        Text( "D-pad: < >   A   L     ^ + / v -", FontType::smallWhite() ).draw( 24, 198, 352, top );
++        Text( _( "Your Resources" ), FontType::smallYellow() ).draw( 24, 20, 128, bottom );
++        Text( _( "Available Trades" ), FontType::smallYellow() ).draw( 168, 20, 128, bottom );
 +        for ( int i = 0; i < 14; ++i ) {
 +            const auto & area = areas[i]; const int resource = resources[i % 7];
 +            Blit( Assets::getImage( resourceIcn, 7 + i % 7 ), bottom, area.x + 3, area.y );
@@ -9188,13 +9222,11 @@ index 0000000..127d07b
 +                const auto value = quote( funds, markets, from, resource );
 +                number = value.sell ? std::to_string( value.sell ) + ":" + std::to_string( value.buy ) : "-";
 +            }
-+            Text count( number, FontType::smallWhite() );
-+            if ( count.width() > 40 ) count.set( "...", FontType::smallWhite() );
-+            count.draw( area.x, area.y + 26, 40, bottom );
++            drawNumber( number, bottom, { area.x + 3, area.y + 23, 34, 11 } );
 +            if ( ( i < 7 ? from : to ) == resource ) {
 +                const auto color = GetColorId( 255, 225, 96 );
-+                Fill( bottom, area.x, area.y - 1, 40, 1, color ); Fill( bottom, area.x, area.y + 39, 40, 1, color );
-+                Fill( bottom, area.x, area.y, 1, 39, color ); Fill( bottom, area.x + 39, area.y, 1, 39, color );
++                Fill( bottom, area.x, area.y - 1, 40, 1, color ); Fill( bottom, area.x, area.y + area.height - 1, 40, 1, color );
++                Fill( bottom, area.x, area.y, 1, area.height, color ); Fill( bottom, area.x + 39, area.y, 1, area.height, color );
 +            }
 +        }
 +        for ( int i = 0; i < 7; ++i ) {
@@ -9203,9 +9235,7 @@ index 0000000..127d07b
 +            buttons[i]->draw( bottom );
 +        }
 +        const auto & focused = areas[focus]; Fill( bottom, focused.x, focused.y - 2, focused.width, 1, GetColorId( 160, 220, 255 ) );
-+        Fill( bottom, slider.x, slider.y + 4, slider.width, 4, GetColorId( 50, 40, 30 ) );
-+        const int knobX = slider.x + ( current.maximum > 1 && units ? uint64_t( units - 1 ) * ( slider.width - 8 ) / ( current.maximum - 1 ) : 0 );
-+        Fill( bottom, knobX, slider.y, 8, 12, GetColorId( 255, 225, 96 ) );
++        drawAmountSlider( bottom, slider, units ? units - 1 : 0, current.maximum > 1 ? current.maximum - 1 : 0, evil );
 +        Display::instance().render();
 +    };
 +    COUT( "3DS marketplace: drawing panel" )
@@ -9243,7 +9273,13 @@ index 0000000..127d07b
 +        }
 +        if ( redraw && !closed ) draw();
 +    }
-+    if ( Platform3DS::smokeTest() && result.action == MarketChoice::Action::Close ) { draw(); capture(); }
++    if ( Platform3DS::smokeTest() ) {
++        draw();
++        if ( result.action == MarketChoice::Action::Close ) capture();
++        if ( evil && from && to
++             && ( !Save( top, "sdmc:/3ds/fheroes2/market-evil-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/market-evil-bottom.bmp" ) ) )
++            throw std::runtime_error( "Cannot capture Evil marketplace" );
++    }
 +    return result;
 +}
 +Interface3DS::GiftChoice Interface3DS::showResourceGift( const Funds & funds, const PlayerColorsSet availableRecipients )
@@ -9254,22 +9290,16 @@ index 0000000..127d07b
 +    const bool evil = Settings::Get().isEvilInterfaceEnabled();
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    std::vector<Rect> areas;
-+    for ( int i = 0; i < colorCount; ++i ) areas.emplace_back( ( 320 - colorCount * 48 ) / 2 + i * 48, 28, 44, 28 );
-+    for ( int i = 0; i < 7; ++i ) areas.emplace_back( 20 + i * 40, 82, 38, 40 );
++    for ( int i = 0; i < colorCount; ++i ) areas.emplace_back( 24 + ( 272 - ( colorCount * 46 - 6 ) ) / 2 + i * 46, 38, 40, 28 );
++    for ( int i = 0; i < 7; ++i ) areas.emplace_back( 25 + i * 39, 88, 36, 34 );
 +    const std::array<std::string, 6> labels{ "-", "+", _( "MIN" ), _( "MAX" ), _( "GIFT" ), _( "Cancel" ) };
 +    std::vector<std::unique_ptr<ButtonBase>> buttons;
 +    for ( int i = 0; i < 6; ++i ) {
-+        Sprite released, pressed; const int width = i < 4 ? 64 : 126;
-+        makeButtonSprites( released, pressed, "", { width, 22 }, evil, evil ? ICN::STONEBAK_EVIL : ICN::STONEBAK );
-+        Text label( labels[i], FontType::normalWhite() );
-+        if ( label.width() > width - 4 ) label.set( labels[i], FontType::smallWhite() );
-+        const auto textArea = label.area();
-+        label.draw( ( released.width() - textArea.width ) / 2 - textArea.x, ( released.height() - textArea.height ) / 2 - textArea.y, released );
-+        label.draw( ( pressed.width() - textArea.width ) / 2 - textArea.x - 1, ( pressed.height() - textArea.height ) / 2 - textArea.y + 1, pressed );
-+        buttons.emplace_back( std::make_unique<ButtonSprite>( i < 4 ? 12 + i * 76 : 12 + ( i - 4 ) * 160, i < 4 ? 157 : 205, std::move( released ), std::move( pressed ) ) );
-+        areas.push_back( buttons.back()->area() );
++        const Rect target = i < 4 ? Rect{ 24 + i * 70, 152, 62, 28 } : Rect{ 24 + ( i - 4 ) * 144, 190, 128, 28 };
++        buttons.push_back( makeMarketButton( labels[i], target, evil ) ); areas.push_back( buttons.back()->area() );
 +    }
-+    const Rect slider( 12, 189, 296, 12 );
++    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
++    const Rect slider( 24, 179, 272, 10 ); validateAreas( areas, slider );
 +    GiftChoice choice; int selected = 0, focus = 0, pressed = -1;
 +    bool down = false, moved = false, sliding = false, closed = false; Point start;
 +    const MarketScope scope( top, bottom );
@@ -9308,52 +9338,46 @@ index 0000000..127d07b
 +        *choice.funds.GetPtr( resources[selected] ) = uint64_t( std::clamp<int32_t>( x - slider.x, 0, slider.width - 1 ) ) * maximum() / ( slider.width - 1 );
 +    };
 +    const auto draw = [&]() {
-+        top.fill( 0 ); bottom.fill( 0 );
-+        StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
-+        StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
-+        Fill( top, 12, 32, 376, 180, GetColorId( 35, 29, 24 ) );
-+        Text( _( "Planned Gift" ), FontType::normalYellow() ).draw( 12, 8, 376, top );
++        top = topBackground; bottom = bottomBackground;
++        Text( _( "Planned Gift" ), FontType::normalYellow() ).draw( 24, 20, 352, top );
 +        std::string names;
 +        for ( auto color : colors ) if ( choice.recipients & color ) { if ( !names.empty() ) names += ", "; names += Color::String( color ); }
 +        if ( names.empty() ) names = _( "First select recipients!" );
-+        Text( names, FontType::smallYellow() ).draw( 16, 36, 368, top );
-+        Text( _( "Planned Gift" ), FontType::smallWhite() ).draw( 120, 57, 96, top );
-+        Text( _( "Your Funds" ), FontType::smallWhite() ).draw( 228, 57, 148, top );
++        Text( names + ( choice.recipients ? "   x" + std::to_string( Color::Count( choice.recipients ) ) : "" ), FontType::smallYellow() ).draw( 24, 40, 352, top );
++        Text( _( "Planned Gift" ), FontType::smallWhite() ).draw( 128, 64, 88, top );
++        Text( _( "Your Funds" ), FontType::smallWhite() ).draw( 222, 64, 154, top );
 +        const int recipientCount = Color::Count( choice.recipients );
 +        for ( int i = 0; i < 7; ++i ) {
-+            const int resource = resources[i], y = 76 + i * 18;
++            const int resource = resources[i], y = 80 + i * 18;
 +            Text name( Resource::String( resource ), FontType::normalWhite() );
-+            if ( name.width() > 102 ) name.set( Resource::String( resource ), FontType::smallWhite() );
-+            name.draw( 16, y, 102, top );
-+            Text( std::to_string( choice.funds.Get( resource ) ), FontType::normalWhite() ).draw( 120, y, 96, top );
-+            Text( std::to_string( funds.Get( resource ) ) + " -> " + std::to_string( int64_t( funds.Get( resource ) ) - int64_t( choice.funds.Get( resource ) ) * recipientCount ), FontType::smallWhite() ).draw( 228, y + 3, 148, top );
++            if ( name.width() > 100 ) name.set( Resource::String( resource ), FontType::smallWhite() );
++            name.draw( 24, y, 100, top );
++            Text( std::to_string( choice.funds.Get( resource ) ), FontType::normalWhite() ).draw( 128, y, 88, top );
++            Text( std::to_string( funds.Get( resource ) ) + " -> " + std::to_string( int64_t( funds.Get( resource ) ) - int64_t( choice.funds.Get( resource ) ) * recipientCount ), FontType::smallWhite() ).draw( 222, y + 3, 154, top );
 +        }
-+        Text( "x" + std::to_string( recipientCount ) + "    D-pad: < >   A   L    ^ + / v -", FontType::smallWhite() ).draw( 12, 220, 376, top );
-+        Text( _( "Select Recipients" ), FontType::smallYellow() ).draw( 12, 10, 296, bottom );
++        Text( _( "Select Recipients" ), FontType::smallYellow() ).draw( 24, 20, 272, bottom );
 +        for ( int i = 0; i < colorCount; ++i ) {
 +            const auto & area = areas[i]; const auto & flag = Assets::getImage( ICN::CELLWIN, 43 + Color::GetIndex( colors[i] ) );
-+            Blit( flag, bottom, area.x + ( area.width - flag.width() ) / 2, area.y + ( area.height - flag.height() ) / 2 );
++            const double scale = std::min( 1.0, std::min( double( area.width - 4 ) / flag.width(), double( area.height - 4 ) / flag.height() ) );
++            Image fitted( std::max( 1, int( flag.width() * scale ) ), std::max( 1, int( flag.height() * scale ) ) ); fitted.reset(); Resize( flag, fitted );
++            Blit( fitted, bottom, area.x + ( area.width - fitted.width() ) / 2, area.y + ( area.height - fitted.height() ) / 2 );
 +            if ( choice.recipients & colors[i] ) Fill( bottom, area.x, area.y + area.height - 1, area.width, 2, GetColorId( 255, 225, 96 ) );
 +        }
-+        Text( _( "Planned Gift" ), FontType::smallYellow() ).draw( 12, 64, 296, bottom );
++        Text( _( "Planned Gift" ), FontType::smallYellow() ).draw( 24, 72, 272, bottom );
 +        for ( int i = 0; i < 7; ++i ) {
 +            const auto & area = areas[resourceStart + i];
-+            Blit( Assets::getImage( evil ? ICN::TRADPOSE : ICN::TRADPOST, 7 + i ), bottom, area.x + 2, area.y );
-+            Text amount( std::to_string( choice.funds.Get( resources[i] ) ), FontType::smallWhite() );
-+            if ( amount.width() > 38 ) amount.set( "...", FontType::smallWhite() );
-+            amount.draw( area.x, area.y + 26, 38, bottom );
-+            if ( selected == i ) Fill( bottom, area.x, area.y + 39, 38, 2, GetColorId( 255, 225, 96 ) );
++            Blit( Assets::getImage( evil ? ICN::TRADPOSE : ICN::TRADPOST, 7 + i ), bottom, area.x + 1, area.y );
++            drawNumber( std::to_string( choice.funds.Get( resources[i] ) ), bottom, { area.x + 1, area.y + 23, 34, 11 } );
++            if ( selected == i ) Fill( bottom, area.x, area.y + area.height - 1, area.width, 1, GetColorId( 255, 225, 96 ) );
 +        }
-+        Text( std::to_string( choice.funds.Get( resources[selected] ) ) + " / " + std::to_string( maximum() ), FontType::normalWhite() ).draw( 12, 132, 296, bottom );
++        Text( std::to_string( choice.funds.Get( resources[selected] ) ) + " / " + std::to_string( maximum() ), FontType::normalWhite() ).draw( 24, 132, 272, bottom );
 +        for ( int i = 0; i < 6; ++i ) {
 +            if ( enabled( buttonStart + i ) ) buttons[i]->enable(); else buttons[i]->disable();
 +            if ( down && !moved && pressed == buttonStart + i ) buttons[i]->press(); else buttons[i]->release();
 +            buttons[i]->draw( bottom );
 +        }
 +        const auto & focused = areas[focus]; Fill( bottom, focused.x, focused.y - 2, focused.width, 1, GetColorId( 160, 220, 255 ) );
-+        Fill( bottom, slider.x, slider.y + 4, slider.width, 4, GetColorId( 50, 40, 30 ) );
-+        const int knob = slider.x + ( maximum() ? uint64_t( choice.funds.Get( resources[selected] ) ) * ( slider.width - 8 ) / maximum() : 0 );
-+        Fill( bottom, knob, slider.y, 8, 12, GetColorId( 255, 225, 96 ) );
++        drawAmountSlider( bottom, slider, choice.funds.Get( resources[selected] ), maximum(), evil );
 +        Display::instance().render();
 +    };
 +    draw(); auto & events = LocalEvent::Get();
@@ -9391,6 +9415,10 @@ index 0000000..127d07b
 +    if ( Platform3DS::smokeTest() ) {
 +        draw();
 +        if ( !Save( top, "sdmc:/3ds/fheroes2/gift-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/gift-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture gift" );
++        const std::string variant = evil ? "evil" : funds.gold == std::numeric_limits<int32_t>::max() ? "large" : !funds.GetValidItemsCount() ? "empty" : "";
++        if ( !variant.empty()
++             && ( !Save( top, "sdmc:/3ds/fheroes2/gift-" + variant + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/gift-" + variant + "-bottom.bmp" ) ) )
++            throw std::runtime_error( "Cannot capture gift variant" );
 +    }
 +    return choice;
 +}
@@ -9434,12 +9462,12 @@ index 0000000..127d07b
 +    if ( quote( full, 3, Resource::WOOD, Resource::GOLD ).maximum ) throw std::runtime_error( "Market allows fund overflow" );
 +    const auto trade = [&]( const Funds & initial, const Funds & expected, int fromIndex, int toIndex, bool slider, bool drag ) {
 +        Kingdom kingdom; kingdom.AddFundsResource( initial ); std::vector<Step> steps;
-+        const auto position = []( int index, int side ) { return Point( 32 + side * 160 + ( index == 6 ? 1 : index % 3 ) * 42, 44 + ( index == 6 ? 2 : index / 3 ) * 42 ); };
++        const auto position = []( int index, int side ) { return Point( 44 + side * 144 + ( index == 6 ? 1 : index % 3 ) * 44, 52 + ( index == 6 ? 2 : index / 3 ) * 36 ); };
 +        const auto from = position( fromIndex, 0 ), to = position( toIndex, 1 ); tap( steps, from.x, from.y ); tap( steps, to.x, to.y );
-+        if ( slider ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, 12, 194 ) ); steps.emplace_back( 80, touch( SDL_FINGERMOTION, 160, 194 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 160, 194 ) ); }
++        if ( slider ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, 24, 184 ) ); steps.emplace_back( 80, touch( SDL_FINGERMOTION, 160, 184 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 160, 184 ) ); }
 +        else tap( steps, 270, 170 );
-+        if ( drag ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, 50, 217 ) ); steps.emplace_back( 80, touch( SDL_FINGERMOTION, 50, 160 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 50, 160 ) ); }
-+        else tap( steps, 50, 217 );
++        if ( drag ) { steps.emplace_back( 80, touch( SDL_FINGERDOWN, 50, 202 ) ); steps.emplace_back( 80, touch( SDL_FINGERMOTION, 50, 160 ) ); steps.emplace_back( 80, touch( SDL_FINGERUP, 50, 160 ) ); }
++        else tap( steps, 50, 202 );
 +        cancel( steps ); run( [&]() { Dialog::Marketplace( kingdom, true ); }, std::move( steps ) );
 +        if ( !( kingdom.GetFunds() == expected ) ) throw std::runtime_error( "Real market changed incorrect funds" );
 +    };
@@ -9456,19 +9484,19 @@ index 0000000..127d07b
 +    press( SDL_CONTROLLER_BUTTON_DPAD_UP ); for ( int i = 0; i < 9; ++i ) press( SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( SDL_CONTROLLER_BUTTON_A ); cancel( steps );
 +    run( [&]() { Dialog::Marketplace( keyboard, true ); }, std::move( steps ) );
 +    if ( !( keyboard.GetFunds() == Funds( 1, 6, 0, 0, 0, 0, 0 ) ) ) throw std::runtime_error( "Controller market trade failed" );
-+    std::vector<Step> disabled; tap( disabled, 50, 217 ); tap( disabled, 150, 217 ); cancel( disabled );
++    std::vector<Step> disabled; tap( disabled, 50, 202 ); tap( disabled, 150, 202 ); cancel( disabled );
 +    run( [&]() { const auto choice = showMarketplace( large, 1, false, false ); if ( choice.action != MarketChoice::Action::Close ) throw std::runtime_error( "Disabled trade/gift accepted" ); }, std::move( disabled ) );
 +    Image parentTop( 400, 240 ), parentBottom( 320, 240 ); parentTop.fill( 0 ); parentBottom.fill( 0 );
 +    Platform3DS::pushModalImages( &parentTop, &parentBottom );
 +    const auto previous = Settings::Get().getInterfaceType(); Settings::Get().setInterfaceType( InterfaceType::EVIL );
 +    trade( Funds( Resource::WOOD, 11 ), Funds( Resource::GOLD, 550 ), 0, 6, false, false );
 +    Settings::Get().setInterfaceType( previous ); Platform3DS::popModalImages(); LocalEvent::Get().resetFor3DSPanel();
-+    std::vector<Step> gifting; tap( gifting, 150, 217 );
++    std::vector<Step> gifting; tap( gifting, 150, 202 );
 +    run( [&]() { if ( showMarketplace( large, 1, false, true ).action != MarketChoice::Action::Gift ) throw std::runtime_error( "Gift did not dispatch" ); }, std::move( gifting ) );
 +    // Leave a readable populated normal-market capture for visual review.
 +    std::vector<Step> preview; tap( preview, 32, 44 ); tap( preview, 234, 128 ); tap( preview, 270, 170 ); cancel( preview );
 +    run( [&]() { const auto result = showMarketplace( large, 1, false, true ); if ( result.action != MarketChoice::Action::Close ) throw std::runtime_error( "Preview applied trade" ); }, std::move( preview ) );
-+    COUT( "3DS MARKET SMOKE: PASS all_rates real_dialog_gold_resource_rounding slider controller disabled_same_empty drag_cancel gift_dispatch evil nested_modal unchanged_frame_hud_viewport release_isolation" )
++    COUT( "3DS MARKET SMOKE: PASS classic_frames inset_resources_controls original_slider complete_counts all_rates real_dialog_gold_resource_rounding slider controller disabled_same_empty drag_cancel gift_dispatch evil nested_modal unchanged_frame_hud_viewport release_isolation" )
 +}
 +void Interface3DS::testResourceGift()
 +{
@@ -9495,23 +9523,23 @@ index 0000000..127d07b
 +    const Funds available( 9, 11, 7, 5, 3, 13, 2800 );
 +    const PlayerColorsSet recipients = PlayerColor::GREEN | PlayerColor::RED;
 +    const auto show = [&]() { return showResourceGift( available, recipients ); };
-+    std::vector<Step> steps; tap( steps, 134, 42 ); tap( steps, 182, 42 ); tap( steps, 270, 170 ); tap( steps, 80, 217 );
++    std::vector<Step> steps; tap( steps, 134, 42 ); tap( steps, 182, 42 ); tap( steps, 270, 170 ); tap( steps, 80, 202 );
 +    auto result = run( show, steps );
 +    if ( !result.confirmed || result.recipients != recipients || result.funds.wood != 5 || !( available >= result.funds * 2 ) ) throw std::runtime_error( "Multiple-recipient gift maximum differs" );
-+    steps.clear(); tap( steps, 134, 42 ); tap( steps, 182, 42 ); tap( steps, 280, 100 ); tap( steps, 270, 170 ); tap( steps, 196, 170 ); tap( steps, 110, 170 ); tap( steps, 80, 217 );
++    steps.clear(); tap( steps, 134, 42 ); tap( steps, 182, 42 ); tap( steps, 280, 100 ); tap( steps, 270, 170 ); tap( steps, 196, 170 ); tap( steps, 110, 170 ); tap( steps, 80, 202 );
 +    result = run( show, steps );
 +    if ( !result.confirmed || result.funds.gold != 100 ) throw std::runtime_error( "Gift gold step/MIN differs" );
 +    steps.clear(); tap( steps, 134, 42 ); tap( steps, 182, 42 );
-+    steps.emplace_back( 90, touch( SDL_FINGERDOWN, 12, 194 ) ); steps.emplace_back( 90, touch( SDL_FINGERMOTION, 160, 194 ) ); steps.emplace_back( 90, touch( SDL_FINGERUP, 160, 194 ) ); tap( steps, 80, 217 );
++    steps.emplace_back( 90, touch( SDL_FINGERDOWN, 24, 184 ) ); steps.emplace_back( 90, touch( SDL_FINGERMOTION, 160, 184 ) ); steps.emplace_back( 90, touch( SDL_FINGERUP, 160, 184 ) ); tap( steps, 80, 202 );
 +    result = run( show, steps ); if ( !result.confirmed || result.funds.wood != 2 ) throw std::runtime_error( "Gift slider differs" );
-+    steps.clear(); tap( steps, 134, 42 ); tap( steps, 182, 42 ); tap( steps, 270, 170 ); tap( steps, 182, 42 ); tap( steps, 80, 217 ); close( steps );
++    steps.clear(); tap( steps, 134, 42 ); tap( steps, 182, 42 ); tap( steps, 270, 170 ); tap( steps, 182, 42 ); tap( steps, 80, 202 ); close( steps );
 +    result = run( show, steps ); if ( result.confirmed || result.funds.GetValidItemsCount() ) throw std::runtime_error( "Recipient change did not reset gift" );
-+    steps.clear(); tap( steps, 270, 170 ); tap( steps, 80, 217 ); close( steps );
++    steps.clear(); tap( steps, 270, 170 ); tap( steps, 80, 202 ); close( steps );
 +    if ( run( show, steps ).confirmed ) throw std::runtime_error( "Gift without recipient accepted" );
 +    steps.clear(); tap( steps, 134, 42 ); tap( steps, 270, 170 );
-+    steps.emplace_back( 90, touch( SDL_FINGERDOWN, 80, 217 ) ); steps.emplace_back( 90, touch( SDL_FINGERMOTION, 80, 150 ) ); steps.emplace_back( 90, touch( SDL_FINGERUP, 80, 150 ) ); close( steps );
++    steps.emplace_back( 90, touch( SDL_FINGERDOWN, 80, 202 ) ); steps.emplace_back( 90, touch( SDL_FINGERMOTION, 80, 150 ) ); steps.emplace_back( 90, touch( SDL_FINGERUP, 80, 150 ) ); close( steps );
 +    if ( run( show, steps ).confirmed ) throw std::runtime_error( "Gift drag sent resources" );
-+    steps.clear(); tap( steps, 134, 42 ); tap( steps, 270, 170 ); tap( steps, 80, 217 ); close( steps );
++    steps.clear(); tap( steps, 134, 42 ); tap( steps, 270, 170 ); tap( steps, 80, 202 ); close( steps );
 +    if ( run( [&]() { return showResourceGift( Funds{}, recipients ); }, steps ).confirmed ) throw std::runtime_error( "Empty gift accepted" );
 +    steps.clear(); const auto press = [&]( int button ) { steps.emplace_back( 80, key( button, true ) ); steps.emplace_back( 80, key( button, false ) ); };
 +    press( SDL_CONTROLLER_BUTTON_A ); press( SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( SDL_CONTROLLER_BUTTON_DPAD_RIGHT ); press( SDL_CONTROLLER_BUTTON_A ); press( SDL_CONTROLLER_BUTTON_DPAD_UP );
@@ -9525,14 +9553,14 @@ index 0000000..127d07b
 +    steps.clear(); close( steps ); Kingdom kingdom; kingdom.AddFundsResource( available );
 +    run( [&]() { if ( Dialog::MakeGiftResource( kingdom ) != Dialog::CANCEL || !( kingdom.GetFunds() == available ) ) throw std::runtime_error( "Actual gift cancellation spent funds" ); return GiftChoice{}; }, steps );
 +    Funds large( 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647, 2147483647 );
-+    steps.clear(); for ( int i = 0; i < 6; ++i ) tap( steps, 38 + i * 48, 42 ); tap( steps, 270, 170 ); tap( steps, 80, 217 );
++    steps.clear(); for ( int i = 0; i < 6; ++i ) tap( steps, 38 + i * 48, 42 ); tap( steps, 270, 170 ); tap( steps, 80, 202 );
 +    result = run( [&]() { return showResourceGift( large, Color::allPlayerColors() ); }, steps );
 +    if ( !result.confirmed || result.funds.wood != 2147483647 / 6 || !( large >= result.funds * 6 ) ) throw std::runtime_error( "Gift signed limits differ" );
 +    steps.clear(); tap( steps, 134, 42 ); tap( steps, 182, 42 );
 +    for ( int i = 0; i < 7; ++i ) { tap( steps, 39 + i * 40, 100 ); tap( steps, 270, 170 ); }
 +    close( steps ); result = run( show, steps );
 +    if ( result.confirmed || !( result.funds == available / 2 ) ) throw std::runtime_error( "Seven-resource gift preview differs" );
-+    COUT( "3DS GIFT SMOKE: PASS multi_recipients budgets gold_step min_max slider controller recipient_reset empty_disabled drag_cancel nested_evil signed_limits real_cancel unchanged_frame_hud_viewport release_isolation" )
++    COUT( "3DS GIFT SMOKE: PASS classic_frames inset_table_flags_resources original_slider complete_counts multi_recipients budgets gold_step min_max slider controller recipient_reset empty_disabled drag_cancel nested_evil signed_limits real_cancel unchanged_frame_hud_viewport release_isolation" )
 +}
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_portrait.cpp b/src/fheroes2/gui/ui_3ds_portrait.cpp

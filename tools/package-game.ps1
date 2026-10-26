@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.67'
+$version = '0.3.68'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    market_gift_style='0.3.68: Good/Evil frames, original resource tiles, trading arrow, recipient flags and slider, inset centered controls, upper exchange/balance and seven-resource per-recipient gift table, complete fitted counts, cached backgrounds'
+    validation_market_gift_style='Market/Gift New/Old ru and New en, bounded monitored groups; all rates, actual market deductions, choice budgets/gold steps/signed limits, controller/slider/drag/disabled/nested restoration, actual gift cancel; theme/empty/large captures; ARM/desktop/infrastructure/patch/package; Full not run, hardware/real gifts pending'
     spellbook_style='0.3.67: original proportionally fitted mirrored BOOK pages/corners cached in four variants, Good/Evil frames, original ribbon tabs with labels, six spells, inset page/Cast/Details/Exit controls and complete action label; fixed upper mana, themed whole-row description and inset scroll bar; unavailable labels/costs gray'
     validation_spellbook_style='Spellbook New/Old ru and New en; Hero/BattleIntegration New ru; bounded groups, original spells/cost/restrictions/page/callback/state, actual finger-up outside button/row/tab rejection and held-row isolation across page/filter changes, all theme/mode/empty/page/scroll captures; ARM/desktop/infrastructure/patch/package checks; Full not run, hardware/real spells pending'
     scrollbar_frame_clearance='0.3.66: tracks move 2px inward, arrows 7px to 5px, unchanged text width/wrapping/input; shared and existing classic bars updated, battle log gutter retained; New ru Messages/Army/Elements/Tavern/MageGuild/Spellbook and Old ru Messages/Army/Spellbook; long confirmation pixel diff confined to scrollbar gutter; physical approval pending'
