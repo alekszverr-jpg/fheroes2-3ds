@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.65'
+$version = '0.3.66'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,7 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    scrollbar_frame_clearance='0.3.66: tracks move 2px inward, arrows 7px to 5px, unchanged text width/wrapping/input; shared and existing classic bars updated, battle log gutter retained; New ru Messages/Army/Elements/Tavern/MageGuild/Spellbook and Old ru Messages/Army/Spellbook; long confirmation pixel diff confined to scrollbar gutter; physical approval pending'
     native_scroll_bars='0.3.65: shared passive Good/Evil scrollbar for native messages/info/illustrated panes/rewards/level-up/building/hero recruit/spellbook/battle reports; hidden for fitting content, right gutter, clamped proportional thumb; redundant scroll captions/counters removed including army/construction/built descriptions; existing bars and true page/mana indicators retained; gestures/actions unchanged'
     validation_native_scroll_bars='Bounded sequential selected groups; exact New/Old/English matrix in TESTING.md; nine-file desktop syntax, infrastructure, clean patch and tested/package binary identity; Full not run, physical visual checks pending'
     original_hero_army='0.3.64: original renderMonsterFrame STRIP faction scenes and MONH portraits, complete empty horse slot, proportional 82x93 to 50x56 fit in unchanged 50x60 touch target; right-aligned normal counts and complete fitted large counts; original unscaled ArmyBar reference plus ordinary-count 3DS capture; Hero New/Old ru passed, physical approval pending'

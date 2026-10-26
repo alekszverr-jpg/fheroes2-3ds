@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.65
+# fheroes2 for Nintendo 3DS — preview 0.3.66
+
+## Preview 0.3.66: scrollbar frame clearance
+
+Moved scrollbar tracks two pixels inward and narrowed direction arrows from seven to five pixels, creating clearance from the decorative frame without reducing text width or changing wrapping, scroll bounds or touch targets. Applied to shared dialog bars and the existing army/construction/catalog/tavern/Mage Guild bars. The battle log already has a wide frame gutter and is unchanged. Pixel comparison of the long confirmation verifies only its scrollbar gutter changes; text, buttons and frame are identical.
+
+Bounded sequential validation: New Russian Messages, Army, Elements, Tavern, MageGuild and Spellbook; Old Russian Messages, Army and Spellbook. ARM build, desktop syntax of ten edited files, clean-baseline patch application and package binary identity checks included. Full was not run. Text and input remain unchanged; wider language/window coverage is recorded under 0.3.65. Replace only `3ds/fheroes2/fheroes2.3dsx`; physical visual approval is pending.
 
 ## Preview 0.3.65: scroll bars instead of text position counters
 

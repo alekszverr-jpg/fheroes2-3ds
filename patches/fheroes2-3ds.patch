@@ -3549,7 +3549,7 @@ index 0000000..7bc2313
 +};
 diff --git a/src/fheroes2/gui/ui_3ds_army.cpp b/src/fheroes2/gui/ui_3ds_army.cpp
 new file mode 100644
-index 0000000..8f34135
+index 0000000..1af0cd6
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_army.cpp
 @@ -0,0 +1,365 @@
@@ -3736,13 +3736,13 @@ index 0000000..8f34135
 +        portrait.draw( content, portraitArea, reflected );
 +        Copy( content, 0, scroll, top, 24, 40, contentWidth, viewHeight );
 +        if ( height > viewHeight ) {
-+            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            Fill( top, 378, 50, 3, 144, GetColorId( 65, 50, 30 ) );
 +            const int thumbHeight = std::max( 12, 144 * viewHeight / height );
-+            Fill( top, 380, 50 + scroll * ( 144 - thumbHeight ) / ( height - viewHeight ), 3, thumbHeight, border );
-+            for ( int dx = -3; dx <= 3; ++dx ) {
-+                for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
-+                    SetPixel( top, 381 + dx, 40 + dy, border );
-+                    SetPixel( top, 381 + dx, 203 - dy, border );
++            Fill( top, 378, 50 + scroll * ( 144 - thumbHeight ) / ( height - viewHeight ), 3, thumbHeight, border );
++            for ( int dx = -2; dx <= 2; ++dx ) {
++                for ( int dy = std::abs( dx ); dy <= 2; ++dy ) {
++                    SetPixel( top, 379 + dx, 40 + dy, border );
++                    SetPixel( top, 379 + dx, 203 - dy, border );
 +                }
 +            }
 +        }
@@ -3920,7 +3920,7 @@ index 0000000..8f34135
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..934009e
+index 0000000..7c4196f
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
 @@ -0,0 +1,280 @@
@@ -4004,7 +4004,7 @@ index 0000000..934009e
 +        const auto draw = [&]() {
 +            top.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil );
 +            Copy( content, 0, scroll, top, 12, 8, 376, std::min<int32_t>( viewHeight, content.height() - scroll ) );
-+            Interface3DS::drawPanelScrollBar( top, { 390, 8, 7, viewHeight }, scroll, viewHeight, content.height(), evil );
++            Interface3DS::drawPanelScrollBar( top, { 389, 8, 5, viewHeight }, scroll, viewHeight, content.height(), evil );
 +            bottom.fill( backgroundColor() ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
 +            Text( heading, FontType::normalYellow() ).draw( 12, 20, 296, bottom );
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
@@ -4206,7 +4206,7 @@ index 0000000..934009e
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_building.cpp b/src/fheroes2/gui/ui_3ds_building.cpp
 new file mode 100644
-index 0000000..1dc9396
+index 0000000..89db0ba
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_building.cpp
 @@ -0,0 +1,373 @@
@@ -4349,7 +4349,7 @@ index 0000000..1dc9396
 +        top = topBackground; bottom = bottomBackground;
 +        if ( !boatArtwork ) {
 +            Copy( content, 0, scroll, top, 24, 48, viewWidth, viewHeight );
-+            Interface3DS::drawPanelScrollBar( top, { 378, 48, 7, viewHeight }, scroll, viewHeight, content.height(), evil );
++            Interface3DS::drawPanelScrollBar( top, { 377, 48, 5, viewHeight }, scroll, viewHeight, content.height(), evil );
 +        }
 +        if ( canBuild() ) buttons[0]->enable(); else buttons[0]->disable();
 +        for ( size_t i = 0; i < buttons.size(); ++i ) {
@@ -5114,7 +5114,7 @@ index 0000000..b3b3bc1
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_castle_buildings.cpp b/src/fheroes2/gui/ui_3ds_castle_buildings.cpp
 new file mode 100644
-index 0000000..6338f3f
+index 0000000..f10d6c1
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_castle_buildings.cpp
 @@ -0,0 +1,303 @@
@@ -5279,11 +5279,11 @@ index 0000000..6338f3f
 +        if ( visibleEnd > textY ) visibleEnd = textY + ( visibleEnd - textY ) / lineHeight * lineHeight;
 +        if ( visibleEnd > visibleStart ) Copy( content, 0, visibleStart, top, 24, 40 + visibleStart - scroll, contentWidth, visibleEnd - visibleStart );
 +        if ( content.height() > viewHeight ) {
-+            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            Fill( top, 378, 50, 3, 144, GetColorId( 65, 50, 30 ) );
 +            const int thumbHeight = std::max<int32_t>( 12, 144 * viewHeight / content.height() );
-+            Fill( top, 380, 50 + scroll * ( 144 - thumbHeight ) / ( content.height() - viewHeight ), 3, thumbHeight, border );
-+            for ( int dx = -3; dx <= 3; ++dx ) for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
-+                SetPixel( top, 381 + dx, 40 + dy, border ); SetPixel( top, 381 + dx, 203 - dy, border );
++            Fill( top, 378, 50 + scroll * ( 144 - thumbHeight ) / ( content.height() - viewHeight ), 3, thumbHeight, border );
++            for ( int dx = -2; dx <= 2; ++dx ) for ( int dy = std::abs( dx ); dy <= 2; ++dy ) {
++                SetPixel( top, 379 + dx, 40 + dy, border ); SetPixel( top, 379 + dx, 203 - dy, border );
 +            }
 +        }
 +        Text( _( "castle3DS|Buildings" ) + std::string( " " ) + std::to_string( page / 6 + 1 ) + "/" + std::to_string( ( entries.size() + 5 ) / 6 ), FontType::normalYellow() ).draw( 24, 18, 272, bottom );
@@ -5946,7 +5946,7 @@ index 0000000..b3543b3
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_construction.cpp b/src/fheroes2/gui/ui_3ds_construction.cpp
 new file mode 100644
-index 0000000..e08c368
+index 0000000..b7f7acc
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_construction.cpp
 @@ -0,0 +1,268 @@
@@ -6080,11 +6080,11 @@ index 0000000..e08c368
 +        if ( visibleEnd > textY ) visibleEnd = textY + ( visibleEnd - textY ) / lineHeight * lineHeight;
 +        if ( visibleEnd > visibleStart ) Copy( content, 0, visibleStart, top, 24, 40 + visibleStart - scroll, contentWidth, visibleEnd - visibleStart );
 +        if ( content.height() > viewHeight ) {
-+            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            Fill( top, 378, 50, 3, 144, GetColorId( 65, 50, 30 ) );
 +            const int thumbHeight = std::max<int32_t>( 12, 144 * viewHeight / content.height() );
-+            Fill( top, 380, 50 + scroll * ( 144 - thumbHeight ) / ( content.height() - viewHeight ), 3, thumbHeight, border );
-+            for ( int dx = -3; dx <= 3; ++dx ) for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
-+                SetPixel( top, 381 + dx, 40 + dy, border ); SetPixel( top, 381 + dx, 203 - dy, border );
++            Fill( top, 378, 50 + scroll * ( 144 - thumbHeight ) / ( content.height() - viewHeight ), 3, thumbHeight, border );
++            for ( int dx = -2; dx <= 2; ++dx ) for ( int dy = std::abs( dx ); dy <= 2; ++dy ) {
++                SetPixel( top, 379 + dx, 40 + dy, border ); SetPixel( top, 379 + dx, 203 - dy, border );
 +            }
 +        }
 +        Text titleBottom( castle.GetName().empty() ? _( "construction3DS|Construction" ) : castle.GetName(), FontType::normalYellow() ); titleBottom.fitToOneRow( 204 ); titleBottom.draw( 24, 18, 204, bottom );
@@ -6220,7 +6220,7 @@ index 0000000..e08c368
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.cpp b/src/fheroes2/gui/ui_3ds_dialog.cpp
 new file mode 100644
-index 0000000..e251f9d
+index 0000000..cbc6031
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.cpp
 @@ -0,0 +1,1628 @@
@@ -6493,21 +6493,21 @@ index 0000000..e251f9d
 +            if ( classicIllustrated && !upperWindow.empty() ) {
 +                const int textScroll = std::min( scroll, textMaximum );
 +                Copy( textContent, 0, textScroll, upperWindow, 24, 24, width, 176 );
-+                Interface3DS::drawPanelScrollBar( upperWindow, { 378, 24, 7, 176 }, textScroll, 176, textHeight, evil );
++                Interface3DS::drawPanelScrollBar( upperWindow, { 377, 24, 5, 176 }, textScroll, 176, textHeight, evil );
 +            }
-+            Interface3DS::drawPanelScrollBar( window, { 298, 24, 7, viewHeight }, visibleScroll, viewHeight, height, evil );
++            Interface3DS::drawPanelScrollBar( window, { 297, 24, 5, viewHeight }, visibleScroll, viewHeight, height, evil );
 +        }
 +        else if ( classicChoice ) {
 +            window = chestBackground;
 +            Copy( content, 0, scroll, upperWindow, 24, 24, width, viewHeight );
-+            Interface3DS::drawPanelScrollBar( upperWindow, { 378, 24, 7, viewHeight }, scroll, viewHeight, height, evil );
++            Interface3DS::drawPanelScrollBar( upperWindow, { 377, 24, 5, viewHeight }, scroll, viewHeight, height, evil );
 +        }
 +        else {
 +        window.fill( background );
 +        StandardWindow::renderBackgroundImage( window, { 0, 0, window.width(), 240 }, 0, evil );
 +        DrawBorder( window, border );
 +        Copy( content, 0, scroll, window, 12, 8, width, viewHeight );
-+        Interface3DS::drawPanelScrollBar( window, { window.width() - 10, 8, 7, viewHeight }, scroll, viewHeight, height, evil );
++        Interface3DS::drawPanelScrollBar( window, { window.width() - 11, 8, 5, viewHeight }, scroll, viewHeight, height, evil );
 +        if ( information ) {
 +            if ( height <= viewHeight ) Text( "A / L", FontType::smallWhite() ).draw( 0, 224, window.width(), window );
 +        }
@@ -8445,7 +8445,7 @@ index 0000000..734e016
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_hero_recruit.cpp b/src/fheroes2/gui/ui_3ds_hero_recruit.cpp
 new file mode 100644
-index 0000000..05339e4
+index 0000000..eaca66a
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_hero_recruit.cpp
 @@ -0,0 +1,219 @@
@@ -8553,7 +8553,7 @@ index 0000000..05339e4
 +        top.fill( background ); StandardWindow::renderBackgroundImage( top, { 0, 0, 400, 240 }, 0, evil ); DrawRect( top, { 0, 0, 400, 240 }, border );
 +        Text title( _( "Recruit Hero" ), FontType::normalYellow() ); title.draw( 12, 8, 376, top );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
-+        Interface3DS::drawPanelScrollBar( top, { 390, 32, 7, 188 }, scroll, 188, content.height(), evil );
++        Interface3DS::drawPanelScrollBar( top, { 389, 32, 5, 188 }, scroll, 188, content.height(), evil );
 +        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil ); DrawRect( bottom, { 0, 0, 320, 240 }, border );
 +        Text name( hero.GetName(), FontType::normalYellow() ); name.fitToOneRow( 296 ); name.draw( 12, 8, 296, bottom );
 +        Text( _( "building3DS|Cost" ), FontType::normalWhite() ).draw( 12, 34, 296, bottom );
@@ -8670,7 +8670,7 @@ index 0000000..05339e4
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_mage_guild.cpp b/src/fheroes2/gui/ui_3ds_mage_guild.cpp
 new file mode 100644
-index 0000000..149df0b
+index 0000000..7400cc5
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_mage_guild.cpp
 @@ -0,0 +1,339 @@
@@ -8819,11 +8819,11 @@ index 0000000..149df0b
 +        if ( visibleEnd < description.height() ) visibleEnd = visibleEnd / lineHeight * lineHeight;
 +        if ( visibleEnd > visibleStart ) Copy( description, 0, visibleStart, top, textArea.x, textArea.y + visibleStart - scroll, textArea.width, visibleEnd - visibleStart );
 +        if ( maximumScroll ) {
-+            Fill( top, 380, 76, 3, 98, GetColorId( 65, 50, 30 ) );
++            Fill( top, 378, 76, 3, 98, GetColorId( 65, 50, 30 ) );
 +            const int thumb = std::max<int32_t>( 12, 98 * textArea.height / description.height() );
-+            Fill( top, 380, 76 + ( 98 - thumb ) * scroll / maximumScroll, 3, thumb, GetColorId( 235, 195, 100 ) );
-+            for ( int dx = -3; dx <= 3; ++dx ) for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
-+                SetPixel( top, 381 + dx, 66 + dy, GetColorId( 235, 195, 100 ) ); SetPixel( top, 381 + dx, 184 - dy, GetColorId( 235, 195, 100 ) );
++            Fill( top, 378, 76 + ( 98 - thumb ) * scroll / maximumScroll, 3, thumb, GetColorId( 235, 195, 100 ) );
++            for ( int dx = -2; dx <= 2; ++dx ) for ( int dy = std::abs( dx ); dy <= 2; ++dy ) {
++                SetPixel( top, 379 + dx, 66 + dy, GetColorId( 235, 195, 100 ) ); SetPixel( top, 379 + dx, 184 - dy, GetColorId( 235, 195, 100 ) );
 +            }
 +        }
 +        Text( _( hero && hero->HaveSpellBook() ? "The spells the hero can learn have been added to their book." : "The above spells are available here." ), FontType::smallWhite() ).draw( 24, 195, 352, top );
@@ -9772,7 +9772,7 @@ index 0000000..dd05fd8
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_spellbook.cpp b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 new file mode 100644
-index 0000000..b35fc19
+index 0000000..eb183b0
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_spellbook.cpp
 @@ -0,0 +1,560 @@
@@ -10050,7 +10050,7 @@ index 0000000..b35fc19
 +        Text title( spells.empty() ? ( filter == SpellBook::Filter::CMBT ? _( "View Combat Spells" ) : _( "View Adventure Spells" ) ) : spells[selected].GetName(), FontType::normalYellow() ); title.fitToOneRow( 376 ); title.draw( 12, 8, 376, top );
 +        Copy( content, 0, scroll, top, 12, 32, 376, 188 );
 +        if ( switchFilters ) Text( std::string( _( "Spell Points:" ) ) + " " + std::to_string( hero.GetSpellPoints() ) + " / " + std::to_string( hero.GetMaxSpellPoints() ), FontType::smallWhite() ).draw( 12, 224, 276, top );
-+        Interface3DS::drawPanelScrollBar( top, { 390, 32, 7, 188 }, scroll, 188, content.height(), evil );
++        Interface3DS::drawPanelScrollBar( top, { 389, 32, 5, 188 }, scroll, 188, content.height(), evil );
 +        bottom.fill( background ); StandardWindow::renderBackgroundImage( bottom, { 0, 0, 320, 240 }, 0, evil );
 +        const auto & leaf = Assets::getImage( ICN::BOOK, 0 );
 +        Image spread( leaf.width() * 2, leaf.height() ); spread.reset();
@@ -10458,7 +10458,7 @@ index 0000000..3e1c92d
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_tavern.cpp b/src/fheroes2/gui/ui_3ds_tavern.cpp
 new file mode 100644
-index 0000000..467965c
+index 0000000..4d84db5
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_tavern.cpp
 @@ -0,0 +1,233 @@
@@ -10551,11 +10551,11 @@ index 0000000..467965c
 +        if ( visibleEnd < content.height() ) visibleEnd = visibleEnd / lineHeight * lineHeight;
 +        if ( visibleEnd > visibleStart ) Copy( content, 0, visibleStart, top, textArea.x, textArea.y + visibleStart - scroll, textArea.width, visibleEnd - visibleStart );
 +        if ( maximum ) {
-+            Fill( top, 380, 50, 3, 144, GetColorId( 65, 50, 30 ) );
++            Fill( top, 378, 50, 3, 144, GetColorId( 65, 50, 30 ) );
 +            const int32_t thumb = std::max<int32_t>( 12, 144 * textArea.height / content.height() );
-+            Fill( top, 380, 50 + ( 144 - thumb ) * scroll / maximum, 3, thumb, GetColorId( 235, 195, 100 ) );
-+            for ( int dx = -3; dx <= 3; ++dx ) for ( int dy = std::abs( dx ); dy <= 3; ++dy ) {
-+                SetPixel( top, 381 + dx, 40 + dy, GetColorId( 235, 195, 100 ) ); SetPixel( top, 381 + dx, 203 - dy, GetColorId( 235, 195, 100 ) );
++            Fill( top, 378, 50 + ( 144 - thumb ) * scroll / maximum, 3, thumb, GetColorId( 235, 195, 100 ) );
++            for ( int dx = -2; dx <= 2; ++dx ) for ( int dy = std::abs( dx ); dy <= 2; ++dy ) {
++                SetPixel( top, 379 + dx, 40 + dy, GetColorId( 235, 195, 100 ) ); SetPixel( top, 379 + dx, 203 - dy, GetColorId( 235, 195, 100 ) );
 +            }
 +        }
 +        Resize( original, scaled );
