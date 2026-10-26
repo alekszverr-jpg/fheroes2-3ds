@@ -1,5 +1,17 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.67: original-style spellbook
+
+The native book now sits inside the accepted Good/Evil frame on both screens. Its original mirrored BOOK pages and first/last-page corners are proportionally fitted inside a 264x172 region; all four corner variants are cached at opening. Six spells remain on each spread, with original icons, readable names/costs and unavailable colors. Full-library tabs have original BOOK ribbon artwork alongside readable labels. Page arrows, the full Cast Spell label (two lines if needed), Details and Exit have separate inset controls. Upper mana is fixed below the title; the original icon/cost/description uses themed paper, whole visible description rows and the accepted inset scroll bar. No numeric scroll counter is reintroduced; the real book page indicator remains.
+
+Selection/casting rules, learned/scroll spells, cost bonuses, restrictions, page restoration and callbacks stay with the existing book/caller. Finger-up uses its actual position, rejecting releases outside buttons/rows/tabs; using page/filter controls clears a held row so an old index cannot be reused in another spell list. Smoke fixtures now supply real finger-up coordinates instead of dummy (0,0). Dedicated checks cover outside releases and holding an adventure row while switching to the one-spell combat filter. SDL source inspection confirms real 3DS finger-up events retain the last valid touch position.
+
+Validation: bounded Spellbook New/Old Russian and New English, plus Hero and BattleIntegration New Russian; original choice/confirmation, touch/controller/tabs, long scroll, read-only, zero mana, movement/boat restrictions, empty/missing book, nested information, frame/hero restoration and new input isolation checks. Good/Evil, casting/library, empty/next page and scrolled captures inspected. ARM build, desktop syntax, 28-group/41-marker infrastructure, clean-baseline patch and package identity checks included. Full was not run; hardware readability/real spells remain pending.
+
+All five selected groups passed on the same binary: Spellbook New ru / Old ru / New en, then Hero New ru and BattleIntegration New ru, each in a separate bounded monitored process. Real spell target resolution and mana/movement spending remain manual hardware checks. SDL_n3dstouch emits a release at zero, but SDL_SendTouch replaces that with finger->x/y before posting SDL_FINGERUP; fixtures now mirror those actual event coordinates. No SDL/dependency code was changed.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL check six-spell layout/tabs/pages, long descriptions and held information, the full action labels and real combat/adventure spell selection. The original caller still owns actual mana/movement spending and target selection. Next visual stage: market and resource transfer.
+
 ## Preview 0.3.66: scrollbar frame clearance
 
 Moved scrollbar tracks two pixels inward and narrowed direction arrows from seven to five pixels, creating clearance from the decorative frame without reducing text width or changing wrapping, scroll bounds or touch targets. Applied to shared dialog bars and the existing army/construction/catalog/tavern/Mage Guild bars. The battle log already has a wide frame gutter and is unchanged. Pixel comparison of the long confirmation verifies only its scrollbar gutter changes; text, buttons and frame are identical.
