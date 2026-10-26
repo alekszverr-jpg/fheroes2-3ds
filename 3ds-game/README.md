@@ -1,5 +1,11 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.63: cleaner hero army slots
+
+Replaced the cropped STRIP decoration in hero army cells with recessed dark portrait wells, original stone count strips and thin Good/Evil bevels. Unit icons are proportionally fitted from their visible sprite bounds, removing transparent padding so the creature is larger. Empty slots use the same quiet panel. The five touch targets, army actions and the rest of the hero window are unchanged.
+
+Bounded monitored Hero runs passed New/Old Russian; large counts, empty slots, Evil/readonly and the existing move/merge/swap/split/book/held/return checks remain covered. This correction changes no labels or touch targets; English hero coverage remains recorded under 0.3.62. ARM build, desktop syntax, clean-baseline patch application and packaged binary identity passed. Full was not run. Replace only `3ds/fheroes2/fheroes2.3dsx`; physical visual approval is pending.
+
 ## Preview 0.3.62: original-style hero, artifacts and skills
 
 The hero window now uses the accepted Good/Evil frame on both screens, the original HEROBKG portrait surround, STRIP army slot texture and HSICONS miniature artifact backgrounds. The lower panel keeps all five army slots, fourteen artifact cells and twelve primary/secondary skill cells inside the frame. Tabs, action controls and footer are separated; hero navigation uses explicit pixel arrows. Complete troop counts are proportionally fitted when necessary. The upper portrait and statistics have inset margins and no large dark placeholder panel. Frames and slot backgrounds are cached per opening.
