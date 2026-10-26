@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.71'
+$version = '0.3.72'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    battle_split_screens='0.3.72: outcome/animation/experience above, two-column casualties below with independently scrolling details and fixed horizontal Restart/Okay; native name/count and large original-cycle MonsterPortrait skeleton below necromancy event; original caller effects preserved'
+    validation_battle_split_screens='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; bounded monitored groups, ordinary five-row fit, long/asymmetric/empty losses, independent lower touch/D-pad scrolling, raised portrait advancement, original choices/guards, real report/necromancy animation paths and context restoration; ARM/desktop/infrastructure/patch/package; Full not run, hardware pending'
     battle_reports_style='0.3.71: cached Good/Evil frames/paper, 348-pixel reflowed upper reports and inset scroll bar, centered inset actions, native surrender portrait, proportional 168x104 animations, full-width necromancy fallback; actual finger-up guard; original caller choices/payment/rewards retained'
     validation_battle_reports_style='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; bounded monitored groups, restart/OK/cancel, empty/long/scrolled casualties, affordability/unchanged funds, drag/outside-release, artifact info, necromancy counts, Good/Evil, real Arena animations and frame/HUD/viewport/input restoration; ARM/desktop/infrastructure/patch/package; Full not run, hardware/real payment/rewards pending'
     battle_hero_actions_style='0.3.70: full Good/Evil lower panel, native portrait/surround, primary attributes and mana, inset 2x2 original-style actions with proportional VIEWGEN icons and complete labels, cached background, preserved upper battlefield and caller action contract'

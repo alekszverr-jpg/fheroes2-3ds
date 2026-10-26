@@ -3920,13 +3920,14 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..10effe5
+index 0000000..b10df42
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,311 @@
+@@ -0,0 +1,377 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
++#include "ui_3ds_portrait.h"
 +#if defined( __3DS__ )
 +#include <algorithm>
 +#include <cmath>
@@ -3965,8 +3966,8 @@ index 0000000..10effe5
 +    using Platform3DS::PanelKey;
 +    constexpr int reportWidth = 348, reportViewHeight = 180;
 +    constexpr int animationX = 180, animationWidth = 168, animationHeight = 104;
-+    int lastScroll = 0;
-+    unsigned animationChanges = 0;
++    int lastScroll = 0, lastTopScroll = 0, lastBottomScroll = 0, lastBottomMaximum = 0;
++    unsigned animationChanges = 0, lastPortraitChanges = 0;
 +    class ReportScope {
 +    public:
 +        ReportScope( const Image & top, const Image & bottom ) {
@@ -3981,7 +3982,8 @@ index 0000000..10effe5
 +    };
 +    // The report only returns a choice. Battle mutations remain with the original caller.
 +    int report( Image & content, const std::vector<std::string> & labels, const std::vector<bool> & enabled, const std::string & heading, const char * capture,
-+                const std::function<bool( Image & )> & animation = {}, const std::function<void()> & information = {} )
++                const std::function<bool( Image & )> & animation = {}, const std::function<void()> & information = {},
++                Image * details = nullptr, const std::function<bool( Image & )> & detailsAnimation = {} )
 +    {
 +        const CursorRestorer hideCursor( false );
 +        Image top( 400, 240 ), bottom( 320, 240 ), frame;
@@ -3990,18 +3992,24 @@ index 0000000..10effe5
 +        const Image topBackground = Interface3DS::makeClassicPanelBackground( 400, evil ), bottomBackground = Interface3DS::makeClassicPanelBackground( 320, evil );
 +        Image contentBackground; Copy( content, contentBackground );
 +        std::vector<std::unique_ptr<ButtonBase>> buttons;
-+        const int firstY = 190 - ( int( labels.size() ) - 1 ) * 36;
++        const int firstY = details ? 190 : 190 - ( int( labels.size() ) - 1 ) * 36;
++        const Rect detailsArea{ 24, 44, 264, 140 };
++        const int detailsMaximum = details ? std::max<int32_t>( 0, details->height() - detailsArea.height ) : 0;
++        int detailsScroll = 0;
++        unsigned portraitChanges = 0;
++        bool scrollUpper = detailsMaximum == 0;
 +        for ( size_t i = 0; i < labels.size(); ++i ) {
 +            Sprite released, pressed;
-+            makeButtonSprites( released, pressed, "", { 188, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++            const int buttonWidth = details && labels.size() == 2 ? 120 : 188;
++            makeButtonSprites( released, pressed, "", { buttonWidth, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +            Text text( labels[i], FontType::normalWhite() );
-+            if ( text.width() > 188 ) text.set( labels[i], FontType::smallWhite() );
-+            text.fitToOneRow( 188 );
++            if ( text.width() > buttonWidth ) text.set( labels[i], FontType::smallWhite() );
++            text.fitToOneRow( buttonWidth );
 +            const auto bounds = text.area();
 +            text.draw( ( released.width() - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
 +            text.draw( ( pressed.width() - bounds.width ) / 2 - bounds.x - 1, ( pressed.height() - bounds.height ) / 2 - bounds.y + 1, pressed );
-+            const int x = ( 320 - released.width() ) / 2;
-+            buttons.emplace_back( std::make_unique<ButtonSprite>( x, firstY + int( i ) * 36, std::move( released ), std::move( pressed ) ) );
++            const int x = details && labels.size() == 2 ? 25 + int( i ) * 140 : ( 320 - released.width() ) / 2;
++            buttons.emplace_back( std::make_unique<ButtonSprite>( x, firstY + ( details ? 0 : int( i ) * 36 ), std::move( released ), std::move( pressed ) ) );
 +            if ( !enabled[i] ) buttons.back()->disable();
 +        }
 +        const ReportScope scope( top, bottom );
@@ -4015,6 +4023,11 @@ index 0000000..10effe5
 +            Text title( heading, FontType::normalYellow() );
 +            if ( title.height( 272 ) > firstY - 32 ) title.set( heading, FontType::smallYellow() );
 +            title.drawInRoi( 24, 20, 272, bottom, { 24, 20, 272, firstY - 32 } );
++            if ( details ) {
++                Copy( *details, 0, detailsScroll, bottom, detailsArea.x, detailsArea.y, detailsArea.width,
++                      std::min<int32_t>( detailsArea.height, details->height() - detailsScroll ) );
++                Interface3DS::drawPanelScrollBar( bottom, { 297, detailsArea.y, 5, detailsArea.height }, detailsScroll, detailsArea.height, details->height(), evil );
++            }
 +            for ( size_t i = 0; i < buttons.size(); ++i ) {
 +                if ( down && !moved && pressed == int( i ) ) buttons[i]->press(); else buttons[i]->release(); buttons[i]->draw( bottom );
 +                if ( selected == int( i ) ) { const Rect area = buttons[i]->area(); Fill( bottom, area.x, area.y - 2, area.width, 1, GetColorId( 255, 225, 96 ) ); }
@@ -4022,7 +4035,9 @@ index 0000000..10effe5
 +            Display::instance().render();
 +        };
 +        const auto tick = [&]() {
-+            if ( !animation || !animation( frame ) ) return false;
++            const bool changed = details && detailsAnimation && detailsAnimation( *details );
++            if ( changed ) ++portraitChanges;
++            if ( !animation || !animation( frame ) ) return changed;
 +            Image resized;
 +            const double scale = std::min( double( animationWidth ) / frame.width(), double( animationHeight ) / frame.height() );
 +            resized.resize( std::max( 1, int( frame.width() * scale ) ), std::max( 1, int( frame.height() * scale ) ) ); resized.reset(); Resize( frame, resized );
@@ -4034,7 +4049,7 @@ index 0000000..10effe5
 +        if ( Platform3DS::smokeTest() ) {
 +            const std::string name = std::string( "sdmc:/3ds/fheroes2/" ) + capture + ( evil ? "-evil" : "" );
 +            if ( !Save( top, name + "-top.bmp" ) || !Save( bottom, name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot save battle report" );
-+            if ( !evil && heading == _( "Battlefield Casualties" ) && !animation && content.height() > 300
++            if ( !evil && details && heading == _( "Battlefield Casualties" ) && details->height() >= 130 && details->height() <= detailsArea.height
 +                 && ( !Save( top, "sdmc:/3ds/fheroes2/battle-losses-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/battle-losses-bottom.bmp" ) ) )
 +                throw std::runtime_error( "Cannot save casualty layout" );
 +            if ( !evil && std::string( capture ) == "battle-surrender" && !enabled.front()
@@ -4058,8 +4073,16 @@ index 0000000..10effe5
 +                    case PanelKey::Confirm: if ( enabled[selected] ) { result = selected; closed = true; } break;
 +                    case PanelKey::Left: selected = std::max( 0, selected - 1 ); break;
 +                    case PanelKey::Right: selected = std::min( int( labels.size() ) - 1, selected + 1 ); break;
-+                    case PanelKey::Up: scroll = std::max( 0, scroll - 32 ); break;
-+                    case PanelKey::Down: scroll = std::min<int32_t>( std::max<int32_t>( 0, content.height() - viewHeight ), scroll + 32 ); break;
++                    case PanelKey::Up:
++                        if ( scrollUpper ) scroll = std::max( 0, scroll - 32 ); else detailsScroll = std::max( 0, detailsScroll - 32 );
++                        break;
++                    case PanelKey::Down:
++                        if ( scrollUpper ) scroll = std::min<int32_t>( std::max<int32_t>( 0, content.height() - viewHeight ), scroll + 32 );
++                        else detailsScroll = std::min( detailsMaximum, detailsScroll + 32 );
++                        break;
++                    case PanelKey::Toggle:
++                        if ( detailsMaximum && content.height() > viewHeight ) scrollUpper = !scrollUpper;
++                        break;
 +                    default: break;
 +                    }
 +                }
@@ -4069,7 +4092,11 @@ index 0000000..10effe5
 +                }
 +                else if ( input.type == PanelInputType::TouchMove && down ) {
 +                    moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
-+                    if ( moved && pressed < 0 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, std::max<int32_t>( 0, content.height() - viewHeight ) );
++                    if ( moved && pressed < 0 ) {
++                        if ( details && ( detailsArea & start ) && detailsMaximum ) detailsScroll = std::clamp<int32_t>( detailsScroll + last.y - input.position.y, 0, detailsMaximum );
++                        else if ( details && ( detailsArea & start ) ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, std::max<int32_t>( 0, content.height() - viewHeight ) );
++                        else if ( !details ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, std::max<int32_t>( 0, content.height() - viewHeight ) );
++                    }
 +                    last = input.position;
 +                }
 +                else if ( input.type == PanelInputType::TouchUp ) {
@@ -4079,32 +4106,42 @@ index 0000000..10effe5
 +            }
 +            if ( redraw && !closed ) draw();
 +        }
-+        if ( Platform3DS::smokeTest() && !evil && scroll > 0 && std::string( capture ) == "battle-summary" ) {
++        if ( Platform3DS::smokeTest() && !evil && ( scroll > 0 || detailsScroll > 0 ) && std::string( capture ) == "battle-summary" ) {
 +            draw();
 +            if ( !Save( top, "sdmc:/3ds/fheroes2/battle-summary-scrolled-top.bmp" ) ) throw std::runtime_error( "Cannot save scrolled battle report" );
++            if ( !Save( bottom, "sdmc:/3ds/fheroes2/battle-summary-scrolled-bottom.bmp" ) ) throw std::runtime_error( "Cannot save scrolled casualties" );
 +        }
-+        lastScroll = scroll; return result;
++        if ( Platform3DS::smokeTest() && !evil && portraitChanges ) {
++            draw();
++            if ( !Save( bottom, "sdmc:/3ds/fheroes2/battle-necromancy-animated-bottom.bmp" ) ) throw std::runtime_error( "Cannot save animated skeleton portrait" );
++        }
++        lastPortraitChanges = portraitChanges;
++        lastBottomMaximum = detailsMaximum;
++        lastTopScroll = scroll; lastBottomScroll = detailsScroll; lastScroll = scroll + detailsScroll; return result;
 +    }
 +    int paragraph( Image & image, int y, const std::string & text, FontType font = FontType::normalWhite(), int width = reportWidth, int x = 0 ) {
 +        if ( text.empty() ) return y;
 +        Text value( text, font ); value.draw( x, y, width, image ); return y + value.height( width ) + 8;
 +    }
-+    int casualties( Image & image, int y, const Troops & troops, const char * side ) {
-+        y = paragraph( image, y, side, FontType::normalYellow() );
-+        if ( !troops.isValid() ) return paragraph( image, y, _( "None" ) );
++    int casualties( Image & image, const Troops & troops, const char * side, const int x ) {
++        constexpr int columnWidth = 126, textWidth = 98;
++        const Text heading( side, FontType::smallYellow() );
++        heading.draw( x, 0, columnWidth, image );
++        int y = heading.height( columnWidth ) + 6;
++        if ( !troops.isValid() ) { Text( _( "None" ), FontType::smallWhite() ).draw( x, y, columnWidth, image ); return y + 14; }
 +        for ( size_t i = 0; i < troops.Size(); ++i ) {
 +            const Troop * troop = troops.GetTroop( i ); if ( !troop || !troop->isValid() ) continue;
 +            const auto & icon = Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() );
-+            const double scale = std::min( 36.0 / icon.width(), 32.0 / icon.height() );
++            const double scale = std::min( 24.0 / icon.width(), 22.0 / icon.height() );
 +            Image resized( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
 +            resized.reset(); Resize( icon, resized );
-+            Text text( std::string( troop->GetPluralName( troop->GetCount() ) ) + ": " + std::to_string( troop->GetCount() ), FontType::normalWhite() );
-+            constexpr int textWidth = reportWidth - 64;
-+            const int rowHeight = std::max<int32_t>( 40, text.height( textWidth ) );
-+            Blit( resized, image, 10 + ( 36 - resized.width() ) / 2, y + ( rowHeight - resized.height() ) / 2 );
-+            if ( text.width() <= textWidth ) text.draw( 60, y + ( rowHeight - text.height() ) / 2, image );
-+            else text.draw( 60, y, textWidth, image );
-+            y += rowHeight + 8;
++            const Text name( troop->GetPluralName( troop->GetCount() ), FontType::smallWhite() );
++            const Text amount( std::to_string( troop->GetCount() ), FontType::smallWhite() );
++            const int rowHeight = std::max<int32_t>( 24, name.height( textWidth ) + amount.height() + 2 );
++            Blit( resized, image, x + ( 24 - resized.width() ) / 2, y + ( rowHeight - resized.height() ) / 2 );
++            name.draw( x + 28, y, textWidth, image );
++            amount.draw( x + 28, y + name.height( textWidth ) + 1, textWidth, image );
++            y += rowHeight;
 +        }
 +        return y;
 +    }
@@ -4113,13 +4150,18 @@ index 0000000..10effe5
 +                                     const bool restart, const std::function<bool( fheroes2::Image & )> & animation )
 +{
 +    using namespace fheroes2;
-+    Image content( reportWidth, 2048 ); fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    const int titleHeight = Text( title, FontType::normalYellow() ).height( animation ? 172 : reportWidth ) + 8;
++    const int bodyHeight = body.empty() ? 0 : Text( body, FontType::normalWhite() ).height( reportWidth ) + 8;
++    Image content( reportWidth, std::max( reportViewHeight, std::max( animation ? 112 : 0, titleHeight ) + bodyHeight ) ); fillClassicPanelPaper( content, evil );
 +    int y = std::max( animation ? 112 : 0, paragraph( content, 0, title, FontType::normalYellow(), animation ? 172 : reportWidth ) );
-+    y = paragraph( content, y, body ); y = paragraph( content, y, _( "Battlefield Casualties" ), FontType::normalYellow() );
-+    y = casualties( content, y, attacker, _( "Attacker" ) ); y = casualties( content, y, defender, _( "Defender" ) );
-+    Image full( reportWidth, std::max( reportViewHeight, y ) ); Copy( content, 0, 0, full, 0, 0, reportWidth, std::max( reportViewHeight, y ) );
-+    return report( full, restart ? std::vector<std::string>{ _( "Restart" ), _( "Okay" ) } : std::vector<std::string>{ _( "Okay" ) },
-+                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, _( "Battlefield Casualties" ), "battle-summary", animation ) == 0 && restart;
++    y = paragraph( content, y, body );
++    Image losses( 264, 2048 ); fillClassicPanelPaper( losses, evil );
++    const int attackerHeight = casualties( losses, attacker, _( "Attacker" ), 0 );
++    const int defenderHeight = casualties( losses, defender, _( "Defender" ), 138 );
++    Image details( 264, std::max( attackerHeight, defenderHeight ) ); Copy( losses, 0, 0, details, 0, 0, 264, details.height() );
++    return report( content, restart ? std::vector<std::string>{ _( "Restart" ), _( "Okay" ) } : std::vector<std::string>{ _( "Okay" ) },
++                   restart ? std::vector<bool>{ true, true } : std::vector<bool>{ true }, _( "Battlefield Casualties" ), "battle-summary", animation, {}, &details ) == 0 && restart;
 +}
 +void Interface3DS::showBattleNecromancy( const uint32_t count, const std::function<bool( fheroes2::Image & )> & animation )
 +{
@@ -4130,16 +4172,22 @@ index 0000000..10effe5
 +    const Text title( _( "Necromancy!" ), FontType::normalYellow() ), body( message, FontType::normalWhite() );
 +    const int textWidth = animation ? 160 : reportWidth;
 +    const int textY = title.height( textWidth ) + 8, bodyBottom = textY + body.height( textWidth );
-+    const auto & icon = Assets::getImage( ICN::MONS32, skeleton.GetSpriteIndex() );
-+    const int iconY = animation ? 128 : bodyBottom + 8, countY = iconY + icon.height() + 4;
-+    const Text amount( std::to_string( count ), FontType::normalWhite() );
-+    Image content( reportWidth, std::max<int32_t>( reportViewHeight, std::max<int32_t>( bodyBottom + 8, countY + amount.height() + 8 ) ) );
++    Image content( reportWidth, std::max( reportViewHeight, bodyBottom + 8 ) );
 +    fillClassicPanelPaper( content, Settings::Get().isEvilInterfaceEnabled() );
 +    title.draw( 0, 0, textWidth, content ); body.draw( 0, textY, textWidth, content );
-+    Blit( icon, content, ( animation ? 264 : reportWidth / 2 ) - icon.width() / 2, iconY );
-+    amount.draw( animation ? 180 : 0, countY, animation ? 168 : reportWidth, content );
++    Image details( 264, 140 ); fillClassicPanelPaper( details, Settings::Get().isEvilInterfaceEnabled() );
++    Text( skeleton.GetPluralName( count ), FontType::normalYellow() ).draw( 0, 0, 264, details );
++    Text( std::to_string( count ), FontType::normalWhite() ).draw( 0, 122, 264, details );
++    const Image detailsBackground = details;
++    MonsterPortrait portrait( skeleton, false );
++    const Rect portraitArea{ 48, 18, 168, 102 };
++    portrait.draw( details, portraitArea );
++    const auto advancePortrait = [&]( Image & output ) {
++        if ( !portrait.advance( SDL_GetTicks() ) ) return false;
++        output = detailsBackground; portrait.draw( output, portraitArea ); return true;
++    };
 +    const auto initialAnimationChanges = animationChanges;
-+    report( content, { _( "Okay" ) }, { true }, _( "Necromancy!" ), "battle-necromancy", animation );
++    report( content, { _( "Okay" ) }, { true }, _( "Necromancy!" ), "battle-necromancy", animation, {}, &details, advancePortrait );
 +    if ( Platform3DS::smokeTest() && animation && animationChanges - initialAnimationChanges < 2 )
 +        throw std::runtime_error( "Necromancy animation did not advance" );
 +}
@@ -4204,16 +4252,34 @@ index 0000000..10effe5
 +    run( [&]() { return necromancy( 123456 ); }, { { 250, touch( SDL_FINGERDOWN, 150, 211 ) }, { 80, touch( SDL_FINGERUP, 150, 211 ) } } );
 +    run( [&]() { return necromancy( 0 ); }, cancel );
 +    run( [&]() { return necromancy( 4294967295U ); }, { { 250, touch( SDL_FINGERDOWN, 150, 211 ) }, { 80, touch( SDL_FINGERMOTION, 150, 170 ) }, { 80, touch( SDL_FINGERUP, 150, 170 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } );
++    if ( !lastPortraitChanges ) throw std::runtime_error( "Raised creature portrait did not animate" );
 +    Troops empty, losses;
 +    for ( int id : { Monster::PEASANT, Monster::ARCHER, Monster::GOBLIN, Monster::OGRE, Monster::BLACK_DRAGON } ) losses.PushBack( Monster( id ), 123456 );
 +    const auto summary = [&]( bool restart ) { return int( showBattleSummary( _( "A glorious victory!" ), _( "The enemy has surrendered!" ), losses, losses, restart, {} ) ); };
 +    if ( run( [&]() { return summary( false ); }, okay ) || run( [&]() { return summary( true ); }, okay ) || run( [&]() { return summary( true ); }, cancel ) ) throw std::runtime_error( "Summary default/cancel restarted battle" );
++    if ( lastBottomMaximum ) throw std::runtime_error( "Five casualty rows do not fit below" );
 +    if ( run( [&]() { return summary( true ); }, { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } ) != 1 ) throw std::runtime_error( "Summary restart choice differs" );
 +    if ( run( [&]() { return summary( true ); }, { { 250, touch( SDL_FINGERDOWN, 150, 174 ) }, { 80, touch( SDL_FINGERMOTION, 150, 120 ) }, { 80, touch( SDL_FINGERUP, 150, 120 ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Summary drag restarted battle" );
-+    if ( run( [&]() { return summary( true ); }, { { 250, touch( SDL_FINGERDOWN, 150, 166 ) }, { 80, touch( SDL_FINGERUP, 20, 20 ) },
++    if ( run( [&]() { return summary( true ); }, { { 250, touch( SDL_FINGERDOWN, 70, 202 ) }, { 80, touch( SDL_FINGERUP, 20, 20 ) },
 +                                                 { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } } ) ) throw std::runtime_error( "Summary outside release restarted battle" );
-+    run( [&]() { return summary( false ); }, { { 250, touch( SDL_FINGERDOWN, 150, 160 ) }, { 80, touch( SDL_FINGERMOTION, 150, 20 ) }, { 80, touch( SDL_FINGERUP, 150, 20 ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
-+    if ( lastScroll <= 0 ) throw std::runtime_error( "Summary losses did not scroll" );
++    Troops extended;
++    for ( int id : { Monster::PEASANT, Monster::ARCHER, Monster::GOBLIN, Monster::OGRE, Monster::BLACK_DRAGON, Monster::SKELETON, Monster::PHOENIX } ) extended.PushBack( Monster( id ), 123456 );
++    run( [&]() { return int( showBattleSummary( _( "A glorious victory!" ), _( "The enemy has surrendered!" ), extended, extended, false, {} ) ); },
++         { { 250, touch( SDL_FINGERDOWN, 150, 160 ) }, { 80, touch( SDL_FINGERMOTION, 150, 60 ) }, { 80, touch( SDL_FINGERUP, 150, 60 ) },
++           { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( lastBottomScroll <= 0 || lastTopScroll ) throw std::runtime_error( "Summary losses did not scroll independently below" );
++    run( [&]() { return int( showBattleSummary( _( "A glorious victory!" ), "", extended, empty, false, {} ) ); },
++         { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++           { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( lastBottomScroll <= 0 || lastTopScroll ) throw std::runtime_error( "Casualty controller scroll changed upper result" );
++    std::string longOutcome;
++    for ( int i = 0; i < 30; ++i ) longOutcome += std::string( _( "A glorious victory!" ) ) + "\n";
++    run( [&]() { return int( showBattleSummary( _( "A glorious victory!" ), longOutcome, extended, extended, false, {} ) ); },
++         { { 250, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++           { 80, key( SDL_CONTROLLER_BUTTON_Y, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_Y, false ) },
++           { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++           { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } } );
++    if ( lastBottomScroll <= 0 || lastTopScroll <= 0 ) throw std::runtime_error( "Dual report scroll target did not switch independently" );
 +    if ( run( [&]() { return int( showBattleSummary( _( "Your forces suffer a bitter defeat." ), "", empty, empty, false, {} ) ); }, okay ) ) throw std::runtime_error( "Empty casualties restarted battle" );
 +    Heroes enemy( Heroes::LORDKILBURN, Race::KNGT ); enemy.SetColor( PlayerColor::RED );
 +    Kingdom kingdom; kingdom.AddFundsResource( Funds( Resource::GOLD, 1000 ) );

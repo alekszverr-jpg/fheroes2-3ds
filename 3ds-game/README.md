@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.72: two-screen battle results and necromancy
+
+Battle results now keep the outcome, original animation and caller-provided experience text above. The lower screen shows attacker/defender casualties in two columns, with original creature icons, full wrapped names and counts. Five ordinary rows per side fit without scrolling in the tested Russian/English layouts; longer lists scroll above the fixed footer. Restart and Okay share a horizontal footer when both are present. Upper text and lower casualties have separate scroll positions. D-pad scrolls overflowing casualties first; if only upper text overflows it scrolls that instead. Y switches the scroll target when both overflow. Stylus dragging scrolls the lower list, or upper text when the lower content fits.
+
+Necromancy keeps the original event animation/text above and puts the raised creature's name, large portrait and count below. The portrait uses the existing original RandomMonsterAnimation cycle and timing through MonsterPortrait. Confirmation stays fixed at the bottom. Surrender/artifact layouts and original caller-owned results, rewards, payment and army changes are preserved.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian. Checks include five-row fit, long/asymmetric/empty lists, independent lower stylus/D-pad scrolling, unchanged upper scroll, original choices/disabled/outside-release guards, advancing skeleton portrait, real Arena report/necromancy animation paths and restored frame/HUD/viewport/input. ARM build, desktop syntax, infrastructure, clean patch and package identity checks included; Full was not run. Hardware readability, real experience/losses/rewards and returning to play remain pending.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. On New 3DS XL compare the new screen distribution, read losses/counts, try scrolling and Restart/Okay, and watch the raised skeleton animation. Next visual stage remains the compact battle footer.
+
 ## Preview 0.3.71: original-style battle reports
 
 Battle results/casualties, surrender, necromancy and captured-artifact dialogs now use the accepted Good/Evil frames and paper on both screens. Upper content is reflowed into 348 pixels with an inset scroll bar; lower actions are centered original-style buttons with clearance above the ornament. Surrender keeps the native portrait and surround. Result/necromancy animations retain their proportions inside a separate 168x104 region; necromancy without animation uses the full text width. Backgrounds and the animation clearing region are prepared at opening.
