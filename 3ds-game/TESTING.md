@@ -1,5 +1,9 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.60: folded scroll proportions
+
+Fixed horizontally stretched folded Mage Guild scrolls: the original 61x79 TOWNWIND sprite is now proportionally fitted (47x62) and centred within its existing card, instead of stretched to 128x62. Touch targets and the remaining layout are unchanged. Bounded MageGuild runs passed New/Old Russian and New English; Good/Evil captures inspected. ARM build, desktop syntax, clean-baseline patch application and packaged binary identity passed. Full was not run. Replace only `3ds/fheroes2/fheroes2.3dsx`; visual validation on physical New 3DS XL remains pending.
+
 ## Preview 0.3.59: original-style Mage Guild
 
 The Mage Guild now uses the accepted original Good/Evil frame on both screens. The lower panel retains the original open/sealed scroll artwork and proportionally fitted spell icons, with four inset cards, level indicator, castle arrows and separate level/Exit controls. The upper panel keeps the race-specific guild building and original spell description, with whole visible text rows and a dedicated scroll track/arrows. Frames, building artwork and scroll backgrounds are prepared once per panel.

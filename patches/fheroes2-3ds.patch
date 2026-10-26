@@ -8639,10 +8639,10 @@ index 0000000..39b4b97
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_mage_guild.cpp b/src/fheroes2/gui/ui_3ds_mage_guild.cpp
 new file mode 100644
-index 0000000..6e2e31b
+index 0000000..149df0b
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_mage_guild.cpp
-@@ -0,0 +1,332 @@
+@@ -0,0 +1,339 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -8728,7 +8728,13 @@ index 0000000..6e2e31b
 +    }
 +    std::array<Image, 2> papers;
 +    for ( int i = 0; i < 2; ++i ) {
-+        papers[i].resize( 128, 62 ); papers[i].reset(); Resize( Assets::getImage( ICN::TOWNWIND, i ), papers[i] );
++        const auto & scroll = Assets::getImage( ICN::TOWNWIND, i );
++        if ( i == 0 ) papers[i].resize( 128, 62 );
++        else {
++            const double scale = std::min( 128.0 / scroll.width(), 62.0 / scroll.height() );
++            papers[i].resize( std::max( 1, int( scroll.width() * scale ) ), std::max( 1, int( scroll.height() * scale ) ) );
++        }
++        papers[i].reset(); Resize( scroll, papers[i] );
 +    }
 +    std::array<std::unique_ptr<ButtonBase>, 5> buttons;
 +    for ( int i = 0; i < 5; ++i ) {
@@ -8795,7 +8801,8 @@ index 0000000..6e2e31b
 +        for ( int i = 0; i < 4; ++i ) {
 +            const auto area = spellArea( i );
 +            const Spell item = i < int( spells.size() ) ? spells[i] : Spell::NONE;
-+            Blit( papers[item != Spell::NONE ? 0 : 1], bottom, area.x, area.y );
++            const auto & paper = papers[item != Spell::NONE ? 0 : 1];
++            Blit( paper, bottom, area.x + ( area.width - paper.width() ) / 2, area.y + ( area.height - paper.height() ) / 2 );
 +            if ( item != Spell::NONE ) {
 +                const auto & icon = Assets::getImage( ICN::SPELLS, item.IndexSprite() );
 +                const double scale = std::min( 1.0, std::min( 112.0 / icon.width(), 38.0 / icon.height() ) );

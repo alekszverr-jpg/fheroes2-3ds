@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.59'
+$version = '0.3.60'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,7 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    folded_scroll_proportions='0.3.60: original 61x79 folded TOWNWIND fitted to 47x62 and centred in unchanged 128x62 touch card; MageGuild New/Old ru and New en passed; physical visual check pending'
     mage_guild_style='0.3.59: original Good/Evil frame, original open/sealed scrolls, proportionally fitted spell icons and race guild artwork, inset level/castle/Exit controls, whole visible description rows and separate scroll track/arrows; cached frame/art/scroll backgrounds'
     validation_mage_guild_style='MageGuild New/Old ru and New en; CastleScreen/CastleStereo New ru; bounded monitored groups, six races/built levels/library, original spells and readonly funds, touch navigation/Exit, controller selection, exact long-description stylus/D-pad scroll, outside-release/footer/Close-drag rejection, Evil and actual flat/stereo castle return; real hero learning and hardware pending'
     tavern_style='0.3.58: original Good/Evil frame, original animated lower scene, inset Close with 128x38 touch target; upper themed paper, whole rumor rows and scroll track/arrows; page step aligned to rows to avoid skipped text'
