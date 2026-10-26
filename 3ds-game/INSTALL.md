@@ -1,4 +1,10 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.63
+# fheroes2 for Nintendo 3DS — preview 0.3.64
+
+## Preview 0.3.64: original hero army portraits
+
+The hero army now uses the original renderMonsterFrame path: full faction-specific STRIP scenery with the MONH creature portrait, and the complete STRIP horse silhouette for empty slots. Each original 82x93 slot is proportionally fitted to 50x56 inside the existing 50x60 touch target. Ordinary quantities sit at the lower right; very large quantities are fitted completely. This replaces the interim miniature MONS32/dark-well treatment. Other hero tabs and all widget actions remain unchanged.
+
+A smoke reference is rendered directly through the original unscaled ArmyBar at its desktop slot size and six-pixel spacing, over the matching HEROBKG region. It is an exact army-row reference, not a full original hero-window screenshot. A separate normal-count lower capture makes comparison possible. Hero New/Old Russian, ARM build, desktop syntax, 28-group/41-marker infrastructure, clean-baseline patch application and package identity checks passed. Full was not run; English hero behavior remains recorded under 0.3.62 because no labels changed. Replace only `3ds/fheroes2/fheroes2.3dsx`; physical visual approval is pending.
 
 ## Preview 0.3.63: cleaner hero army slots
 

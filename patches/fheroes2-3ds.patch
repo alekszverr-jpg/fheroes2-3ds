@@ -8028,10 +8028,10 @@ index 0000000..e68cb38
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_hero.cpp b/src/fheroes2/gui/ui_3ds_hero.cpp
 new file mode 100644
-index 0000000..b3dc66b
+index 0000000..734e016
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_hero.cpp
-@@ -0,0 +1,426 @@
+@@ -0,0 +1,433 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -8067,6 +8067,7 @@ index 0000000..b3dc66b
 +#include "spell.h"
 +#include "ui_button.h"
 +#include "ui_dialog.h"
++#include "ui_monster.h"
 +#include "ui_text.h"
 +#include "ui_window.h"
 +namespace
@@ -8139,16 +8140,10 @@ index 0000000..b3dc66b
 +    const std::array<int, 4> primary{ Skill::Primary::ATTACK, Skill::Primary::DEFENSE, Skill::Primary::POWER, Skill::Primary::KNOWLEDGE };
 +    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
 +    const Image portraitFrame = Crop( Assets::getImage( ICN::HEROBKG, 0 ), 48, 30, 103, 95 );
-+    Image armyBackground( 50, 60 ); armyBackground.reset();
-+    StandardWindow::renderBackgroundImage( armyBackground, { 0, 0, 50, 60 }, 0, evil );
-+    const uint8_t slotBorder = evil ? GetColorId( 110, 110, 115 ) : GetColorId( 170, 130, 70 );
-+    const uint8_t slotLight = evil ? GetColorId( 170, 170, 175 ) : GetColorId( 210, 175, 110 );
-+    Fill( armyBackground, 2, 2, 46, 41, evil ? GetColorId( 32, 32, 38 ) : GetColorId( 35, 29, 24 ) );
-+    DrawRect( armyBackground, { 0, 0, 50, 60 }, GetColorId( 20, 16, 12 ) );
-+    DrawRect( armyBackground, { 1, 1, 48, 58 }, slotBorder );
-+    DrawLine( armyBackground, { 2, 2 }, { 47, 2 }, slotLight );
-+    DrawLine( armyBackground, { 2, 2 }, { 2, 42 }, slotLight );
-+    DrawLine( armyBackground, { 2, 44 }, { 47, 44 }, slotBorder );
++    const auto & originalArmySlot = Assets::getImage( ICN::STRIP, 2 );
++    const double armyScale = std::min( 50.0 / originalArmySlot.width(), 60.0 / originalArmySlot.height() );
++    Image armyBackground( std::max( 1, int( originalArmySlot.width() * armyScale ) ), std::max( 1, int( originalArmySlot.height() * armyScale ) ) );
++    armyBackground.reset(); Resize( originalArmySlot, armyBackground );
 +    Image artifactBackground( 34, 34 ); artifactBackground.reset();
 +    DrawRect( artifactBackground, { 0, 0, 34, 34 }, GetColorId( 208, 192, 72 ) );
 +    Blit( Assets::getImage( ICN::HSICONS, 0 ), 26, 21, artifactBackground, 1, 1, 32, 32 );
@@ -8285,19 +8280,19 @@ index 0000000..b3dc66b
 +        const auto skills = hero.GetSecondarySkills().ToVector();
 +        for ( int i = 0; i < itemCount; ++i ) {
 +            const Rect & area = areas[3 + i];
-+            if ( tab == 0 ) Copy( armyBackground, 0, 0, bottom, area.x, area.y, area.width, area.height );
++            if ( tab == 0 ) Blit( armyBackground, bottom, area.x + ( area.width - armyBackground.width() ) / 2, area.y + ( area.height - armyBackground.height() ) / 2 );
 +            else if ( tab == 1 ) Blit( artifactBackground, bottom, area.x + 1, area.y + 8 );
 +            if ( tab != 0 ) DrawRect( bottom, area, GetColorId( 90, 65, 40 ) );
 +            bool selected = false;
 +            if ( tab == 0 ) {
 +                const auto * troop = hero.GetArmy().GetTroop( i );
 +                if ( troop->isValid() ) {
-+                    const auto & original = Assets::getImage( ICN::MONS32, troop->GetSpriteIndex() );
-+                    const auto body = GetActiveROI( original );
-+                    const Image portrait = body.width > 0 && body.height > 0 ? Crop( original, body.x, body.y, body.width, body.height ) : Image( original );
-+                    icon( portrait, bottom, { area.x + 3, area.y + 3, area.width - 6, 40 } );
++                    Image portrait = originalArmySlot;
++                    renderMonsterFrame( *troop, portrait, { 0, 0 } );
++                    Image scaled( armyBackground.width(), armyBackground.height() ); scaled.reset(); Resize( portrait, scaled );
++                    Blit( scaled, bottom, area.x + ( area.width - scaled.width() ) / 2, area.y + ( area.height - scaled.height() ) / 2 );
 +                    Text count( std::to_string( troop->GetCount() ), FontType::smallWhite() );
-+                    if ( count.width() <= area.width - 4 ) count.draw( area.x + 2, area.y + 47, area.width - 4, bottom );
++                    if ( count.width() <= area.width - 4 ) count.draw( area.x + area.width - count.width() - 3, area.y + 47, bottom );
 +                    else {
 +                        Image number( count.width(), count.height() ); number.reset(); count.draw( 0, 0, number );
 +                        icon( number, bottom, { area.x + 2, area.y + 46, area.width - 4, 11 } );
@@ -8336,6 +8331,8 @@ index 0000000..b3dc66b
 +        if ( !Platform3DS::smokeTest() ) return;
 +        const std::string name = std::string( "sdmc:/3ds/fheroes2/hero-" ) + ( tab == 0 ? "army" : tab == 1 ? "artifacts" : "skills" );
 +        if ( !Save( top, name + "-top.bmp" ) || !Save( bottom, name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture hero" );
++        if ( tab == 0 && !evil && hero.GetArmy().GetTroop( 0 )->GetCount() == 10 && hero.GetArmy().GetTroop( 1 )->GetCount() == 20
++             && !Save( bottom, "sdmc:/3ds/fheroes2/hero-army-standard-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture standard hero army" );
 +        if ( evil || readonly ) {
 +            const std::string state = evil ? "evil" : "readonly";
 +            if ( !Save( top, "sdmc:/3ds/fheroes2/hero-" + state + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/hero-" + state + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture hero state" );
@@ -8413,7 +8410,17 @@ index 0000000..b3dc66b
 +             || LocalEvent::Get().MouseClickLeft() || LocalEvent::Get().MouseClickRight() ) throw std::runtime_error( "Hero changed frame/context or leaked release" );
 +        return result;
 +    };
-+    prepare(); std::vector<Step> steps; tap( steps, 40, 80 ); tap( steps, 220, 80 ); close( steps );
++    prepare();
++    {
++        // Reference: the actual unscaled hero ArmyBar, including its original frame, portraits and count placement.
++        const auto & slot = Assets::getImage( ICN::STRIP, 2 );
++        Image reference( slot.width() * 5 + 24, slot.height() ); reference.reset();
++        Copy( Assets::getImage( ICN::HEROBKG, 0 ), 156, 130, reference, 0, 0, reference.width(), reference.height() );
++        ArmyBar original( &hero.GetArmy(), false, true ); original.setTableSize( { 5, 1 } );
++        original.setInBetweenItemsOffset( { 6, 0 } ); original.setRenderingOffset( { 0, 0 } ); original.Redraw( reference );
++        if ( !Save( reference, "sdmc:/3ds/fheroes2/hero-army-original.bmp" ) ) throw std::runtime_error( "Cannot capture original hero army" );
++    }
++    std::vector<Step> steps; tap( steps, 40, 80 ); tap( steps, 220, 80 ); close( steps );
 +    if ( run( false, false, false, steps ) != Dialog::CANCEL || hero.GetArmy().GetTroop( 0 )->isValid() || hero.GetArmy().GetTroop( 3 )->GetCount() != 10 || hero.GetArmy().getTotalCount() != 35 ) throw std::runtime_error( "Hero move handler differs" );
 +    prepare(); steps.clear(); tap( steps, 40, 80 ); tap( steps, 160, 80 ); close( steps ); run( false, false, false, steps );
 +    if ( hero.GetArmy().GetTroop( 2 )->GetCount() != 15 || hero.GetArmy().getTotalCount() != 35 ) throw std::runtime_error( "Hero merge handler differs" );
