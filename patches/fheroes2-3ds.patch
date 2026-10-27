@@ -756,7 +756,7 @@ index c336081..4d7b0cc 100644
      LocalEvent & le = LocalEvent::Get();
      const Settings & conf = Settings::Get();
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..c8c47cb 100644
+index f3e8496..46a9153 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
 @@ -22,6 +22,21 @@
@@ -1182,7 +1182,7 @@ index f3e8496..c8c47cb 100644
 +                    SDL_Delay( 180 ); return true;
 +                };
 +                SDL_Delay( 250 );
-+                return tap( 160, 136 ) && tap( 160, 158 ) && tap( 160, 202 ) && tap( 160, 202 ) ? 0 : 1;
++                return tap( 160, 136 ) && tap( 160, 158 ) && tap( 160, 202 ) && tap( 160, 164 ) && tap( 230, 202 ) && tap( 160, 202 ) ? 0 : 1;
 +            }, "battle-audio-settings", nullptr );
 +            if ( !audioInput ) throw std::runtime_error( "Cannot start native audio settings input" );
 +            int audioStatus = 0;
@@ -1190,7 +1190,7 @@ index f3e8496..c8c47cb 100644
 +            SDL_WaitThread( audioInput, &audioStatus ); events.HandleEvents( false, true );
 +            if ( audioStatus || config.is3DAudioEnabled() == originalAudio.spatial || Platform3DS::hasModalImages()
 +                 || Platform3DS::battleHUDImage() != &ui._battleHUD3DS || events.MouseClickLeft() || actions.size() != actionCount )
-+                throw std::runtime_error( "Native audio settings tree failed to apply/restore battle" );
++                throw std::runtime_error( "Native audio/hotkeys settings tree failed to apply/restore battle" );
 +        }
 +        fheroes2::Image beforeCard; fheroes2::Copy( display, beforeCard );
 +        const auto cardCrop = Platform3DS::viewport();
@@ -2106,6 +2106,50 @@ index 427f600..4b5df78 100644
          event.message = _( "Gift from %{name}" );
          const Player * player = Players::Get( kingdom.GetColor() );
          if ( player )
+diff --git a/src/fheroes2/dialog/dialog_hotkeys.cpp b/src/fheroes2/dialog/dialog_hotkeys.cpp
+index 9825991..4f14fbe 100644
+--- a/src/fheroes2/dialog/dialog_hotkeys.cpp
++++ b/src/fheroes2/dialog/dialog_hotkeys.cpp
+@@ -19,6 +19,9 @@
+  ***************************************************************************/
+ 
+ #include "dialog_hotkeys.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ #include <algorithm>
+ #include <cassert>
+@@ -47,6 +50,7 @@
+ #include "ui_text.h"
+ #include "ui_window.h"
+ 
++#if !defined( __3DS__ )
+ namespace
+ {
+     const int32_t keyDescriptionLength = 300;
+@@ -234,10 +238,14 @@ namespace
+     };
+ }
+ 
++#endif
+ namespace fheroes2
+ {
+     void openHotkeysDialog()
+     {
++#if defined( __3DS__ )
++        Interface3DS::showHotkeys();
++#else
+         // Setup cursor.
+         const CursorRestorer cursorRestorer( true, ::Cursor::POINTER );
+ 
+@@ -311,5 +319,6 @@ namespace fheroes2
+             listbox.Redraw();
+             display.render( roi );
+         }
++#endif
+     }
+ }
 diff --git a/src/fheroes2/dialog/dialog_levelup.cpp b/src/fheroes2/dialog/dialog_levelup.cpp
 index c1b573a..508c9d9 100644
 --- a/src/fheroes2/dialog/dialog_levelup.cpp
@@ -2353,8 +2397,38 @@ index ce25e88..a5efbc9 100644
          }
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
+diff --git a/src/fheroes2/game/game_hotkeys.cpp b/src/fheroes2/game/game_hotkeys.cpp
+index 0f31ae9..6f72630 100644
+--- a/src/fheroes2/game/game_hotkeys.cpp
++++ b/src/fheroes2/game/game_hotkeys.cpp
+@@ -374,7 +374,13 @@ namespace
+             assert( isUnique );
+ #endif
+ 
+-            os << eventName << " = " << StringUpper( KeySymGetName( hotKeyEventInfo[eventId].key ) ) << std::endl;
++            std::string keyName = StringUpper( KeySymGetName( hotKeyEventInfo[eventId].key ) );
++#if defined( __3DS__ )
++            // SDL names the unassigned key with an empty string; use an explicit
++            // token so the native key picker can persist an intentionally cleared binding.
++            if ( hotKeyEventInfo[eventId].key == fheroes2::Key::NONE ) keyName = "NONE";
++#endif
++            os << eventName << " = " << keyName << std::endl;
+         }
+ 
+         return os.str();
+@@ -451,6 +457,10 @@ void Game::HotKeysLoad( const std::string & filename )
+                 nameToKey.try_emplace( StringUpper( KeySymGetName( key ) ), key );
+             }
+ 
++#if defined( __3DS__ )
++            nameToKey.try_emplace( "NONE", fheroes2::Key::NONE );
++#endif
++
+             for ( int eventId = hotKeyEventToInt( HotKeyEvent::NONE ) + 1; eventId < hotKeyEventToInt( HotKeyEvent::NO_EVENT ); ++eventId ) {
+                 // Load the original name without using translation.
+                 const char * eventName = Translation::getNonTranslated( hotKeyEventInfo[eventId].name );
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..ddcab3e 100644
+index 69d39fb..2e92828 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2491,7 +2565,7 @@ index 69d39fb..ddcab3e 100644
 +        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
-+        runGroup( "BattleDialogs", []() { Interface3DS::testBattleSettings(); Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
++        runGroup( "BattleDialogs", []() { Interface3DS::testBattleSettings(); Interface3DS::testHotkeys(); Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
 +        runGroup( "CastleBuildings", []() { Interface3DS::testCastleBuildings(); } );
 +        runGroup( "CastleArmy", []() { Interface3DS::testCastleArmy(); } );
 +        runGroup( "CastleScreen", []() { Interface3DS::testCastleScreen(); } );
@@ -4152,10 +4226,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..fe514c4
+index 0000000..57c50bf
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,807 @@
+@@ -0,0 +1,998 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4172,6 +4246,8 @@ index 0000000..fe514c4
 +#include "audio.h"
 +#include "audio_manager.h"
 +#include "dialog_audio.h"
++#include "dialog_hotkeys.h"
++#include "game_hotkeys.h"
 +#include "artifact.h"
 +#include "battle_interface.h"
 +#include "battle_cell.h"
@@ -4748,6 +4824,195 @@ index 0000000..fe514c4
 +        if ( !Save( top, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture battle settings" );
 +    }
 +    return result;
++}
++
++namespace {
++    int lastHotkeySelection = 0, lastHotkeyOffset = 0;
++    bool lastHotkeySaved = false;
++}
++
++void Interface3DS::showHotkeys()
++{
++    using namespace fheroes2;
++    const CursorRestorer hideCursor( false );
++    const auto entries = Game::getAllHotKeyEvents();
++    if ( entries.empty() ) return;
++    const bool evil = Settings::Get().isEvilInterfaceEnabled();
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
++    const ReportScope scope( top, bottom );
++    constexpr int visibleRows = 5, rowHeight = 28;
++    const Rect listArea{ 24, 42, 264, visibleRows * rowHeight };
++    const std::array<Rect, 2> buttons{ Rect{ 25, 190, 126, 25 }, Rect{ 169, 190, 126, 25 } };
++    int selected = 0, offset = 0, command = 0, commandOffset = 0, pressed = -1;
++    bool choosing = false, down = false, moved = false, closed = false;
++    Point start, last; int dragPixels = 0;
++    lastHotkeySaved = false;
++    const auto count = [&]() { return choosing ? static_cast<int>( Key::LAST_KEY ) : static_cast<int>( entries.size() ); };
++    const auto keyName = []( Key key ) { return key == Key::NONE ? std::string( _( "None" ) ) : StringUpper( KeySymGetName( key ) ); };
++    const auto keepVisible = [&]() {
++        selected = std::clamp( selected, 0, count() - 1 );
++        if ( selected < offset ) offset = selected;
++        if ( selected >= offset + visibleRows ) offset = selected - visibleRows + 1;
++        offset = std::clamp( offset, 0, std::max( 0, count() - visibleRows ) );
++    };
++    const auto cancel = [&]() {
++        if ( choosing ) { choosing = false; selected = command; offset = commandOffset; }
++        else closed = true;
++    };
++    const auto activate = [&]() {
++        if ( !choosing ) {
++            command = selected; commandOffset = offset; choosing = true;
++            selected = static_cast<int>( Game::getHotKeyForEvent( entries[command].first ) ); offset = 0; keepVisible();
++        }
++        else {
++            const auto event = entries[command].first; const auto key = static_cast<Key>( selected );
++            if ( Game::getHotKeyForEvent( event ) != key ) { Game::setHotKeyForEvent( event, key ); Game::HotKeySave(); lastHotkeySaved = true; }
++            choosing = false; selected = command; offset = commandOffset;
++        }
++    };
++    const auto draw = [&]() {
++        top = topBackground; bottom = bottomBackground;
++        Text( _( "Hot Keys:" ), FontType::normalYellow() ).draw( 24, 20, 352, top );
++        const auto & entry = entries[choosing ? command : selected];
++        Text category( std::string( _( "Category: " ) ) + _( Game::getHotKeyCategoryName( entry.second ) ), FontType::normalYellow() );
++        category.drawInRoi( 28, 52, 344, top, { 28, 52, 344, 36 } );
++        Text event( std::string( _( "Event: " ) ) + _( Game::getHotKeyEventNameByEventId( entry.first ) ), FontType::normalWhite() );
++        if ( event.height( 344 ) > 76 ) event.set( std::string( _( "Event: " ) ) + _( Game::getHotKeyEventNameByEventId( entry.first ) ), FontType::smallWhite() );
++        event.drawInRoi( 28, 92, 344, top, { 28, 92, 344, 76 } );
++        Text( std::string( _( "Hotkey: " ) ) + ( choosing ? keyName( static_cast<Key>( selected ) ) : keyName( Game::getHotKeyForEvent( entry.first ) ) ), FontType::normalYellow() ).draw( 28, 178, 344, top );
++        Text( choosing ? _( "Hotkey: " ) : _( "Hot Keys:" ), FontType::normalYellow() ).draw( 24, 20, 272, bottom );
++        for ( int row = 0; row < visibleRows && offset + row < count(); ++row ) {
++            const int index = offset + row, y = listArea.y + row * rowHeight;
++            const Rect area{ listArea.x, y, listArea.width, rowHeight };
++            if ( index == selected ) DrawRect( bottom, area, GetColorId( 255, 225, 96 ) );
++            const auto font = index == selected ? FontType::normalYellow() : FontType::normalWhite();
++            if ( choosing ) { Text( keyName( static_cast<Key>( index ) ), font ).draw( 28, y + 5, 256, bottom ); }
++            else {
++                Text label( _( Game::getHotKeyEventNameByEventId( entries[index].first ) ), font );
++                if ( label.width() > 190 ) label.set( _( Game::getHotKeyEventNameByEventId( entries[index].first ) ), index == selected ? FontType::smallYellow() : FontType::smallWhite() );
++                label.fitToOneRow( 190 ); label.drawInRoi( 28, y + 5, 190, bottom, { 28, y + 2, 190, 24 } );
++                Text key( keyName( Game::getHotKeyForEvent( entries[index].first ) ), FontType::smallWhite() ); key.fitToOneRow( 62 ); key.draw( 222, y + 8, 62, bottom );
++            }
++        }
++        drawPanelScrollBar( bottom, { 297, 42, 5, visibleRows * rowHeight }, offset * rowHeight, visibleRows * rowHeight, count() * rowHeight, evil );
++        for ( int i = 0; i < 2; ++i ) {
++            Sprite released, held; makeButtonSprites( released, held, "", { 116, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++            Text text( i == 0 ? _( "Okay" ) : choosing ? _( "Cancel" ) : _( "Close" ), FontType::normalWhite() );
++            if ( text.width() > 112 ) text.set( i == 0 ? _( "Okay" ) : choosing ? _( "Cancel" ) : _( "Close" ), FontType::smallWhite() );
++            const auto bounds = text.area(); const int x = ( released.width() - bounds.width ) / 2 - bounds.x, y = ( released.height() - bounds.height ) / 2 - bounds.y;
++            text.draw( x, y, released ); text.draw( x - 1, y + 1, held );
++            Blit( down && !moved && pressed == i ? held : released, bottom, buttons[i].x, buttons[i].y );
++        }
++        Display::instance().render();
++        if ( choosing && Platform3DS::smokeTest() && !evil ) {
++            if ( !Save( top, "sdmc:/3ds/fheroes2/hotkeys-choice-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/hotkeys-choice-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture key choice" );
++        }
++    };
++    draw(); auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input; bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                down = false; pressed = -1;
++                if ( input.key == PanelKey::Cancel || input.key == PanelKey::Information || input.key == PanelKey::Toggle ) cancel();
++                else if ( input.key == PanelKey::Confirm ) activate();
++                else if ( input.key == PanelKey::Up || input.key == PanelKey::Down || input.key == PanelKey::Left || input.key == PanelKey::Right ) {
++                    selected += input.key == PanelKey::Up ? -1 : input.key == PanelKey::Down ? 1 : input.key == PanelKey::Left ? -visibleRows : visibleRows;
++                    keepVisible();
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                down = true; moved = false; start = last = input.position; dragPixels = 0; pressed = -1;
++                for ( int i = 0; i < 2; ++i ) if ( buttons[i] & start ) pressed = i;
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && ( listArea & start ) ) {
++                    dragPixels += last.y - input.position.y;
++                    const int rows = dragPixels / rowHeight; dragPixels -= rows * rowHeight;
++                    offset = std::clamp( offset + rows, 0, std::max( 0, count() - visibleRows ) );
++                    selected = std::clamp( selected, offset, std::min( count() - 1, offset + visibleRows - 1 ) );
++                }
++                last = input.position;
++            }
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved ) {
++                    if ( pressed >= 0 && ( buttons[pressed] & input.position ) ) { if ( pressed == 0 ) activate(); else cancel(); }
++                    else if ( ( listArea & start ) && ( listArea & input.position ) ) {
++                        const int row = ( start.y - listArea.y ) / rowHeight;
++                        if ( row == ( input.position.y - listArea.y ) / rowHeight ) selected = std::min( count() - 1, offset + row );
++                    }
++                }
++                down = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    lastHotkeySelection = selected; lastHotkeyOffset = offset;
++    if ( Platform3DS::smokeTest() ) {
++        draw(); const std::string name = evil ? "hotkeys-evil" : offset > 0 ? "hotkeys-scrolled" : "hotkeys";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/" + name + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture hotkeys" );
++    }
++}
++
++void Interface3DS::testHotkeys()
++{
++    using namespace fheroes2;
++    using Step = std::pair<uint32_t, SDL_Event>;
++    const auto entries = Game::getAllHotKeyEvents();
++    struct RestoreKeys {
++        std::vector<std::pair<Game::HotKeyEvent, Key>> keys; InterfaceType theme;
++        ~RestoreKeys() { for ( const auto & entry : keys ) Game::setHotKeyForEvent( entry.first, entry.second ); Game::HotKeySave(); Settings::Get().setInterfaceType( theme ); }
++    } restore{ {}, Settings::Get().getInterfaceType() };
++    for ( const auto & entry : entries ) restore.keys.emplace_back( entry.first, Game::getHotKeyForEvent( entry.first ) );
++    const auto button = []( int code, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = code; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto keys = [&]( std::initializer_list<int> codes ) {
++        std::vector<Step> input;
++        for ( int code : codes ) { input.emplace_back( input.empty() ? 180 : 90, button( code, true ) ); input.emplace_back( 60, button( code, false ) ); }
++        return input;
++    };
++    const auto run = [&]( const std::vector<Step> & source ) {
++        auto steps = source; auto & display = Display::instance(); Image before; Copy( display, before );
++        const auto crop = Platform3DS::viewport(); const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage();
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( const auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); auto event = step.second; if ( SDL_PushEvent( &event ) != 1 ) return 1; } return 0; }, "hotkeys-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start hotkeys input" );
++        int status = 0;
++        try { openHotkeysDialog(); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
++        if ( status || Platform3DS::hasModalImages() || Platform3DS::viewport() != crop || Platform3DS::battleHUDImage() != hud || Platform3DS::commandStripImage() != strip
++             || events.MouseClickLeft() || events.isMouseRightButtonPressed() || std::memcmp( before.image(), display.image(), before.width() * before.height() ) ) throw std::runtime_error( "Hotkeys leaked frame/context/input" );
++    };
++    constexpr int a = SDL_CONTROLLER_BUTTON_A, back = SDL_CONTROLLER_BUTTON_LEFTSHOULDER, down = SDL_CONTROLLER_BUTTON_DPAD_DOWN, left = SDL_CONTROLLER_BUTTON_DPAD_LEFT, right = SDL_CONTROLLER_BUTTON_DPAD_RIGHT;
++    run( keys( { back } ) ); if ( lastHotkeySaved ) throw std::runtime_error( "Hotkeys cancel saved bindings" );
++    run( keys( { right, back } ) ); if ( lastHotkeySelection != 5 || lastHotkeyOffset < 1 || lastHotkeySaved ) throw std::runtime_error( "Hotkeys controller page failed" );
++    std::vector<Step> steps{ { 180, touch( SDL_FINGERDOWN, 160, 170 ) }, { 80, touch( SDL_FINGERMOTION, 160, 58 ) }, { 80, touch( SDL_FINGERUP, 160, 58 ) } };
++    auto close = keys( { back } ); steps.insert( steps.end(), close.begin(), close.end() ); run( steps );
++    if ( lastHotkeyOffset != 4 || lastHotkeySaved ) throw std::runtime_error( "Hotkeys stylus scrolling changed a binding" );
++    const auto first = entries.front().first; Game::setHotKeyForEvent( first, Key::KEY_ENTER );
++    run( keys( { a, down, a, back } ) );
++    if ( !lastHotkeySaved || Game::getHotKeyForEvent( first ) != Key::KEY_ESCAPE ) throw std::runtime_error( "Hotkeys candidate confirmation failed" );
++    Game::setHotKeyForEvent( first, Key::NONE ); Game::HotKeysLoad( Settings::GetLastFile( "", Game::hotkeyFileName ) );
++    if ( Game::getHotKeyForEvent( first ) != Key::KEY_ESCAPE ) throw std::runtime_error( "Hotkey binding did not persist/reload" );
++    run( keys( { a, down, back, back } ) );
++    if ( lastHotkeySaved || Game::getHotKeyForEvent( first ) != Key::KEY_ESCAPE ) throw std::runtime_error( "Hotkeys cancelled candidate changed binding" );
++    run( keys( { a, left, a, back } ) );
++    if ( !lastHotkeySaved || Game::getHotKeyForEvent( first ) != Key::NONE ) throw std::runtime_error( "Hotkeys unbinding failed" );
++    Game::setHotKeyForEvent( first, Key::KEY_ENTER ); Game::HotKeysLoad( Settings::GetLastFile( "", Game::hotkeyFileName ) );
++    if ( Game::getHotKeyForEvent( first ) != Key::NONE ) throw std::runtime_error( "Unassigned hotkey did not persist/reload" );
++    steps = { { 180, touch( SDL_FINGERDOWN, 80, 202 ) }, { 80, touch( SDL_FINGERMOTION, 80, 150 ) }, { 80, touch( SDL_FINGERUP, 80, 150 ) } }; steps.insert( steps.end(), close.begin(), close.end() ); run( steps );
++    if ( lastHotkeySaved ) throw std::runtime_error( "Hotkeys button drag applied a binding" );
++    steps = { { 180, touch( SDL_FINGERDOWN, 80, 202 ) }, { 80, touch( SDL_FINGERUP, 10, 10 ) } }; steps.insert( steps.end(), close.begin(), close.end() ); run( steps );
++    if ( lastHotkeySaved ) throw std::runtime_error( "Hotkeys outside release applied a binding" );
++    steps = { { 180, touch( SDL_FINGERDOWN, 160, 84 ) }, { 80, touch( SDL_FINGERUP, 160, 84 ) },
++              { 80, touch( SDL_FINGERDOWN, 80, 202 ) }, { 80, touch( SDL_FINGERUP, 80, 202 ) },
++              { 80, touch( SDL_FINGERDOWN, 230, 202 ) }, { 80, touch( SDL_FINGERUP, 230, 202 ) } }; steps.insert( steps.end(), close.begin(), close.end() ); run( steps );
++    if ( lastHotkeySaved || lastHotkeySelection != 1 || Game::getHotKeyForEvent( first ) != Key::NONE ) throw std::runtime_error( "Hotkeys touch selection/cancel failed" );
++    Settings::Get().setInterfaceType( InterfaceType::EVIL ); run( keys( { a, back, back } ) );
++    if ( lastHotkeySaved ) throw std::runtime_error( "Evil hotkeys cancel saved bindings" );
++    COUT( "3DS HOTKEYS SMOKE: PASS original_entry full_command_key_lists controller_pages stylus_scroll select_confirm_cancel none_binding save_reload drag_outside evil frame_hud_viewport_input_restored" )
 +}
 +
 +void Interface3DS::testBattleSettings()
@@ -8629,10 +8894,10 @@ index 0000000..a42c594
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..2a914eb
+index 0000000..19db894
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,150 @@
+@@ -0,0 +1,152 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -8747,6 +9012,8 @@ index 0000000..2a914eb
 +    enum class BattleSettingsPage { General, Interface, Audio };
 +    BattleSettingsAction showBattleSettings( bool & changed, BattleSettingsPage page = BattleSettingsPage::General, bool turnOrderInside = false, bool fromAdventureMap = false );
 +    void testBattleSettings();
++    void showHotkeys();
++    void testHotkeys();
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
 +                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );
 +    void showBattleArtifact( const Artifact & artifact, const std::string & message );

@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.80** adds native audio settings with original icons/help, direct volume adjustment and original music/spatial audio behavior.
+Local development **0.3.81** adds a native touchscreen hotkey editor with full command/key lists, explicit confirmation/cancel and original binding storage.
 
 ## Current preview
 

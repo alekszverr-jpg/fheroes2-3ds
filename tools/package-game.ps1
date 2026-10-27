@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.80'
+$version = '0.3.81'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    native_hotkeys='0.3.81: original command/key lists in native Good/Evil frames, upper full event/category/key, lower scrolling selection and explicit confirm/cancel/None, glyph-centred buttons, original Game hotkey persistence plus explicit NONE token for cleared bindings; fixed physical 3DS mappings unchanged'
+    validation_native_hotkeys='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; original entry, selection/cancel/unbind/save/reload/scroll/gestures/themes and battle tree/HUD restoration; ARM/desktop seven files/infrastructure 28 groups 44 markers/patch/package; Full not run, hardware pending'
     native_audio_settings='0.3.80: four original-icon rows and separate values below, full help above, Good/Evil; original entry for all callers, volume 0-10 and valid-audio guard, original source/expansion cycle, AudioManager/Music/Mixer/environment callbacks; original parent saving retained'
     validation_native_audio_settings='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; volume/source/spatial/controller/gesture/theme and original entry/real parent-child HUD checks; ARM/desktop/infrastructure 28 groups 43 markers/patch/package; emulator audio unavailable, volume guard tested; active mixer/audible hardware quality pending; Full not run'
     battle_interface_examples='0.3.79: independent original-artwork scene for selected grid/shadow/damage/turn-order setting, full scrollable help below; live arena untouched, existing list and controls preserved'

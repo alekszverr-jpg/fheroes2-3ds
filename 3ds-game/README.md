@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.81: native hotkey editor
+
+The original 3DS hotkey entry now opens a native Good/Evil two-screen interface. Commands and assignments form a scrollable lower list; the full category, event and key are shown above. All events supplied by the original engine are included, with the original editor-availability filter. A separate touchscreen list exposes all original Key values, including an explicit None entry to remove a binding.
+
+D-pad Up/Down selects, Left/Right moves five rows; stylus tap selects and dragging scrolls. A/Okay opens key selection; confirming again applies the candidate, while cancelling restores the prior binding. Drag/outside-release never activates a button. Button labels are glyph-centred. Original Game::setHotKeyForEvent/HotKeySave and fheroes2.key storage are retained; cleared 3DS bindings use an explicit NONE token instead of SDL’s empty key name. Native modal navigation remains independent of the edited keyboard bindings. This edits original engine keyboard commands; fixed physical 3DS button/touch-panel mappings are unchanged.
+
+Validation: BattleDialogs New/Old Russian and New English; BattleIntegration New/Old Russian. Original entry, navigation/scroll, selection/confirmation/cancel/unbind, save/reload, gestures, themes, frame/HUD/input restoration and actual battle settings transitions are covered. ARM build, seven-file desktop syntax, infrastructure 28 groups/44 markers, clean patch and package identity passed. Full was not run; hardware readability/comfort remain pending.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check lists, key selection/cancellation, persistence after restart and returning to battle. This retains engine keyboard assignments rather than adding a physical 3DS button profile.
+
 ## Preview 0.3.80: native audio settings
 
 The original audio entry now opens a full-screen native 3DS panel: four original-icon rows with a separate value column below, and the selected value/full help above. Good/Evil styling, fixed Close, drag/outside-release cancellation and screen restoration are retained.
