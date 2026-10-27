@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.77: native battle interface options
+
+The battle interface submenu now uses the same native Good/Evil settings shell: six lower cards in a 2x3 grid, original option artwork and visible values, fixed Close, with focused explanations above. It includes turn order, grid, damage information, movement shadow, cursor shadow and movement-area highlighting. The movement-area icon reuses the original Hydra, hex shadow and cursor composition. Full wrapped card labels and proportionally fitted icons remain inside their controls.
+
+The original setting APIs and turn-order cycle are preserved: Off/Top/Bottom normally, with Bottom skipped when the turn order is rendered inside the battlefield. D-pad follows the grid, A activates; stylus drag/outside release cancels the toggle and can scroll help. The existing outer settings loop still saves configuration once; returning to battle uses the original ground/turn-order redraw path. Main battle settings behavior is covered alongside the new page. Audio/hotkey child windows remain original.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian. Tests cover all six toggles, the complete turn-order cycle and inside-window restriction, grid controller navigation, drag/outside release, cancel, Good/Evil and restored settings/frame/HUD/input. Real Arena opens the parent and child menus, changes grid/turn order, checks the changed ground image and restored input/HUD, then restores the fixture/configuration. ARM build, desktop syntax, infrastructure, clean patch and exact package checks included; Full was not run. New 3DS XL readability, real highlights/turn order and persistent settings still need hardware verification.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check all six values and their effect after returning to battle, controller/stylus, reopening the menu and saved values after restarting. Next: native audio settings, then hotkeys.
+
 ## Preview 0.3.76: native battle settings menu
 
 The main battle settings menu now uses both native screens and the accepted Good/Evil frames. Five wide lower buttons show speed, interface settings, auto spellcasting, audio and hotkeys, plus a fixed Close button. Original CSPANEL/SPANEL/GAME_OPTION_ICON artwork is fitted proportionally. The upper screen explains the focused item with its original help text and scroll bar when necessary. Empty button centres are extended before drawing labels so the 200-pixel limit of the general button builder does not truncate the native layout.
