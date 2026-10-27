@@ -4082,10 +4082,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..582d9bb
+index 0000000..6f5df87
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,681 @@
+@@ -0,0 +1,731 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4491,17 +4491,63 @@ index 0000000..582d9bb
 +        Image fitted( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
 +        fitted.reset(); Resize( icon, fitted ); Blit( fitted, output, area.x + ( area.width - fitted.width() ) / 2, area.y + ( area.height - fitted.height() ) / 2 );
 +    };
++    // A fixed illustration: settings never mutate a live arena to build the preview.
++    const auto drawExample = [&]( Image & output ) {
++        Image example( 284, 84 );
++        const auto & ground = Assets::getImage( ICN::CBKGGRTR, 0 );
++        Copy( ground, 100, 250, example, 0, 0, example.width(), example.height() );
++        Image grid = Assets::getImage( ICN::CMBTMISC, 0 );
++        ReplaceColorId( grid, 0, GetColorId( 104, 140, 4 ) );
++        Image shadow( Battle::Cell::widthPx, Battle::Cell::heightPx ); shadow.reset();
++        Rect area{ 2, 12, Battle::Cell::widthPx - 3, 30 };
++        for ( int i = 0; i < Battle::Cell::widthPx / 2; i += 2 ) {
++            for ( int x = 0; x < area.width; ++x ) for ( int y = 0; y < area.height; ++y ) SetTransformPixel( shadow, area.x + x, area.y + y, 2 );
++            --area.y; area.height += 2; area.x += i == 0 ? 1 : 2; area.width -= i == 0 ? 2 : 4;
++        }
++        // Show only the selected effect, so each On/Off comparison is unambiguous.
++        for ( int column = 0; column < 6; ++column ) {
++            const int x = 10 + column * Battle::Cell::widthPx;
++            if ( enabled( selected ) && ( ( selected == 3 && column > 0 && column < 4 ) || ( selected == 4 && column == 4 )
++                                          || ( selected == 5 && column < 4 ) ) ) Blit( shadow, example, x, 24 );
++            if ( selected == 1 && enabled( selected ) ) Blit( grid, example, x, 25 );
++        }
++        drawIcon( Assets::getImage( ICN::MONS32, 1 ), example, { 13, 37, 36, 38 } );
++        drawIcon( Assets::getImage( ICN::MONS32, 14 ), example, { 233, 37, 36, 38 } );
++        if ( selected == 0 && enabled( selected ) ) {
++            const int y = conf.getBattleTurnOrderState() == BattleTurnOrderState::BOTTOM && !turnOrderInside ? 62 : 2;
++            Fill( example, 80, y, 124, 20, GetColorId( 45, 36, 24 ) );
++            for ( int i = 0; i < 4; ++i ) {
++                drawIcon( Assets::getImage( ICN::MONS32, i % 2 ? 14 : 1 ), example, { 82 + i * 30, y + 1, 28, 18 } );
++                DrawRect( example, { 81 + i * 30, y, 30, 20 }, GetColorId( 170, 140, 76 ) );
++            }
++        }
++        if ( selected == 2 && enabled( selected ) ) {
++            std::string damage = _( "Damage: %{min} - %{max}" );
++            StringReplace( damage, "%{min}", "12" ); StringReplace( damage, "%{max}", "18" );
++            std::string perish = _( "Perish: %{max}" ); StringReplace( perish, "%{max}", "2" );
++            Fill( example, 78, 6, 144, 34, GetColorId( 45, 36, 24 ) );
++            DrawRect( example, { 78, 6, 144, 34 }, GetColorId( 170, 140, 76 ) );
++            Text( damage, FontType::smallWhite() ).draw( 81, 10, 138, example );
++            Text( perish, FontType::smallWhite() ).draw( 81, 23, 138, example );
++        }
++        if ( selected == 4 ) drawIcon( Assets::getImage( ICN::ADVMCO, 0 ), example, { 201, 48, 20, 24 } );
++        Copy( example, 0, 0, output, 58, 56, 284, 84 );
++    };
 +    const auto draw = [&]() {
 +        top = topBackground; bottom = bottomBackground;
 +        Text title( valueLabel( selected ), FontType::normalYellow() );
 +        if ( title.height( 352 ) > 34 ) title.set( valueLabel( selected ), FontType::smallYellow() );
 +        title.drawInRoi( 24, 20, 352, top, { 24, 20, 352, 34 } );
++        const bool exampleVisible = interfaceOptions && selected < settingCount;
++        const int helpWidth = exampleVisible ? 344 : 284, helpHeight = exampleVisible ? 62 : 146;
++        const int helpX = exampleVisible ? 28 : 88, helpY = exampleVisible ? 146 : 58;
 +        const Text help( descriptions[selected], FontType::normalWhite() );
-+        Image content( 284, std::max<int32_t>( 146, help.height( 284 ) ) ); fillClassicPanelPaper( content, evil );
-+        help.draw( 0, 0, 284, content ); maximum = std::max<int32_t>( 0, content.height() - 146 ); scroll = std::clamp( scroll, 0, maximum );
-+        Copy( content, 0, scroll, top, 88, 58, 284, 146 );
-+        if ( selected < settingCount ) drawIcon( iconFor( selected ), top, { 24, 60, 56, 56 } );
-+        drawPanelScrollBar( top, { 377, 58, 5, 146 }, scroll, 146, content.height(), evil );
++        Image content( helpWidth, std::max<int32_t>( helpHeight, help.height( helpWidth ) ) ); fillClassicPanelPaper( content, evil );
++        help.draw( 0, 0, helpWidth, content ); maximum = std::max<int32_t>( 0, content.height() - helpHeight ); scroll = std::clamp( scroll, 0, maximum );
++        Copy( content, 0, scroll, top, helpX, helpY, helpWidth, helpHeight );
++        if ( exampleVisible ) drawExample( top );
++        else if ( selected < settingCount ) drawIcon( iconFor( selected ), top, { 24, 60, 56, 56 } );
++        drawPanelScrollBar( top, { 377, helpY, 5, helpHeight }, scroll, helpHeight, content.height(), evil );
 +        Text( interfaceOptions ? _( "Interface Settings" ) : _( "Settings" ), FontType::normalYellow() ).draw( 24, 20, 272, bottom );
 +        for ( int i = 0; i <= settingCount; ++i ) {
 +            Sprite released, held; makeButtonSprites( released, held, "", { areas[i].width - 12, areas[i].height }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
@@ -4588,6 +4634,10 @@ index 0000000..582d9bb
 +    if ( Platform3DS::smokeTest() ) {
 +        draw(); const std::string prefix = interfaceOptions ? ( evil ? "battle-interface-evil" : selected == 1 ? "battle-interface-grid" : "battle-interface" )
 +            : evil ? "battle-settings-evil" : selected == 2 ? "battle-settings-auto" : "battle-settings";
++        if ( interfaceOptions && selected < settingCount && !evil ) {
++            const std::string exampleName = "sdmc:/3ds/fheroes2/battle-example-" + std::to_string( selected ) + ( enabled( selected ) ? "-on.bmp" : "-off.bmp" );
++            if ( !Save( top, exampleName ) ) throw std::runtime_error( "Cannot capture battle setting example" );
++        }
 +        if ( !Save( top, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture battle settings" );
 +    }
 +    return result;

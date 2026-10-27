@@ -1,4 +1,12 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.78
+# fheroes2 for Nintendo 3DS — preview 0.3.79
+
+## Preview 0.3.79: illustrated battle settings
+
+The upper screen now has a separate demonstration scene built from original resources: battlefield, creatures, grid, shadows, damage information and turn-order placement. It illustrates only the selected effect at its current value without modifying a live arena. Full original help remains underneath in normal text with scrolling when needed. The lower list, controls and original setting behavior are preserved.
+
+Validation: ARM build; bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian; desktop syntax, infrastructure, clean patch and package identity. Captures cover all six effects and On/Off grid and turn-order comparisons. Full was not run; hardware readability remains pending. Audio and hotkey transfer remain queued.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check example/help readability and all six toggles on New 3DS XL.
 
 ## Preview 0.3.78: battle interface settings as a list
 
