@@ -1,5 +1,13 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.75: flush battle footer
+
+The original 20/17-pixel text plates now meet directly and share the bottom edge, removing the uncovered dark row between them. Native glyphs remain centered inside each plate. Auto/Settings form a compact bottom-aligned stack; Skip also touches the bottom. Original artwork proportions are retained, so the three parts have different visible heights. Unused HUD areas are transparent and show the battlefield instead of a solid brown canvas; the renderer bounds its field sampling at the screen edge. Hover/pressed outlines follow the actual artwork. The left touch split follows the new stack through a shared native boundary; the field viewport remains 200 pixels high.
+
+Validation: bounded BattleIntegration New/Old Russian and New English, Engine New/Old and BattleLog New Russian. Includes the left-button boundary, transparent framebuffer composition, real Arena mapping/skip/drag/hold/journal/dialog restoration, engine input/render checks and long/short/pressed captures. ARM build, desktop syntax, infrastructure, clean patch and package identity checks included; Full was not run. Physical readability and edge taps remain pending on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check the joined text background, bottom alignment, tapping Auto/Settings near their boundary, Skip and opening the journal.
+
 ## Preview 0.3.74: compact original-style battle footer
 
 The battle footer retains its 40-pixel height and 200-pixel field viewport. Original TEXTBAR scroll ornaments and central paper are copied at their native pixel sizes into a background prepared once per Status instance. The message area reserves both ornaments; short messages use the normal font, with a small-font/ellipsis fallback for long ones. Labels are centered by visible glyph bounds. Complete upper battle messages remain in the journal. Original Auto/Settings/Skip artwork is fitted proportionally into the existing touch cells, with pressed/hover feedback.
