@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.75'
+$version = '0.3.76'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    native_battle_settings='0.3.76: Good/Evil two-screen main settings, wide inset original-icon buttons and upper focused help/scroll; original speed cycle/update, auto spells, child action dispatch and outer save-once contract; child interface/audio/hotkeys layouts remain original'
+    validation_native_battle_settings='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; bounded monitored speed/cycle/minimum, toggle, controller, child dispatch, cancel/save flag, drag/outside, theme and frame/HUD/viewport/input restoration; ARM/two-file desktop/infrastructure/patch/package; Full not run, hardware/persistence/real child windows pending'
     battle_footer_flush='0.3.75: original 20/17px text plates joined flush at bottom, glyphs centered per plate, proportional Auto/Settings stack and Skip bottom-aligned, artwork-sized feedback, shared native left-button touch split, transparent unused HUD pixels revealing bounded battlefield underlay; 200px field viewport retained'
     validation_battle_footer_flush='BattleIntegration New/Old ru and New en; Engine New/Old; BattleLog New ru; bounded monitored boundary/input/render/transparent composition/Arena restoration checks, long/short/pressed captures; ARM/desktop/infrastructure/patch/package; Full not run, hardware pending'
     battle_footer_style='0.3.74: cached original-pixel TEXTBAR scroll ends/paper, dedicated ornament margins, normal-font short status and small/ellipsis long fallback, glyph-centered labels, proportional original Auto/Settings/Skip with feedback; existing 40px footer/200px viewport and touch cells retained'

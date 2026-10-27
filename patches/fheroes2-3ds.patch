@@ -586,7 +586,7 @@ index e3d7171..8773662 100644
      correctedPath.clear();
  
 diff --git a/src/fheroes2/battle/battle_dialogs.cpp b/src/fheroes2/battle/battle_dialogs.cpp
-index c336081..3eb8688 100644
+index c336081..4d7b0cc 100644
 --- a/src/fheroes2/battle/battle_dialogs.cpp
 +++ b/src/fheroes2/battle/battle_dialogs.cpp
 @@ -29,6 +29,10 @@
@@ -624,7 +624,41 @@ index c336081..3eb8688 100644
      void setupAnimation( fheroes2::Display & display, const fheroes2::Rect & animationRoi, LoopedAnimationSequence & sequence )
      {
          sequence.push( ICN::WINCMBT, true ); // needs specific for battle summary
-@@ -482,6 +503,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -212,6 +233,7 @@ namespace
+         Close
+     };
+ 
++#if !defined( __3DS__ )
+     const fheroes2::Rect speedRoi{ fheroes2::threeOptionsOffsetX, fheroes2::optionsOffsetY, fheroes2::optionIconSize, fheroes2::optionIconSize };
+     const fheroes2::Rect interfaceRoi{ fheroes2::threeOptionsOffsetX + fheroes2::threeOptionsStepX, fheroes2::optionsOffsetY, fheroes2::optionIconSize,
+                                        fheroes2::optionIconSize };
+@@ -257,8 +279,17 @@ namespace
+                               fheroes2::UiOptionTextWidth::THREE_ELEMENTS_ROW );
+     }
+ 
++#endif
+     DialogAction openBattleOptionDialog( bool & saveConfiguration )
+     {
++#if defined( __3DS__ )
++        switch ( Interface3DS::showBattleSettings( saveConfiguration ) ) {
++        case Interface3DS::BattleSettingsAction::Interface: return DialogAction::InterfaceSettings;
++        case Interface3DS::BattleSettingsAction::Audio: return DialogAction::AudioSettings;
++        case Interface3DS::BattleSettingsAction::HotKeys: return DialogAction::HotKeys;
++        default: return DialogAction::Close;
++        }
++#else
+         fheroes2::Display & display = fheroes2::Display::instance();
+ 
+         // Set the cursor image. This dialog is called from the battlefield and does not require a cursor restorer.
+@@ -369,6 +400,7 @@ namespace
+         }
+ 
+         return DialogAction::Close;
++#endif
+     }
+ }
+ 
+@@ -482,6 +514,7 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
          return false;
      }
  
@@ -632,7 +666,7 @@ index c336081..3eb8688 100644
      fheroes2::Display & display = fheroes2::Display::instance();
  
      // Set the cursor image. After this dialog the Game Area or the Battlefield will be shown, so it does not require a cursor restorer.
-@@ -498,6 +520,8 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -498,6 +531,8 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
      const fheroes2::Rect animationRoi( roi.x + ( ( roi.width - animationBorderRoi.width ) / 2 ) + 4, roi.y + 21, animationBorderRoi.width, animationBorderRoi.height );
      Copy( originalBorderImage, animationBorderRoi.x, animationBorderRoi.y, display, animationRoi.x - 4, animationRoi.y - 4, animationRoi.width, animationRoi.height );
  
@@ -641,7 +675,7 @@ index c336081..3eb8688 100644
      // Setup summary texts according to results and get the corresponding animation sequence.
      std::string surrenderText;
      std::string outcomeText;
-@@ -533,6 +557,30 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -533,6 +568,30 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
          sequence.push( ICN::UNKNOWN, false );
      }
  
@@ -672,7 +706,7 @@ index c336081..3eb8688 100644
      setupAnimation( display, animationRoi, sequence );
  
      const fheroes2::Rect summaryRoi( roi.x + 11, roi.y + bsTextYOffset, roi.width - 22, roi.height - bsTextYOffset );
-@@ -781,10 +829,18 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
+@@ -781,10 +840,18 @@ bool Battle::Arena::DialogBattleSummary( const Result & res, const std::vector<A
          }
      }
      return false;
@@ -691,7 +725,7 @@ index c336081..3eb8688 100644
      // Set the cursor image. This dialog does not require a cursor restorer.
      Cursor::Get().SetThemes( Cursor::POINTER );
  
-@@ -861,6 +917,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
+@@ -861,6 +928,18 @@ int Battle::Arena::DialogBattleHero( HeroBase & hero, const bool buttons, Status
  
      const PlayerColor currentColor = GetCurrentColor();
      const bool readonly = ( currentColor != hero.GetColor() || !buttons );
@@ -710,7 +744,7 @@ index c336081..3eb8688 100644
      const fheroes2::Sprite & dialog = Assets::getImage( ( conf.isEvilInterfaceEnabled() ? ICN::VGENBKGE : ICN::VGENBKG ), 0 );
  
      const fheroes2::Point dialogShadow( 15, 15 );
-@@ -1093,6 +1161,10 @@ bool Battle::DialogBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdo
+@@ -1093,6 +1172,10 @@ bool Battle::DialogBattleSurrender( const HeroBase & hero, uint32_t cost, Kingdo
          return false;
      }
  
@@ -2181,7 +2215,7 @@ index ce25e88..a5efbc9 100644
          catch ( const fheroes2::InvalidDataResources & ex ) {
              ERROR_LOG( ex.what() )
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..b6f7d07 100644
+index 69d39fb..ddcab3e 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2318,7 +2352,7 @@ index 69d39fb..b6f7d07 100644
 +        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
-+        runGroup( "BattleDialogs", []() { Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
++        runGroup( "BattleDialogs", []() { Interface3DS::testBattleSettings(); Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
 +        runGroup( "CastleBuildings", []() { Interface3DS::testCastleBuildings(); } );
 +        runGroup( "CastleArmy", []() { Interface3DS::testCastleArmy(); } );
 +        runGroup( "CastleScreen", []() { Interface3DS::testCastleScreen(); } );
@@ -3979,10 +4013,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..b81244e
+index 0000000..0596a04
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,385 @@
+@@ -0,0 +1,569 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4001,6 +4035,7 @@ index 0000000..b81244e
 +#include "cursor.h"
 +#include "dialog.h"
 +#include "game_assets.h"
++#include "game.h"
 +#include "heroes.h"
 +#include "heroes_base.h"
 +#include "icn.h"
@@ -4290,6 +4325,189 @@ index 0000000..b81244e
 +        // Leave the native image layer before opening the original marketplace; then refresh funds and availability.
 +        Dialog::Marketplace( kingdom, false );
 +    }
++}
++
++Interface3DS::BattleSettingsAction Interface3DS::showBattleSettings( bool & changed )
++{
++    using namespace fheroes2;
++    const CursorRestorer hideCursor( false );
++    auto & conf = Settings::Get(); const bool evil = conf.isEvilInterfaceEnabled();
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
++    const std::array<std::string, 6> labels{ _( "battleAnimation|Speed" ), _( "Interface Settings" ), _( "Auto Spell Casting" ), _( "Audio" ), _( "Hot Keys" ), _( "Close" ) };
++    const std::array<std::string, 6> descriptions{
++        _( "Set the speed of combat actions and animations." ), _( "Change the interface settings of the game." ),
++        _( "Toggle whether or not the computer will cast spells for you when auto combat is on. (Note: This does not affect spell casting for computer players in any way, nor does it affect quick combat.)" ),
++        _( "Change the audio settings of the game." ), _( "Check and configure all the hot keys present in the game." ), _( "Exit this menu." ) };
++    std::array<Rect, 6> areas;
++    for ( int i = 0; i < 5; ++i ) areas[i] = { 24, 40 + i * 28, 272, 25 };
++    areas[5] = { 96, 190, 128, 25 };
++    const auto hit = [&]( int index ) { return Rect{ areas[index].x + 1, areas[index].y, areas[index].width - 2, areas[index].height }; };
++    const auto extendButton = []( Sprite & source, int width ) {
++        if ( source.width() == width ) return;
++        Sprite output; output.resize( width, source.height() ); output.reset();
++        const int half = source.width() / 2, extra = width - source.width();
++        Copy( source, 0, 0, output, 0, 0, half, source.height() );
++        for ( int x = 0; x < extra; x += 8 ) Copy( source, half - 4, 0, output, half + x, 0, std::min( 8, extra - x ), source.height() );
++        Copy( source, half, 0, output, half + extra, 0, source.width() - half, source.height() );
++        source = std::move( output );
++    };
++    const ReportScope scope( top, bottom );
++    int selected = 0, pressed = -1, scroll = 0, maximum = 0;
++    bool down = false, moved = false, closed = false; Point start, last;
++    BattleSettingsAction result = BattleSettingsAction::Close;
++    const auto valueLabel = [&]( int index ) {
++        if ( index == 0 ) return labels[index] + ": " + std::to_string( conf.BattleSpeed() );
++        if ( index == 2 ) return labels[index] + ": " + ( conf.BattleAutoSpellcast() ? _( "On" ) : _( "Off" ) );
++        return labels[index];
++    };
++    const auto iconFor = [&]( int index ) -> const Sprite & {
++        if ( index == 0 ) return Assets::getImage( ICN::CSPANEL, conf.BattleSpeed() >= 8 ? 2 : conf.BattleSpeed() >= 5 ? 1 : 0 );
++        if ( index == 1 ) return Assets::getImage( ICN::SPANEL, evil ? 17 : 16 );
++        if ( index == 2 ) return Assets::getImage( ICN::CSPANEL, conf.BattleAutoSpellcast() ? 7 : 6 );
++        return Assets::getImage( index == 3 ? ICN::SPANEL : ICN::GAME_OPTION_ICON, index == 3 ? 1 : 0 );
++    };
++    const auto drawIcon = []( const Sprite & icon, Image & output, const Rect & area ) {
++        const double scale = std::min( double( area.width ) / icon.width(), double( area.height ) / icon.height() );
++        Image fitted( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) );
++        fitted.reset(); Resize( icon, fitted ); Blit( fitted, output, area.x + ( area.width - fitted.width() ) / 2, area.y + ( area.height - fitted.height() ) / 2 );
++    };
++    const auto draw = [&]() {
++        top = topBackground; bottom = bottomBackground;
++        Text title( valueLabel( selected ), FontType::normalYellow() );
++        if ( title.height( 352 ) > 34 ) title.set( valueLabel( selected ), FontType::smallYellow() );
++        title.drawInRoi( 24, 20, 352, top, { 24, 20, 352, 34 } );
++        const Text help( descriptions[selected], FontType::normalWhite() );
++        Image content( 284, std::max<int32_t>( 146, help.height( 284 ) ) ); fillClassicPanelPaper( content, evil );
++        help.draw( 0, 0, 284, content ); maximum = std::max<int32_t>( 0, content.height() - 146 ); scroll = std::clamp( scroll, 0, maximum );
++        Copy( content, 0, scroll, top, 88, 58, 284, 146 );
++        if ( selected < 5 ) drawIcon( iconFor( selected ), top, { 24, 60, 56, 56 } );
++        drawPanelScrollBar( top, { 377, 58, 5, 146 }, scroll, 146, content.height(), evil );
++        Text( _( "Settings" ), FontType::normalYellow() ).draw( 24, 20, 272, bottom );
++        for ( int i = 0; i < 6; ++i ) {
++            Sprite released, held; makeButtonSprites( released, held, "", { areas[i].width - 12, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++            // The general button builder caps widths at 200 pixels. Extend only
++            // its empty centre before drawing labels, retaining the native bevels.
++            extendButton( released, areas[i].width - 2 ); extendButton( held, areas[i].width - 2 );
++            const int textX = i < 5 ? 28 : 4, textWidth = released.width() - textX - 4;
++            Text label( valueLabel( i ), FontType::normalWhite() );
++            if ( label.width() > textWidth ) label.set( valueLabel( i ), FontType::smallWhite() );
++            label.fitToOneRow( textWidth );
++            const auto bounds = label.area();
++            label.draw( textX + ( textWidth - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
++            label.draw( textX + ( textWidth - bounds.width ) / 2 - bounds.x - 1, ( held.height() - bounds.height ) / 2 - bounds.y + 1, held );
++            if ( i < 5 ) { drawIcon( iconFor( i ), released, { 5, 3, 20, 19 } ); drawIcon( iconFor( i ), held, { 4, 4, 20, 19 } ); }
++            Blit( down && !moved && pressed == i ? held : released, bottom, areas[i].x + 1, areas[i].y );
++            if ( selected == i ) Fill( bottom, areas[i].x + 1, areas[i].y - 2, areas[i].width - 2, 1, GetColorId( 255, 225, 96 ) );
++        }
++        Display::instance().render();
++    };
++    const auto setSpeed = [&]( int value ) {
++        const int before = conf.BattleSpeed(); conf.SetBattleSpeed( value );
++        if ( before != conf.BattleSpeed() ) { changed = true; Game::UpdateGameSpeed(); }
++    };
++    const auto activate = [&]( int index ) {
++        if ( index == 0 ) setSpeed( conf.BattleSpeed() % 10 + 1 );
++        else if ( index == 2 ) { conf.setBattleAutoSpellcast( !conf.BattleAutoSpellcast() ); changed = true; }
++        else { result = index == 1 ? BattleSettingsAction::Interface : index == 3 ? BattleSettingsAction::Audio : index == 4 ? BattleSettingsAction::HotKeys : BattleSettingsAction::Close; closed = true; }
++    };
++    draw();
++    auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input; bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                if ( input.key == PanelKey::Cancel || input.key == PanelKey::Information || input.key == PanelKey::Toggle ) closed = true;
++                else if ( input.key == PanelKey::Confirm ) activate( selected );
++                else if ( input.key == PanelKey::Up || input.key == PanelKey::Down ) { selected = std::clamp( selected + ( input.key == PanelKey::Up ? -1 : 1 ), 0, 5 ); scroll = 0; down = false; pressed = -1; }
++                else if ( input.key == PanelKey::Left || input.key == PanelKey::Right ) {
++                    const int direction = input.key == PanelKey::Left ? -1 : 1;
++                    if ( selected == 0 ) setSpeed( std::clamp( conf.BattleSpeed() + direction, 1, 10 ) ); else scroll = std::clamp( scroll + direction * 32, 0, maximum );
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                down = true; moved = false; start = last = input.position; pressed = -1;
++                for ( int i = 0; i < 6; ++i ) if ( hit( i ) & start ) { pressed = i; if ( selected != i ) scroll = 0; selected = i; break; }
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && pressed != 5 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, maximum );
++                last = input.position;
++            }
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( hit( pressed ) & input.position ) ) activate( pressed );
++                down = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    if ( Platform3DS::smokeTest() ) {
++        draw(); const std::string prefix = evil ? "battle-settings-evil" : selected == 2 ? "battle-settings-auto" : "battle-settings";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/" + prefix + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + prefix + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture battle settings" );
++    }
++    return result;
++}
++
++void Interface3DS::testBattleSettings()
++{
++    using namespace fheroes2;
++    using Step = std::pair<uint32_t, SDL_Event>;
++    auto & conf = Settings::Get();
++    struct Restore {
++        int speed; bool spell; InterfaceType theme;
++        ~Restore() { auto & settings = Settings::Get(); settings.SetBattleSpeed( speed ); settings.setBattleAutoSpellcast( spell ); settings.setInterfaceType( theme ); Game::UpdateGameSpeed(); }
++    } restore{ conf.BattleSpeed(), conf.BattleAutoSpellcast(), conf.getInterfaceType() };
++    const auto key = []( int code, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = code; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto cancel = [&]() { return std::vector<Step>{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } }; };
++    const auto tap = [&]( int index, bool close ) {
++        const int y = index == 5 ? 202 : 52 + index * 28;
++        std::vector<Step> steps{ { 180, touch( SDL_FINGERDOWN, 160, y ) }, { 80, touch( SDL_FINGERUP, 160, y ) } };
++        if ( close ) { const auto end = cancel(); steps.insert( steps.end(), end.begin(), end.end() ); } return steps;
++    };
++    const auto run = [&]( std::vector<Step> steps, bool & changed ) {
++        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage();
++        Image before; Copy( display, before );
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "battle-settings", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start battle settings input" );
++        int status = 0; BattleSettingsAction result;
++        try { result = showBattleSettings( changed ); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
++        if ( status || Platform3DS::hasModalImages() || Platform3DS::viewport() != crop || Platform3DS::battleHUDImage() != hud || Platform3DS::commandStripImage() != strip
++             || std::memcmp( before.image(), display.image(), before.width() * before.height() ) || events.MouseClickLeft() || events.isMouseRightButtonPressed() ) throw std::runtime_error( "Battle settings leaked frame/context/input" );
++        return result;
++    };
++    conf.SetBattleSpeed( 5 ); conf.setBattleAutoSpellcast( false ); Game::UpdateGameSpeed();
++    bool changed = false;
++    if ( run( tap( 0, true ), changed ) != BattleSettingsAction::Close || !changed || conf.BattleSpeed() != 6 ) throw std::runtime_error( "Battle speed touch differs" );
++    changed = false;
++    if ( run( tap( 2, true ), changed ) != BattleSettingsAction::Close || !changed || !conf.BattleAutoSpellcast() ) throw std::runtime_error( "Battle auto spell toggle differs" );
++    for ( int index : { 1, 3, 4, 5 } ) {
++        changed = false; const auto expected = index == 1 ? BattleSettingsAction::Interface : index == 3 ? BattleSettingsAction::Audio : index == 4 ? BattleSettingsAction::HotKeys : BattleSettingsAction::Close;
++        if ( run( tap( index, false ), changed ) != expected || changed ) throw std::runtime_error( "Battle settings child dispatch differs" );
++    }
++    const int speed = conf.BattleSpeed(); changed = false;
++    auto steps = std::vector<Step>{ { 180, touch( SDL_FINGERDOWN, 160, 52 ) }, { 80, touch( SDL_FINGERMOTION, 160, 100 ) }, { 80, touch( SDL_FINGERUP, 160, 100 ) } };
++    auto end = cancel(); steps.insert( steps.end(), end.begin(), end.end() );
++    if ( run( steps, changed ) != BattleSettingsAction::Close || changed || conf.BattleSpeed() != speed ) throw std::runtime_error( "Settings drag changed speed" );
++    steps = { { 180, touch( SDL_FINGERDOWN, 160, 52 ) }, { 80, touch( SDL_FINGERUP, 10, 10 ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    if ( run( steps, changed ) != BattleSettingsAction::Close || changed || conf.BattleSpeed() != speed ) throw std::runtime_error( "Settings outside release changed speed" );
++    conf.SetBattleSpeed( 1 ); Game::UpdateGameSpeed();
++    steps = { { 180, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    if ( run( steps, changed ) != BattleSettingsAction::Close || changed || conf.BattleSpeed() != 1 ) throw std::runtime_error( "Minimum battle speed differs" );
++    conf.SetBattleSpeed( 10 ); Game::UpdateGameSpeed();
++    if ( run( tap( 0, true ), changed ) != BattleSettingsAction::Close || !changed || conf.BattleSpeed() != 1 ) throw std::runtime_error( "Battle speed cycle differs" );
++    changed = false;
++    steps = { { 180, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++              { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
++              { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    if ( run( steps, changed ) != BattleSettingsAction::Close || !changed || conf.BattleAutoSpellcast() ) throw std::runtime_error( "Settings controller toggle differs" );
++    changed = true;
++    if ( run( cancel(), changed ) != BattleSettingsAction::Close || !changed ) throw std::runtime_error( "Settings lost caller save flag" );
++    conf.setInterfaceType( InterfaceType::EVIL ); changed = false;
++    if ( run( cancel(), changed ) != BattleSettingsAction::Close || changed ) throw std::runtime_error( "Evil settings cancel differs" );
++    COUT( "3DS BATTLE SETTINGS SMOKE: PASS native_frames touch_speed_cycle_minimum auto_spells child_dispatch unchanged_cancel caller_save_flag drag_outside evil frame_hud_viewport_input_restored" )
 +}
 +
 +void Interface3DS::testBattleOutcome()
@@ -8034,10 +8252,10 @@ index 0000000..a42c594
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..e68cb38
+index 0000000..be50301
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,149 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -8148,6 +8366,9 @@ index 0000000..e68cb38
 +    void testAdventureSpellBook();
 +    int showBattleHeroActions( const HeroBase & hero, bool cast, bool retreat, bool surrender, bool heroScreen = false );
 +    void testBattleHeroActions();
++    enum class BattleSettingsAction { Close, Interface, Audio, HotKeys };
++    BattleSettingsAction showBattleSettings( bool & changed );
++    void testBattleSettings();
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
 +                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );
 +    void showBattleArtifact( const Artifact & artifact, const std::string & message );

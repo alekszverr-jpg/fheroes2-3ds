@@ -1,5 +1,15 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.76: native battle settings menu
+
+The main battle settings menu now uses both native screens and the accepted Good/Evil frames. Five wide lower buttons show speed, interface settings, auto spellcasting, audio and hotkeys, plus a fixed Close button. Original CSPANEL/SPANEL/GAME_OPTION_ICON artwork is fitted proportionally. The upper screen explains the focused item with its original help text and scroll bar when necessary. Empty button centres are extended before drawing labels so the 200-pixel limit of the general button builder does not truncate the native layout.
+
+Speed uses the existing 1..10 cycle and Game::UpdateGameSpeed; Left/Right adjusts it at the limits. Auto spellcasting uses the original setting. Up/Down selects and A activates; L/B/Y closes. Stylus dragging scrolls long help and cancels activation; finger-up must stay inside the pressed control. The original outer settings loop still owns child dispatch and saving configuration once. Interface/audio/hotkey child windows retain their original layout for now. HUD routing remains suspended through the settings tree and is restored on return.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian. New checks cover speed touch/cycle/minimum, auto spellcasting, controller selection/confirmation, child action dispatch, cancel/save-flag semantics, drag/outside release, Good/Evil and frame/HUD/viewport/input restoration; settings are restored by the fixture. Actual Arena checks exercise opening/closing settings and restoring battle. ARM build, two-file desktop syntax, infrastructure, clean patch and exact package checks included; Full was not run. Real child dialogs, persistent settings and hardware readability remain pending on New 3DS XL.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check the battle settings button, speed and auto spells, controller/stylus, each child window and return to battle. Next: native battle interface options, then audio/hotkeys as separate small stages.
+
 ## Preview 0.3.75: flush battle footer
 
 The original 20/17-pixel text plates now meet directly and share the bottom edge, removing the uncovered dark row between them. Native glyphs remain centered inside each plate. Auto/Settings form a compact bottom-aligned stack; Skip also touches the bottom. Original artwork proportions are retained, so the three parts have different visible heights. Unused HUD areas are transparent and show the battlefield instead of a solid brown canvas; the renderer bounds its field sampling at the screen edge. Hover/pressed outlines follow the actual artwork. The left touch split follows the new stack through a shared native boundary; the field viewport remains 200 pixels high.

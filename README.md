@@ -6,7 +6,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 **[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.75** joins the battle status plates without a dark gap and bottom-aligns the proportional buttons with matching touch targets. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
+Local development **0.3.76** moves the main battle settings menu to both native screens, with original icons, wide touch controls and upper help; child settings windows remain original. [Details and validation](3ds-game/README.md). The published release remains 0.3.33.
 
 ## Current preview
 
