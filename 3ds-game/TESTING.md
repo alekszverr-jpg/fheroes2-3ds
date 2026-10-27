@@ -1,5 +1,15 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.82: native main configuration panel
+
+Main-menu configuration now uses full-screen Good/Evil panels on both 3DS screens. All seven entries (language, graphics, audio, hotkeys, cursor, interface theme and text support) fit below with a fixed Close button. Original icons, separate values and gold row focus are retained. The upper screen shows the full selected name/value, large original icon and original help with a scrollbar when needed.
+
+D-pad selects, A confirms and stylus release within the original row activates. Drag/outside release cancels; L/B/Y closes. The native selector returns an action to the original parent: cursor/theme/text changes, child dialogs and configuration saving remain owned by the existing flow. Reopening after a theme change refreshes frames and values. Audio/hotkeys use their native children; language and graphics still use their original child dialogs and remain separate next steps.
+
+Validation: short GameSettings New/Old Russian and New English, Startup New/Old Russian. Seven actions/Close, controller/touch, gesture cancellation, themes, actual parent toggles/save/reload/audio/hotkey transitions and frame/HUD/input restoration are covered. ARM build, eight-file desktop syntax, infrastructure 29 groups/45 markers, clean patch and package identity passed. Full was not run; hardware readability/comfort remain pending.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Open main-menu settings and check cursor/theme/text support, audio/hotkeys, gesture cancellation and persistence after restart.
+
 ## Preview 0.3.81: native hotkey editor
 
 The original 3DS hotkey entry now opens a native Good/Evil two-screen interface. Commands and assignments form a scrollable lower list; the full category, event and key are shown above. All events supplied by the original engine are included, with the original editor-availability filter. A separate touchscreen list exposes all original Key values, including an explicit None entry to remove a binding.
