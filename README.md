@@ -4,27 +4,30 @@
 
 A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-source Heroes of Might and Magic II engine.
 
-**[Download preview 0.3.33](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.33)** — use `fheroes2-menu-preview-0.3.33.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
+**[Download preview 0.3.82](https://github.com/alekszverr-jpg/fheroes2-3ds/releases/tag/v0.3.82)** — use `fheroes2-menu-preview-0.3.82.zip` for your SD card. The separate source ZIP contains the modified engine and dependency sources. Original Heroes II game data is required and is not included.
 
-Local development **0.3.82** adds a native main configuration panel with all seven original actions, current values/help, theme refresh and original parent saving.
+Preview **0.3.82** adds a native main configuration panel with all seven original actions, current values/help, theme refresh and original parent saving.
 
 ## Current preview
 
-Version **0.3.33** adds built-building selection through **castle → Y → Buildings**. Dwellings appear first, upgrades replace base entries, and the highest built Mage Guild level is shown. Selected buildings use the original castle action handlers. Updating from 0.3.32 requires both `3ds/fheroes2/fheroes2.3dsx` and `3ds/fheroes2/files/lang/ru.mo`; preserve your configuration and saves.
+Version **0.3.82** includes the accumulated dual-screen interface work since 0.3.33: native castle panels and experimental stereo town panoramas; original-style dialogs, creature animations, hero/army/spellbook/resource interfaces; redesigned battle controls/results/settings; native audio, hotkey and main configuration panels.
 
-New 3DS XL gameplay and overall operation through 0.3.32 have been reported working by the tester, without a complete scenario breakdown. The 0.3.33 selector passed short Azahar checks on New/Old in Russian and New in English; physical validation of 0.3.33 is pending. Physical Old 3DS support and long-session performance remain unverified.
+The latest build passed short GameSettings checks on New/Old in Russian and New in English, plus Startup checks on both models. Earlier iterations have their own affected-group results in the linked history; a monolithic Full run was not performed for this release. New 3DS XL feedback covers earlier stages; the latest panels, physical Old 3DS support and long-session performance still require hardware validation.
+
+When updating from 0.3.33, use the new application and bundled files from the release ZIP, preserving your configuration, hotkey file and saves.
 
 ## Features
 
-- Top-screen overview of an 800×480 game frame, with standard 400×240 or high-resolution 800×240 **2D** output. R + Start switches and saves the preference; Old 2DS uses standard output. Local 0.3.35 adds experimental stereo for the town panorama only; stereo temporarily replaces wide output and does not alter the saved 2D preference.
+- Top-screen overview of an 800×480 game frame, with standard 400×240 or high-resolution 800×240 **2D** output. R + Start switches and saves the preference; Old 2DS uses standard output. Experimental stereo is available for the town panorama only; stereo temporarily replaces wide output and does not alter the saved 2D preference.
 - Cursor-following touchscreen detail, Circle Pad cursor, D-pad adventure-map scrolling, taps and held stylus information.
 - Original adventure command strip and contextual combat hero panel on Y; native battle controls, scrollable log, results, surrender and necromancy dialogs.
 - Touchscreen chest and level-up choices, animated creature recruitment, troop splitting and army information cards.
 - Hero army/artifact/skill tabs and original spellbook artwork adapted for combat and adventure spell selection.
+- Native main configuration, battle settings, audio controls and touchscreen editing of engine keyboard assignments.
 - Native marketplace and resource gifts, retaining original eligibility, exchange rates and caller-side game actions.
 - Dual-screen construction confirmation/catalog, hero recruitment and castle options; Y garrison/visiting-hero army panel with original transfer rules and built-building selection.
 
-Some specialized windows and the main castle scene retain their original layout. Detailed [preview history and limitations](3ds-game/README.md), [installation and controls](3ds-game/INSTALL.md), and [hardware results](3ds-game/HARDWARE_RESULTS_RU.md) distinguish emulator checks from physical testing.
+Some specialized windows, including language and graphics settings, retain their original layout. Detailed [preview history and limitations](3ds-game/README.md), [installation and controls](3ds-game/INSTALL.md), and [hardware results](3ds-game/HARDWARE_RESULTS_RU.md) distinguish emulator checks from physical testing.
 
 ## Installation
 
