@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.79'
+$version = '0.3.80'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    native_audio_settings='0.3.80: four original-icon rows and separate values below, full help above, Good/Evil; original entry for all callers, volume 0-10 and valid-audio guard, original source/expansion cycle, AudioManager/Music/Mixer/environment callbacks; original parent saving retained'
+    validation_native_audio_settings='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; volume/source/spatial/controller/gesture/theme and original entry/real parent-child HUD checks; ARM/desktop/infrastructure 28 groups 43 markers/patch/package; emulator audio unavailable, volume guard tested; active mixer/audible hardware quality pending; Full not run'
     battle_interface_examples='0.3.79: independent original-artwork scene for selected grid/shadow/damage/turn-order setting, full scrollable help below; live arena untouched, existing list and controls preserved'
     validation_battle_interface_examples='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; six example captures and grid/order On/Off comparison; ARM/desktop/infrastructure/patch/package; Full not run, hardware pending'
     battle_interface_list='0.3.78: six full-width original-icon rows, distinct name/value fields with normal-first adaptive fonts, gold focus border, fixed Close, vertical D-pad and full-row touch areas; existing help, state/cycle/guards and battle redraw retained'

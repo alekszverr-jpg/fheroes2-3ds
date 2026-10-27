@@ -756,7 +756,7 @@ index c336081..4d7b0cc 100644
      LocalEvent & le = LocalEvent::Get();
      const Settings & conf = Settings::Get();
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..837174b 100644
+index f3e8496..c8c47cb 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
 @@ -22,6 +22,21 @@
@@ -902,7 +902,7 @@ index f3e8496..837174b 100644
      AudioManager::ResetAudio();
  
      // Turn order dialog can be outside the battlefield area.
-@@ -1673,19 +1749,382 @@ void Battle::Interface::redrawPreRender()
+@@ -1673,19 +1749,406 @@ void Battle::Interface::redrawPreRender()
  
  void Battle::Interface::RedrawInterface()
  {
@@ -1168,6 +1168,30 @@ index f3e8496..837174b 100644
 +            ui.Redraw();
 +        }
 +        ui._redrawBattleGround(); ui.Redraw();
++        {
++            auto & config = Settings::Get();
++            struct RestoreAudio {
++                bool spatial;
++                ~RestoreAudio() { auto & settings = Settings::Get(); settings.set3DAudio( spatial ); settings.Save( Settings::configFileName ); }
++            } originalAudio{ config.is3DAudioEnabled() };
++            SDL_Thread * audioInput = SDL_CreateThread( []( void * ) -> int {
++                const auto tap = []( int x, int y ) {
++                    SDL_Event event{}; event.type = SDL_FINGERDOWN; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240;
++                    if ( SDL_PushEvent( &event ) != 1 ) return false;
++                    SDL_Delay( 80 ); event.type = SDL_FINGERUP; if ( SDL_PushEvent( &event ) != 1 ) return false;
++                    SDL_Delay( 180 ); return true;
++                };
++                SDL_Delay( 250 );
++                return tap( 160, 136 ) && tap( 160, 158 ) && tap( 160, 202 ) && tap( 160, 202 ) ? 0 : 1;
++            }, "battle-audio-settings", nullptr );
++            if ( !audioInput ) throw std::runtime_error( "Cannot start native audio settings input" );
++            int audioStatus = 0;
++            try { ui._openBattleSettingsDialog(); } catch ( ... ) { SDL_WaitThread( audioInput, &audioStatus ); throw; }
++            SDL_WaitThread( audioInput, &audioStatus ); events.HandleEvents( false, true );
++            if ( audioStatus || config.is3DAudioEnabled() == originalAudio.spatial || Platform3DS::hasModalImages()
++                 || Platform3DS::battleHUDImage() != &ui._battleHUD3DS || events.MouseClickLeft() || actions.size() != actionCount )
++                throw std::runtime_error( "Native audio settings tree failed to apply/restore battle" );
++        }
 +        fheroes2::Image beforeCard; fheroes2::Copy( display, beforeCard );
 +        const auto cardCrop = Platform3DS::viewport();
 +        SDL_Thread * cardCloser = SDL_CreateThread( []( void * ) -> int {
@@ -1285,7 +1309,7 @@ index f3e8496..837174b 100644
  void Battle::Interface::RedrawArmies()
  {
      // Continue the idle animation for all troops on the battlefield: update idle animation frames before rendering the troops.
-@@ -3152,10 +3591,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
+@@ -3152,10 +3615,12 @@ void Battle::Interface::HumanTurn( const Unit & unit, Actions & actions )
              Redraw();
              _needRedraw = false;
          }
@@ -1298,7 +1322,7 @@ index f3e8496..837174b 100644
      }
  
      popup.reset();
-@@ -3170,15 +3611,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3170,15 +3635,38 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
      LocalEvent & le = LocalEvent::Get();
      Settings & conf = Settings::Get();
  
@@ -1337,7 +1361,7 @@ index f3e8496..837174b 100644
  
      if ( le.isAnyKeyPressed() ) {
          // Skip the turn
-@@ -3468,7 +3932,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
+@@ -3468,7 +3956,12 @@ void Battle::Interface::HumanBattleTurn( const Unit & unit, Actions & actions, s
              msg = ( listlog->isOpenLog() ? _( "Hide logs" ) : _( "Show logs" ) );
  
              if ( le.MouseClickLeft( status ) ) {
@@ -1350,7 +1374,7 @@ index f3e8496..837174b 100644
              }
              else if ( le.isMouseRightButtonPressedInArea( status ) ) {
                  fheroes2::showStandardTextMessage( _( "Message Bar" ), _( "Shows the results of individual monster's actions." ), Dialog::ZERO );
-@@ -3583,7 +4052,26 @@ void Battle::Interface::_openBattleSettingsDialog()
+@@ -3583,7 +4076,26 @@ void Battle::Interface::_openBattleSettingsDialog()
      const bool showGrid = conf.BattleShowGrid();
      const bool isTurnOrderInsideWindow{ TurnOrder::isRenderingInsideBattlefieldWindow( border.GetRect() ) };
  
@@ -1934,6 +1958,52 @@ index 6077ad9..9347377 100644
      // The active size of the window is 520 by 256 pixels
      fheroes2::Display & display = fheroes2::Display::instance();
      const bool isEvilInterface = Settings::Get().isEvilInterfaceEnabled();
+diff --git a/src/fheroes2/dialog/dialog_audio.cpp b/src/fheroes2/dialog/dialog_audio.cpp
+index 99ba565..a56b596 100644
+--- a/src/fheroes2/dialog/dialog_audio.cpp
++++ b/src/fheroes2/dialog/dialog_audio.cpp
+@@ -19,6 +19,9 @@
+  ***************************************************************************/
+ 
+ #include "dialog_audio.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ #include <algorithm>
+ #include <cassert>
+@@ -43,6 +46,7 @@
+ #include "ui_option_item.h"
+ #include "ui_window.h"
+ 
++#if !defined( __3DS__ )
+ namespace
+ {
+     void drawDialog( const std::vector<fheroes2::Rect> & rects )
+@@ -105,10 +109,16 @@ namespace
+     }
+ }
+ 
++#endif
+ namespace Dialog
+ {
+     bool openAudioSettingsDialog( const bool fromAdventureMap )
+     {
++#if defined( __3DS__ )
++        bool changed = false;
++        Interface3DS::showBattleSettings( changed, Interface3DS::BattleSettingsPage::Audio, false, fromAdventureMap );
++        return changed;
++#else
+         const CursorRestorer cursorRestorer( true, Cursor::POINTER );
+ 
+         fheroes2::Display & display = fheroes2::Display::instance();
+@@ -257,5 +267,6 @@ namespace Dialog
+         }
+ 
+         return saveConfig;
++#endif
+     }
+ }
 diff --git a/src/fheroes2/dialog/dialog_buyboat.cpp b/src/fheroes2/dialog/dialog_buyboat.cpp
 index 5ef42ea..dbd41a9 100644
 --- a/src/fheroes2/dialog/dialog_buyboat.cpp
@@ -4082,10 +4152,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..6f5df87
+index 0000000..fe514c4
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,731 @@
+@@ -0,0 +1,807 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4099,6 +4169,9 @@ index 0000000..6f5df87
 +#include <utility>
 +#include <SDL.h>
 +#include "army.h"
++#include "audio.h"
++#include "audio_manager.h"
++#include "dialog_audio.h"
 +#include "artifact.h"
 +#include "battle_interface.h"
 +#include "battle_cell.h"
@@ -4398,19 +4471,24 @@ index 0000000..6f5df87
 +    }
 +}
 +
-+Interface3DS::BattleSettingsAction Interface3DS::showBattleSettings( bool & changed, const BattleSettingsPage page, const bool turnOrderInside )
++Interface3DS::BattleSettingsAction Interface3DS::showBattleSettings( bool & changed, const BattleSettingsPage page, const bool turnOrderInside, const bool fromAdventureMap )
 +{
 +    using namespace fheroes2;
 +    const CursorRestorer hideCursor( false );
 +    auto & conf = Settings::Get(); const bool evil = conf.isEvilInterfaceEnabled();
 +    const bool interfaceOptions = page == BattleSettingsPage::Interface;
-+    const int settingCount = interfaceOptions ? 6 : 5;
++    const bool audioOptions = page == BattleSettingsPage::Audio;
++    const int settingCount = interfaceOptions ? 6 : audioOptions ? 4 : 5;
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
-+    const std::vector<std::string> labels = interfaceOptions
++    const std::vector<std::string> labels = audioOptions
++        ? std::vector<std::string>{ _( "Music" ), _( "Effects" ), _( "Music Type" ), _( "3D Audio" ), _( "Close" ) }
++        : interfaceOptions
 +        ? std::vector<std::string>{ _( "Turn Order" ), _( "Grid" ), _( "Damage Info" ), _( "Shadow Movement" ), _( "Shadow Cursor" ), _( "Movement Area" ), _( "Close" ) }
 +        : std::vector<std::string>{ _( "battleAnimation|Speed" ), _( "Interface Settings" ), _( "Auto Spell Casting" ), _( "Audio" ), _( "Hot Keys" ), _( "Close" ) };
-+    const std::vector<std::string> descriptions = interfaceOptions ? std::vector<std::string>{
++    const std::vector<std::string> descriptions = audioOptions ? std::vector<std::string>{
++        _( "Toggle ambient music level." ), _( "Toggle foreground sounds level." ), _( "Change the type of music." ),
++        _( "Toggle the 3D effect of foreground sounds." ), _( "Exit this menu." ) } : interfaceOptions ? std::vector<std::string>{
 +        _( "Toggle to display the turn order during the battle." ),
 +        _( "Toggle the hex grid on or off. The hex grid always underlies movement, even if turned off. This switch only determines if the grid is visible." ),
 +        _( "Toggle to display damage information during the battle." ),
@@ -4422,7 +4500,7 @@ index 0000000..6f5df87
 +        _( "Toggle whether or not the computer will cast spells for you when auto combat is on. (Note: This does not affect spell casting for computer players in any way, nor does it affect quick combat.)" ),
 +        _( "Change the audio settings of the game." ), _( "Check and configure all the hot keys present in the game." ), _( "Exit this menu." ) };
 +    std::vector<Rect> areas;
-+    for ( int i = 0; i < settingCount; ++i ) areas.emplace_back( interfaceOptions ? Rect{ 24, 36 + i * 25, 272, 25 } : Rect{ 24, 40 + i * 28, 272, 25 } );
++    for ( int i = 0; i < settingCount; ++i ) areas.emplace_back( interfaceOptions ? Rect{ 24, 36 + i * 25, 272, 25 } : audioOptions ? Rect{ 24, 50 + i * 32, 272, 25 } : Rect{ 24, 40 + i * 28, 272, 25 } );
 +    areas.emplace_back( 96, 190, 128, 25 );
 +    const auto hit = [&]( int index ) { return Rect{ areas[index].x + 1, areas[index].y, areas[index].width - 2, areas[index].height }; };
 +    const auto extendButton = []( Sprite & source, int width ) {
@@ -4465,17 +4543,27 @@ index 0000000..6f5df87
 +        if ( state ) { const auto & cursor = Assets::getImage( ICN::ADVMCO, 0 ); Blit( cursor, icon, ( icon.width() - cursor.width() ) / 2 + 10, ( icon.height() - cursor.height() ) / 2 + 15 ); }
 +    }
 +    const auto stateLabel = [&]( int index ) -> std::string {
++        if ( audioOptions ) {
++            if ( index < 2 ) { const int volume = index == 0 ? conf.MusicVolume() : conf.SoundVolume(); return Audio::isValid() && volume > 0 ? std::to_string( volume ) : _( "off" ); }
++            if ( index == 2 ) return conf.MusicType() == MUSIC_EXTERNAL ? _( "External" ) : conf.MusicType() == MUSIC_MIDI_EXPANSION ? _( "MIDI Expansion" ) : _( "MIDI" );
++            return conf.is3DAudioEnabled() ? _( "On" ) : _( "Off" );
++        }
 +        if ( index != 0 ) return enabled( index ) ? _( "On" ) : _( "Off" );
 +        const auto state = conf.getBattleTurnOrderState();
 +        return state == BattleTurnOrderState::OFF ? _( "Off" ) : state == BattleTurnOrderState::TOP || turnOrderInside ? _( "battle_turn_order|Top" ) : _( "battle_turn_order|Bottom" );
 +    };
 +    const auto valueLabel = [&]( int index ) {
-+        if ( interfaceOptions && index < settingCount ) return labels[index] + ": " + stateLabel( index );
++        if ( ( interfaceOptions || audioOptions ) && index < settingCount ) return labels[index] + ": " + stateLabel( index );
 +        if ( index == 0 ) return labels[index] + ": " + std::to_string( conf.BattleSpeed() );
 +        if ( index == 2 ) return labels[index] + ": " + ( conf.BattleAutoSpellcast() ? _( "On" ) : _( "Off" ) );
 +        return labels[index];
 +    };
 +    const auto iconFor = [&]( int index ) -> const Sprite & {
++        if ( audioOptions ) {
++            const std::array<int, 4> frames{ Audio::isValid() && conf.MusicVolume() > 0 ? 1 : 0, Audio::isValid() && conf.SoundVolume() > 0 ? 3 : 2,
++                                          conf.MusicType() == MUSIC_EXTERNAL ? 11 : 10, conf.is3DAudioEnabled() ? 11 : 10 };
++            return Assets::getImage( ICN::SPANEL, frames[index] );
++        }
 +        if ( interfaceOptions ) {
 +            if ( index == 5 ) return movementIcons[enabled( index ) ? 1 : 0];
 +            const std::array<int, 5> frames{ enabled( 0 ) ? 4 : 3, enabled( 1 ) ? 9 : 8, enabled( 2 ) ? 4 : 3, enabled( 3 ) ? 11 : 10, enabled( 4 ) ? 13 : 12 };
@@ -4548,7 +4636,7 @@ index 0000000..6f5df87
 +        if ( exampleVisible ) drawExample( top );
 +        else if ( selected < settingCount ) drawIcon( iconFor( selected ), top, { 24, 60, 56, 56 } );
 +        drawPanelScrollBar( top, { 377, helpY, 5, helpHeight }, scroll, helpHeight, content.height(), evil );
-+        Text( interfaceOptions ? _( "Interface Settings" ) : _( "Settings" ), FontType::normalYellow() ).draw( 24, 20, 272, bottom );
++        Text( audioOptions ? _( "Audio" ) : interfaceOptions ? _( "Interface Settings" ) : _( "Settings" ), FontType::normalYellow() ).draw( 24, 20, 272, bottom );
 +        for ( int i = 0; i <= settingCount; ++i ) {
 +            Sprite released, held; makeButtonSprites( released, held, "", { areas[i].width - 12, areas[i].height }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
 +            // The general button builder caps widths at 200 pixels. Extend only
@@ -4562,12 +4650,13 @@ index 0000000..6f5df87
 +                text.draw( x + ( width - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
 +                text.draw( x + ( width - bounds.width ) / 2 - bounds.x - 1, ( held.height() - bounds.height ) / 2 - bounds.y + 1, held );
 +            };
-+            if ( interfaceOptions && i < settingCount ) { write( labels[i], 28, 184 ); write( stateLabel( i ), 216, 50 ); }
++            if ( audioOptions && i < settingCount ) { write( labels[i], 28, 128 ); write( stateLabel( i ), 160, 106 ); }
++            else if ( interfaceOptions && i < settingCount ) { write( labels[i], 28, 184 ); write( stateLabel( i ), 216, 50 ); }
 +            else write( valueLabel( i ), textX, textWidth );
 +            if ( i < settingCount ) { drawIcon( iconFor( i ), released, { 5, ( released.height() - 19 ) / 2, 20, 19 } ); drawIcon( iconFor( i ), held, { 4, ( held.height() - 19 ) / 2 + 1, 20, 19 } ); }
 +            Blit( down && !moved && pressed == i ? held : released, bottom, areas[i].x + 1, areas[i].y );
 +            if ( selected == i ) {
-+                if ( interfaceOptions && i < settingCount ) DrawRect( bottom, hit( i ), GetColorId( 255, 225, 96 ) );
++                if ( ( interfaceOptions || audioOptions ) && i < settingCount ) DrawRect( bottom, hit( i ), GetColorId( 255, 225, 96 ) );
 +                else Fill( bottom, areas[i].x + 1, areas[i].y - 2, areas[i].width - 2, 1, GetColorId( 255, 225, 96 ) );
 +            }
 +        }
@@ -4577,8 +4666,25 @@ index 0000000..6f5df87
 +        const int before = conf.BattleSpeed(); conf.SetBattleSpeed( value );
 +        if ( before != conf.BattleSpeed() ) { changed = true; Game::UpdateGameSpeed(); }
 +    };
++    const auto setVolume = [&]( int index, int volume ) {
++        if ( !Audio::isValid() ) return;
++        const int before = index == 0 ? conf.MusicVolume() : conf.SoundVolume();
++        if ( index == 0 ) { conf.SetMusicVolume( volume ); Music::setVolume( 100 * conf.MusicVolume() / 10 ); }
++        else { conf.SetSoundVolume( volume ); Mixer::setVolume( 100 * conf.SoundVolume() / 10 ); }
++        if ( before != ( index == 0 ? conf.MusicVolume() : conf.SoundVolume() ) ) changed = true;
++    };
 +    const auto activate = [&]( int index ) {
-+        if ( interfaceOptions && index < settingCount ) {
++        if ( audioOptions ) {
++            if ( index < 2 ) setVolume( index, ( ( index == 0 ? conf.MusicVolume() : conf.SoundVolume() ) + 1 ) % 11 );
++            else if ( index == 2 ) {
++                int type = conf.MusicType() + 1;
++                if ( type == MUSIC_MIDI_EXPANSION && !conf.isPriceOfLoyaltySupported() ) ++type;
++                conf.SetMusicType( type > MUSIC_EXTERNAL ? 0 : type ); AudioManager::PlayCurrentMusic(); changed = true;
++            }
++            else if ( index == 3 ) { conf.set3DAudio( !conf.is3DAudioEnabled() ); if ( fromAdventureMap ) Game::EnvironmentSoundMixer(); changed = true; }
++            else closed = true;
++        }
++        else if ( interfaceOptions && index < settingCount ) {
 +            switch ( index ) {
 +            case 0:
 +                conf.switchToNextBattleTurnOrderState();
@@ -4612,7 +4718,8 @@ index 0000000..6f5df87
 +                }
 +                else if ( input.key == PanelKey::Left || input.key == PanelKey::Right ) {
 +                    const int direction = input.key == PanelKey::Left ? -1 : 1;
-+                    if ( !interfaceOptions && selected == 0 ) setSpeed( std::clamp( conf.BattleSpeed() + direction, 1, 10 ) ); else scroll = std::clamp( scroll + direction * 32, 0, maximum );
++                    if ( audioOptions && selected < 2 ) setVolume( selected, ( selected == 0 ? conf.MusicVolume() : conf.SoundVolume() ) + direction );
++                    else if ( !interfaceOptions && !audioOptions && selected == 0 ) setSpeed( std::clamp( conf.BattleSpeed() + direction, 1, 10 ) ); else scroll = std::clamp( scroll + direction * 32, 0, maximum );
 +                }
 +            }
 +            else if ( input.type == PanelInputType::TouchDown ) {
@@ -4632,7 +4739,7 @@ index 0000000..6f5df87
 +        if ( redraw && !closed ) draw();
 +    }
 +    if ( Platform3DS::smokeTest() ) {
-+        draw(); const std::string prefix = interfaceOptions ? ( evil ? "battle-interface-evil" : selected == 1 ? "battle-interface-grid" : "battle-interface" )
++        draw(); const std::string prefix = audioOptions ? ( evil ? "audio-settings-evil" : "audio-settings" ) : interfaceOptions ? ( evil ? "battle-interface-evil" : selected == 1 ? "battle-interface-grid" : "battle-interface" )
 +            : evil ? "battle-settings-evil" : selected == 2 ? "battle-settings-auto" : "battle-settings";
 +        if ( interfaceOptions && selected < settingCount && !evil ) {
 +            const std::string exampleName = "sdmc:/3ds/fheroes2/battle-example-" + std::to_string( selected ) + ( enabled( selected ) ? "-on.bmp" : "-off.bmp" );
@@ -4651,13 +4758,17 @@ index 0000000..6f5df87
 +    struct Restore {
 +        int speed; bool spell; InterfaceType theme;
 +        bool grid, damage, move, cursor, area; BattleTurnOrderState order;
++        int music, effects; MusicSource source; bool audio3D;
 +        ~Restore() {
 +            auto & settings = Settings::Get(); settings.SetBattleSpeed( speed ); settings.setBattleAutoSpellcast( spell ); settings.setInterfaceType( theme );
 +            settings.SetBattleGrid( grid ); settings.setBattleDamageInfo( damage ); settings.SetBattleMovementShaded( move );
 +            settings.SetBattleMouseShaded( cursor ); settings.setHighlightBattleMovementArea( area ); settings.setBattleTurnOrderState( order ); Game::UpdateGameSpeed();
++            settings.SetMusicVolume( music ); settings.SetSoundVolume( effects ); settings.SetMusicType( source ); settings.set3DAudio( audio3D );
++            if ( Audio::isValid() ) { Music::setVolume( 10 * music ); Mixer::setVolume( 10 * effects ); }
++            AudioManager::PlayCurrentMusic();
 +        }
 +    } restore{ conf.BattleSpeed(), conf.BattleAutoSpellcast(), conf.getInterfaceType(), conf.BattleShowGrid(), conf.isBattleShowDamageInfoEnabled(),
-+               conf.BattleShowMoveShadow(), conf.BattleShowMouseShadow(), conf.isBattleMovementAreaHighlightEnabled(), conf.getBattleTurnOrderState() };
++               conf.BattleShowMoveShadow(), conf.BattleShowMouseShadow(), conf.isBattleMovementAreaHighlightEnabled(), conf.getBattleTurnOrderState(), conf.MusicVolume(), conf.SoundVolume(), conf.MusicType(), conf.is3DAudioEnabled() };
 +    const auto key = []( int code, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = code; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
 +    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
 +    const auto cancel = [&]() { return std::vector<Step>{ { 250, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_LEFTSHOULDER, false ) } }; };
@@ -4666,13 +4777,16 @@ index 0000000..6f5df87
 +        std::vector<Step> steps{ { 180, touch( SDL_FINGERDOWN, 160, y ) }, { 80, touch( SDL_FINGERUP, 160, y ) } };
 +        if ( close ) { const auto end = cancel(); steps.insert( steps.end(), end.begin(), end.end() ); } return steps;
 +    };
-+    const auto run = [&]( std::vector<Step> steps, bool & changed, bool interfaceOptions = false, bool inside = false ) {
++    const auto run = [&]( std::vector<Step> steps, bool & changed, bool interfaceOptions = false, bool inside = false, bool audioOptions = false ) {
 +        auto & display = Display::instance(); const auto crop = Platform3DS::viewport(); const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage();
 +        Image before; Copy( display, before );
 +        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "battle-settings", &steps );
 +        if ( !worker ) throw std::runtime_error( "Cannot start battle settings input" );
 +        int status = 0; BattleSettingsAction result;
-+        try { result = showBattleSettings( changed, interfaceOptions ? BattleSettingsPage::Interface : BattleSettingsPage::General, inside ); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        try {
++            if ( audioOptions ) { changed |= Dialog::openAudioSettingsDialog( false ); result = BattleSettingsAction::Close; }
++            else result = showBattleSettings( changed, interfaceOptions ? BattleSettingsPage::Interface : BattleSettingsPage::General, inside );
++        } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
 +        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
 +        if ( status || Platform3DS::hasModalImages() || Platform3DS::viewport() != crop || Platform3DS::battleHUDImage() != hud || Platform3DS::commandStripImage() != strip
 +             || std::memcmp( before.image(), display.image(), before.width() * before.height() ) || events.MouseClickLeft() || events.isMouseRightButtonPressed() ) throw std::runtime_error( "Battle settings leaked frame/context/input" );
@@ -4738,6 +4852,38 @@ index 0000000..6f5df87
 +    run( steps, changed, true ); if ( changed || conf.BattleShowGrid() ) throw std::runtime_error( "Interface outside release toggled grid" );
 +    run( cancel(), changed, true ); if ( changed ) throw std::runtime_error( "Interface cancel saved unchanged settings" );
 +    conf.setInterfaceType( InterfaceType::EVIL ); run( cancel(), changed, true );
++    conf.setInterfaceType( restore.theme ); conf.SetMusicVolume( 5 ); conf.SetSoundVolume( 5 ); conf.SetMusicType( MUSIC_MIDI_ORIGINAL ); conf.set3DAudio( false );
++    const auto audioTap = [&]( int index ) {
++        std::vector<Step> input{ { 180, touch( SDL_FINGERDOWN, 160, 62 + index * 32 ) }, { 80, touch( SDL_FINGERUP, 160, 62 + index * 32 ) } };
++        input.insert( input.end(), end.begin(), end.end() ); return input;
++    };
++    const auto audioRun = [&]( const std::vector<Step> & input ) { changed = false; run( input, changed, false, false, true ); };
++    audioRun( audioTap( 0 ) );
++    if ( changed != Audio::isValid() || conf.MusicVolume() != ( Audio::isValid() ? 6 : 5 ) ) throw std::runtime_error( "Audio music touch/unavailable guard differs" );
++    audioRun( audioTap( 1 ) );
++    if ( changed != Audio::isValid() || conf.SoundVolume() != ( Audio::isValid() ? 6 : 5 ) ) throw std::runtime_error( "Audio effects touch/unavailable guard differs" );
++    conf.SetMusicVolume( 10 ); audioRun( audioTap( 0 ) );
++    if ( conf.MusicVolume() != ( Audio::isValid() ? 0 : 10 ) ) throw std::runtime_error( "Audio music volume cycle differs" );
++    conf.SetMusicVolume( 0 );
++    steps = { { 180, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_LEFT, false ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    audioRun( steps ); if ( changed || conf.MusicVolume() ) throw std::runtime_error( "Audio minimum changed volume/config" );
++    steps = { { 180, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    audioRun( steps ); if ( conf.MusicVolume() != ( Audio::isValid() ? 1 : 0 ) ) throw std::runtime_error( "Audio controller volume differs" );
++    for ( int i = 0; i < 3; ++i ) {
++        int expected = conf.MusicType() + 1; if ( expected == MUSIC_MIDI_EXPANSION && !conf.isPriceOfLoyaltySupported() ) ++expected;
++        if ( expected > MUSIC_EXTERNAL ) expected = MUSIC_MIDI_ORIGINAL;
++        audioRun( audioTap( 2 ) ); if ( !changed || conf.MusicType() != expected ) throw std::runtime_error( "Audio source cycle/expansion guard differs" );
++    }
++    audioRun( audioTap( 3 ) ); if ( !changed || !conf.is3DAudioEnabled() ) throw std::runtime_error( "Audio spatial toggle differs" );
++    const auto source = conf.MusicType();
++    steps = { { 180, touch( SDL_FINGERDOWN, 160, 126 ) }, { 80, touch( SDL_FINGERMOTION, 160, 172 ) }, { 80, touch( SDL_FINGERUP, 160, 172 ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    audioRun( steps ); if ( changed || conf.MusicType() != source ) throw std::runtime_error( "Audio drag changed source" );
++    steps = { { 180, touch( SDL_FINGERDOWN, 160, 126 ) }, { 80, touch( SDL_FINGERUP, 10, 10 ) } }; steps.insert( steps.end(), end.begin(), end.end() );
++    audioRun( steps ); if ( changed || conf.MusicType() != source ) throw std::runtime_error( "Audio outside release changed source" );
++    audioRun( cancel() ); if ( changed ) throw std::runtime_error( "Audio unchanged cancel saved settings" );
++    conf.setInterfaceType( InterfaceType::EVIL ); audioRun( audioTap( 3 ) );
++    if ( !changed || conf.is3DAudioEnabled() ) throw std::runtime_error( "Evil audio toggle differs" );
++    COUT( "3DS AUDIO SETTINGS SMOKE: PASS original_entry volume_touch_cycle_bounds controller unavailable_guard source_cycle_expansion_guard spatial_toggle cancel_drag_outside evil frame_hud_viewport_input_restored" )
 +    COUT( "3DS BATTLE SETTINGS SMOKE: PASS native_frames touch_speed_cycle_minimum auto_spells child_dispatch unchanged_cancel caller_save_flag drag_outside evil interface_six_toggles turn_order_cycle_inside_skip grid_controller frame_hud_viewport_input_restored" )
 +}
 +
@@ -8483,7 +8629,7 @@ index 0000000..a42c594
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..80d4c50
+index 0000000..2a914eb
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
 @@ -0,0 +1,150 @@
@@ -8598,8 +8744,8 @@ index 0000000..80d4c50
 +    int showBattleHeroActions( const HeroBase & hero, bool cast, bool retreat, bool surrender, bool heroScreen = false );
 +    void testBattleHeroActions();
 +    enum class BattleSettingsAction { Close, Interface, Audio, HotKeys };
-+    enum class BattleSettingsPage { General, Interface };
-+    BattleSettingsAction showBattleSettings( bool & changed, BattleSettingsPage page = BattleSettingsPage::General, bool turnOrderInside = false );
++    enum class BattleSettingsPage { General, Interface, Audio };
++    BattleSettingsAction showBattleSettings( bool & changed, BattleSettingsPage page = BattleSettingsPage::General, bool turnOrderInside = false, bool fromAdventureMap = false );
 +    void testBattleSettings();
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
 +                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );

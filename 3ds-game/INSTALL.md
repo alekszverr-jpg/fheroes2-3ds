@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.79
+# fheroes2 for Nintendo 3DS — preview 0.3.80
+
+## Preview 0.3.80: native audio settings
+
+The original audio entry now opens a full-screen native 3DS panel: four original-icon rows with a separate value column below, and the selected value/full help above. Good/Evil styling, fixed Close, drag/outside-release cancellation and screen restoration are retained.
+
+Tap/A cycles volume through 0–10; D-pad Left/Right adjusts one step within bounds. Music/Mixer apply volume immediately, with the original unavailable-audio guard. Music source follows the original cycle, skips expansion MIDI without expansion resources and restarts music through AudioManager. Spatial audio retains the original setting and refreshes environmental sound when called from the adventure map. Original parent windows still own configuration saving.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian; ARM build, desktop syntax for four files, infrastructure 28 groups/43 markers, clean patch and archive identity. Volume/source cycles, bounds, controller, gestures, themes, original entry and real battle settings/HUD restoration are covered. The current Azahar profile has no initialized audio: volume tests cover the unavailable-audio guard; active Music/Mixer behavior and audible levels require hardware validation. Full was not run; hardware comfort remains pending.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check music/effects volume, available music sources, spatial audio and returning to battle/adventure. Hotkeys remain next.
 
 ## Preview 0.3.79: illustrated battle settings
 
