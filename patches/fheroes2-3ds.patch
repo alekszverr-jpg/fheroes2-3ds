@@ -756,7 +756,7 @@ index c336081..4d7b0cc 100644
      LocalEvent & le = LocalEvent::Get();
      const Settings & conf = Settings::Get();
 diff --git a/src/fheroes2/battle/battle_interface.cpp b/src/fheroes2/battle/battle_interface.cpp
-index f3e8496..fa1262c 100644
+index f3e8496..837174b 100644
 --- a/src/fheroes2/battle/battle_interface.cpp
 +++ b/src/fheroes2/battle/battle_interface.cpp
 @@ -22,6 +22,21 @@
@@ -1155,7 +1155,7 @@ index f3e8496..fa1262c 100644
 +                    SDL_Delay( 180 ); return true;
 +                };
 +                SDL_Delay( 250 );
-+                return tap( 160, 80 ) && tap( 230, 62 ) && tap( 90, 62 ) && tap( 160, 202 ) && tap( 160, 202 ) ? 0 : 1;
++                return tap( 160, 80 ) && tap( 160, 73 ) && tap( 160, 48 ) && tap( 160, 202 ) && tap( 160, 202 ) ? 0 : 1;
 +            }, "battle-interface-options", nullptr );
 +            if ( !optionsInput ) throw std::runtime_error( "Cannot start native interface settings input" );
 +            int optionStatus = 0;
@@ -4082,10 +4082,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..df2200c
+index 0000000..582d9bb
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,686 @@
+@@ -0,0 +1,681 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4422,7 +4422,7 @@ index 0000000..df2200c
 +        _( "Toggle whether or not the computer will cast spells for you when auto combat is on. (Note: This does not affect spell casting for computer players in any way, nor does it affect quick combat.)" ),
 +        _( "Change the audio settings of the game." ), _( "Check and configure all the hot keys present in the game." ), _( "Exit this menu." ) };
 +    std::vector<Rect> areas;
-+    for ( int i = 0; i < settingCount; ++i ) areas.emplace_back( interfaceOptions ? Rect{ 24 + i % 2 * 140, 44 + i / 2 * 44, 132, 38 } : Rect{ 24, 40 + i * 28, 272, 25 } );
++    for ( int i = 0; i < settingCount; ++i ) areas.emplace_back( interfaceOptions ? Rect{ 24, 36 + i * 25, 272, 25 } : Rect{ 24, 40 + i * 28, 272, 25 } );
 +    areas.emplace_back( 96, 190, 128, 25 );
 +    const auto hit = [&]( int index ) { return Rect{ areas[index].x + 1, areas[index].y, areas[index].width - 2, areas[index].height }; };
 +    const auto extendButton = []( Sprite & source, int width ) {
@@ -4464,13 +4464,13 @@ index 0000000..df2200c
 +        Blit( hydra, icon, ( icon.width() - hydra.width() ) / 2, ( icon.height() - hydra.height() ) / 2 );
 +        if ( state ) { const auto & cursor = Assets::getImage( ICN::ADVMCO, 0 ); Blit( cursor, icon, ( icon.width() - cursor.width() ) / 2 + 10, ( icon.height() - cursor.height() ) / 2 + 15 ); }
 +    }
-+    const auto valueLabel = [&]( int index, bool multiline = false ) {
-+        if ( interfaceOptions && index < settingCount ) {
-+            const auto state = conf.getBattleTurnOrderState();
-+            const std::string value = index != 0 ? ( enabled( index ) ? _( "On" ) : _( "Off" ) )
-+                : state == BattleTurnOrderState::OFF ? _( "Off" ) : state == BattleTurnOrderState::TOP || turnOrderInside ? _( "battle_turn_order|Top" ) : _( "battle_turn_order|Bottom" );
-+            return labels[index] + ( multiline ? "\n" : ": " ) + value;
-+        }
++    const auto stateLabel = [&]( int index ) -> std::string {
++        if ( index != 0 ) return enabled( index ) ? _( "On" ) : _( "Off" );
++        const auto state = conf.getBattleTurnOrderState();
++        return state == BattleTurnOrderState::OFF ? _( "Off" ) : state == BattleTurnOrderState::TOP || turnOrderInside ? _( "battle_turn_order|Top" ) : _( "battle_turn_order|Bottom" );
++    };
++    const auto valueLabel = [&]( int index ) {
++        if ( interfaceOptions && index < settingCount ) return labels[index] + ": " + stateLabel( index );
 +        if ( index == 0 ) return labels[index] + ": " + std::to_string( conf.BattleSpeed() );
 +        if ( index == 2 ) return labels[index] + ": " + ( conf.BattleAutoSpellcast() ? _( "On" ) : _( "Off" ) );
 +        return labels[index];
@@ -4509,21 +4509,21 @@ index 0000000..df2200c
 +            // its empty centre before drawing labels, retaining the native bevels.
 +            extendButton( released, areas[i].width - 2 ); extendButton( held, areas[i].width - 2 );
 +            const int textX = i < settingCount ? 28 : 4, textWidth = released.width() - textX - 4;
-+            const bool multiline = interfaceOptions && i < settingCount;
-+            Text label( valueLabel( i, multiline ), multiline ? FontType::smallWhite() : FontType::normalWhite() );
-+            if ( !multiline && label.width() > textWidth ) label.set( valueLabel( i ), FontType::smallWhite() );
-+            if ( multiline ) {
-+                label.draw( textX, ( released.height() - label.height( textWidth ) ) / 2, textWidth, released );
-+                label.draw( textX - 1, ( held.height() - label.height( textWidth ) ) / 2 + 1, textWidth, held );
-+            }
-+            else {
-+                label.fitToOneRow( textWidth ); const auto bounds = label.area();
-+                label.draw( textX + ( textWidth - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
-+                label.draw( textX + ( textWidth - bounds.width ) / 2 - bounds.x - 1, ( held.height() - bounds.height ) / 2 - bounds.y + 1, held );
-+            }
++            const auto write = [&]( const std::string & value, int x, int width ) {
++                Text text( value, FontType::normalWhite() );
++                if ( text.width() > width ) text.set( value, FontType::smallWhite() );
++                text.fitToOneRow( width ); const auto bounds = text.area();
++                text.draw( x + ( width - bounds.width ) / 2 - bounds.x, ( released.height() - bounds.height ) / 2 - bounds.y, released );
++                text.draw( x + ( width - bounds.width ) / 2 - bounds.x - 1, ( held.height() - bounds.height ) / 2 - bounds.y + 1, held );
++            };
++            if ( interfaceOptions && i < settingCount ) { write( labels[i], 28, 184 ); write( stateLabel( i ), 216, 50 ); }
++            else write( valueLabel( i ), textX, textWidth );
 +            if ( i < settingCount ) { drawIcon( iconFor( i ), released, { 5, ( released.height() - 19 ) / 2, 20, 19 } ); drawIcon( iconFor( i ), held, { 4, ( held.height() - 19 ) / 2 + 1, 20, 19 } ); }
 +            Blit( down && !moved && pressed == i ? held : released, bottom, areas[i].x + 1, areas[i].y );
-+            if ( selected == i ) Fill( bottom, areas[i].x + 1, areas[i].y - 2, areas[i].width - 2, 1, GetColorId( 255, 225, 96 ) );
++            if ( selected == i ) {
++                if ( interfaceOptions && i < settingCount ) DrawRect( bottom, hit( i ), GetColorId( 255, 225, 96 ) );
++                else Fill( bottom, areas[i].x + 1, areas[i].y - 2, areas[i].width - 2, 1, GetColorId( 255, 225, 96 ) );
++            }
 +        }
 +        Display::instance().render();
 +    };
@@ -4561,17 +4561,12 @@ index 0000000..df2200c
 +                if ( input.key == PanelKey::Cancel || input.key == PanelKey::Information || input.key == PanelKey::Toggle ) closed = true;
 +                else if ( input.key == PanelKey::Confirm ) activate( selected );
 +                else if ( input.key == PanelKey::Up || input.key == PanelKey::Down ) {
-+                    if ( interfaceOptions ) {
-+                        if ( input.key == PanelKey::Up ) selected = selected == settingCount ? 4 : selected >= 2 ? selected - 2 : selected;
-+                        else selected = selected >= 4 ? settingCount : selected + 2;
-+                    }
-+                    else selected = std::clamp( selected + ( input.key == PanelKey::Up ? -1 : 1 ), 0, settingCount );
++                    selected = std::clamp( selected + ( input.key == PanelKey::Up ? -1 : 1 ), 0, settingCount );
 +                    scroll = 0; down = false; pressed = -1;
 +                }
 +                else if ( input.key == PanelKey::Left || input.key == PanelKey::Right ) {
 +                    const int direction = input.key == PanelKey::Left ? -1 : 1;
-+                    if ( interfaceOptions && selected < settingCount ) { selected = selected / 2 * 2 + std::clamp( selected % 2 + direction, 0, 1 ); scroll = 0; down = false; pressed = -1; }
-+                    else if ( !interfaceOptions && selected == 0 ) setSpeed( std::clamp( conf.BattleSpeed() + direction, 1, 10 ) ); else scroll = std::clamp( scroll + direction * 32, 0, maximum );
++                    if ( !interfaceOptions && selected == 0 ) setSpeed( std::clamp( conf.BattleSpeed() + direction, 1, 10 ) ); else scroll = std::clamp( scroll + direction * 32, 0, maximum );
 +                }
 +            }
 +            else if ( input.type == PanelInputType::TouchDown ) {
@@ -4665,7 +4660,7 @@ index 0000000..df2200c
 +    conf.setInterfaceType( restore.theme ); conf.SetBattleGrid( false ); conf.setBattleDamageInfo( false ); conf.SetBattleMovementShaded( false );
 +    conf.SetBattleMouseShaded( false ); conf.setHighlightBattleMovementArea( false ); conf.setBattleTurnOrderState( BattleTurnOrderState::OFF );
 +    const auto interfaceTap = [&]( int index ) {
-+        const int x = index % 2 ? 230 : 90, y = 62 + index / 2 * 44;
++        const int x = 160, y = 48 + index * 25;
 +        std::vector<Step> input{ { 180, touch( SDL_FINGERDOWN, x, y ) }, { 80, touch( SDL_FINGERUP, x, y ) } };
 +        input.insert( input.end(), end.begin(), end.end() ); return input;
 +    };
@@ -4682,7 +4677,7 @@ index 0000000..df2200c
 +    conf.setBattleTurnOrderState( BattleTurnOrderState::TOP ); run( interfaceTap( 0 ), changed, true, true );
 +    if ( conf.getBattleTurnOrderState() != BattleTurnOrderState::OFF ) throw std::runtime_error( "Inside turn order did not skip bottom" );
 +    changed = false;
-+    steps = { { 180, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_RIGHT, false ) },
++    steps = { { 180, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_DPAD_DOWN, false ) },
 +              { 80, key( SDL_CONTROLLER_BUTTON_A, true ) }, { 80, key( SDL_CONTROLLER_BUTTON_A, false ) } }; steps.insert( steps.end(), end.begin(), end.end() );
 +    run( steps, changed, true );
 +    if ( !changed || conf.BattleShowGrid() ) throw std::runtime_error( "Interface controller selected wrong toggle" );

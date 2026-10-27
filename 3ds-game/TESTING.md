@@ -1,5 +1,15 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.78: battle interface settings as a list
+
+The six battle interface options now form full-width rows rather than a 2x3 card grid. Each row keeps its original icon, a separate name field and a right-aligned value column. Normal text is preferred; long labels/values fall back to the small font. All six rows and the fixed Close button fit on the lower screen. A thin gold border identifies the focused row. Good/Evil frames, original artwork and the upper icon/help remain in place.
+
+D-pad Up/Down selects rows, A activates and Left/Right scrolls help when needed. Stylus hit areas follow the full rows; drag/outside-release guards and original setting/turn-order behavior are preserved. The actual settings-tree test uses the new row positions when changing the grid and turn order.
+
+Validation: bounded BattleDialogs New/Old Russian and New English, BattleIntegration New/Old Russian. All six toggles, turn-order cycle/inside restriction, controller selection, drag/outside cancellation, themes, main menu compatibility and real parent-child/grid redraw/HUD restoration passed. ARM build, desktop syntax, infrastructure, clean patch and package identity checks included; Full was not run. Hardware readability/touch comfort remain pending. Upper illustrative examples are a later visual step; audio/hotkey transfer remains queued.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Compare the list with the prior cards on New 3DS XL, especially long names, the value column, row tapping and controller navigation.
+
 ## Preview 0.3.77: native battle interface options
 
 The battle interface submenu now uses the same native Good/Evil settings shell: six lower cards in a 2x3 grid, original option artwork and visible values, fixed Close, with focused explanations above. It includes turn order, grid, damage information, movement shadow, cursor shadow and movement-area highlighting. The movement-area icon reuses the original Hydra, hex shadow and cursor composition. Full wrapped card labels and proportionally fitted icons remain inside their controls.

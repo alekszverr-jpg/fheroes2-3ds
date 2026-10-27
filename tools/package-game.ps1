@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.77'
+$version = '0.3.78'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    battle_interface_list='0.3.78: six full-width original-icon rows, distinct name/value fields with normal-first adaptive fonts, gold focus border, fixed Close, vertical D-pad and full-row touch areas; existing help, state/cycle/guards and battle redraw retained'
+    validation_battle_interface_list='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; bounded toggles/turn-order/controller/drag/outside/theme/main-menu and actual parent-child grid-redraw/HUD checks; ARM/desktop/infrastructure/patch/package; Full not run, hardware pending'
     native_battle_interface_options='0.3.77: shared Good/Evil settings shell, six 2x3 original-icon value cards and upper help; original turn order including inside-window bottom skip, grid/damage/movement/cursor/area toggles, outer save and battle redraw path; audio/hotkeys remain original'
     validation_native_battle_interface_options='BattleDialogs New/Old ru and New en; BattleIntegration New/Old ru; bounded six toggles/turn-order/controller/drag/outside/theme/state checks, real parent-child menu traversal and changed grid ground/turn order with HUD/input restoration, fixture/config restored; ARM/desktop/infrastructure/patch/package; Full not run, hardware pending'
     native_battle_settings='0.3.76: Good/Evil two-screen main settings, wide inset original-icon buttons and upper focused help/scroll; original speed cycle/update, auto spells, child action dispatch and outer save-once contract; child interface/audio/hotkeys layouts remain original'
