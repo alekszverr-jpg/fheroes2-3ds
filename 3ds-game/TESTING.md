@@ -1,5 +1,15 @@
 # Grouped 3DS emulator checks
 
+## Preview 0.3.84: 3DS graphics settings
+
+The original graphics entry now opens full-screen native Good/Evil panels: five lower rows and fixed Close, with the full selected value, original icon and scrollable help above. Active controls are 400x240/800x240 upper-screen 2D output where supported and the original FPS/time system-information option. Output uses the same preference as R + Start, refreshing buffers without changing the 800x480 game frame or using desktop renderer-reset callbacks.
+
+Fullscreen, nearest-neighbor sampling and refresh synchronization are fixed by the actual 3DS renderer. These gray rows expose help but never mutate desktop settings. Unsupported models cannot toggle high-resolution output. Town stereo retains priority. D-pad/A, stylus, drag/outside-release guards and original parent saving are retained; R + Start cannot confirm a row and refreshes the displayed preference.
+
+Validation: Graphics New/Old Russian and New English; GameSettings New/Old Russian; Engine New/Old. Actual gfxIsWide/gfxIs3D, output/double-toggle/sticky saving, system info, fixed rows, R + Start, gestures, themes, actual parent/reload and frame/HUD/input restoration are covered. ARM build, ten-file desktop syntax, infrastructure 31 groups/47 markers, translation compilation, clean patch and package identity passed. Full was not run; physical Old 3DS, unsupported-model behavior and latest hardware settings remain pending.
+
+Update two files this time: `3ds/fheroes2/fheroes2.3dsx` and `3ds/fheroes2/files/lang/ru.mo` (new Russian help). Check 400x240/800x240, R + Start, FPS/time after closing, returning to gameplay and persistence after restart. Preserve your configuration and saves.
+
 ## Preview 0.3.83: native language selection
 
 Language selection now uses full-screen Good/Evil frames: a lower list of original language names, separate scrollbar and fixed confirmation/cancel buttons; the upper screen shows the selection, original icon and help. Names are rendered in their own alphabets ahead of time, grouped by code page, so scrolling does not rebuild language resources. Caller-supplied languages without a translation use readable English fallback names. The original available-language list and translation installation are unchanged.

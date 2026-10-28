@@ -8,7 +8,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 Preview **0.3.82** adds a native main configuration panel with all seven original actions, current values/help, theme refresh and original parent saving.
 
-Local development **0.3.83** adds native language selection with cached alphabet-correct names, live preview, confirmation/cancellation and original parent persistence.
+Local development **0.3.84** adds native 3DS graphics settings: upper-screen 2D output and FPS/time controls, fixed renderer parameters and original parent saving. Updating requires the application and ru.mo.
 
 ## Current preview
 

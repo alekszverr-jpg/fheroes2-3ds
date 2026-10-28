@@ -1,5 +1,5 @@
 diff --git a/files/lang/ru.po b/files/lang/ru.po
-index 679b71a..fb53d5c 100644
+index 679b71a..863702f 100644
 --- a/files/lang/ru.po
 +++ b/files/lang/ru.po
 @@ -12789,6 +12789,24 @@ msgstr "северо-восток"
@@ -27,7 +27,7 @@ index 679b71a..fb53d5c 100644
  msgid "center"
  msgstr "середин"
  
-@@ -12844,3 +12862,51 @@ msgstr "Возрождается неведомая сила..."
+@@ -12844,3 +12862,75 @@ msgstr "Возрождается неведомая сила..."
  
  #~ msgid "Create a new map from scratch."
  #~ msgstr "Создать новую карту с нуля."
@@ -79,6 +79,30 @@ index 679b71a..fb53d5c 100644
 +
 +msgid "castle3DS|Buildings"
 +msgstr "Здания"
++
++#. Nintendo 3DS graphics settings.
++msgid "3DS 2D Output"
++msgstr "Вывод 2D"
++
++#. Nintendo 3DS graphics settings.
++msgid "Choose 400x240 or 800x240 output for the top screen. The game frame remains 800x480. R + Start changes the same preference. Town stereo temporarily takes priority."
++msgstr "Выберите вывод 400x240 или 800x240 для верхнего экрана. Игровой кадр остаётся 800x480. R + Start меняет ту же настройку. Стереопанорама города временно получает приоритет."
++
++#. Nintendo 3DS graphics settings.
++msgid "High-resolution 2D output is unavailable on this model. The top screen uses 400x240."
++msgstr "На этой модели повышенная чёткость 2D недоступна. Верхний экран использует 400x240."
++
++#. Nintendo 3DS graphics settings.
++msgid "On 3DS the game always uses the full screen."
++msgstr "На 3DS игра всегда использует весь экран."
++
++#. Nintendo 3DS graphics settings.
++msgid "The 3DS renderer uses nearest-neighbor sampling to preserve pixel art."
++msgstr "Рендерер 3DS использует масштабирование по ближайшему соседу, сохраняя пиксельную графику."
++
++#. Nintendo 3DS graphics settings.
++msgid "The 3DS renderer synchronizes presentation to the screen refresh."
++msgstr "Рендерер 3DS синхронизирует вывод с обновлением экрана."
 diff --git a/src/engine/core.cpp b/src/engine/core.cpp
 index d50ca80..051a3d0 100644
 --- a/src/engine/core.cpp
@@ -2159,6 +2183,54 @@ index 427f600..4b5df78 100644
          event.message = _( "Gift from %{name}" );
          const Player * player = Players::Get( kingdom.GetColor() );
          if ( player )
+diff --git a/src/fheroes2/dialog/dialog_graphics_settings.cpp b/src/fheroes2/dialog/dialog_graphics_settings.cpp
+index 5576125..93796cf 100644
+--- a/src/fheroes2/dialog/dialog_graphics_settings.cpp
++++ b/src/fheroes2/dialog/dialog_graphics_settings.cpp
+@@ -19,6 +19,9 @@
+  ***************************************************************************/
+ 
+ #include "dialog_graphics_settings.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ #include <cstdint>
+ #include <string>
+@@ -42,6 +45,8 @@
+ #include "ui_text.h"
+ #include "ui_window.h"
+ 
++
++#if !defined( __3DS__ )
+ namespace
+ {
+     enum class SelectedWindow : int
+@@ -233,10 +238,17 @@ namespace
+     }
+ }
+ 
++#endif
+ namespace fheroes2
+ {
+     bool openGraphicsSettingsDialog( const std::function<void()> & updateUI )
+     {
++#if defined( __3DS__ )
++        // The native renderer retains its fixed game frame and refreshes output
++        // buffers itself; desktop resolution/reset callbacks are unnecessary here.
++        (void)updateUI;
++        return Interface3DS::showGraphicsSettings();
++#else
+         const CursorRestorer cursorRestorer( true, ::Cursor::POINTER );
+ 
+         Settings & conf = Settings::Get();
+@@ -292,5 +304,6 @@ namespace fheroes2
+         }
+ 
+         return saveConfiguration;
++#endif
+     }
+ }
 diff --git a/src/fheroes2/dialog/dialog_hotkeys.cpp b/src/fheroes2/dialog/dialog_hotkeys.cpp
 index 9825991..4f14fbe 100644
 --- a/src/fheroes2/dialog/dialog_hotkeys.cpp
@@ -2517,7 +2589,7 @@ index 0f31ae9..6f72630 100644
                  // Load the original name without using translation.
                  const char * eventName = Translation::getNonTranslated( hotKeyEventInfo[eventId].name );
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..c58d543 100644
+index 69d39fb..281d985 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2568,7 +2640,7 @@ index 69d39fb..c58d543 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,119 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,120 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2578,7 +2650,7 @@ index 69d39fb..c58d543 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 30> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements", "GameSettings", "Language" };
++        const std::array<const char *, 31> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements", "GameSettings", "Language", "Graphics" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2654,6 +2726,7 @@ index 69d39fb..c58d543 100644
 +        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
++        runGroup( "Graphics", []() { Interface3DS::testGraphicsSettings(); } );
 +        runGroup( "Language", []() { Interface3DS::testLanguageSelection(); } );
 +        runGroup( "GameSettings", []() { Interface3DS::testConfiguration(); } );
 +        runGroup( "BattleDialogs", []() { Interface3DS::testBattleSettings(); Interface3DS::testHotkeys(); Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
@@ -4317,10 +4390,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..980aa7a
+index 0000000..9c03131
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,1332 @@
+@@ -0,0 +1,1492 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4334,6 +4407,7 @@ index 0000000..980aa7a
 +#include <stdexcept>
 +#include <utility>
 +#include <SDL.h>
++#include <3ds.h>
 +#include "army.h"
 +#include "audio.h"
 +#include "audio_manager.h"
@@ -4341,6 +4415,7 @@ index 0000000..980aa7a
 +#include "dialog_hotkeys.h"
 +#include "dialog_game_settings.h"
 +#include "dialog_language_selection.h"
++#include "dialog_graphics_settings.h"
 +#include "game_language.h"
 +#include "ui_language.h"
 +#include "game_hotkeys.h"
@@ -5438,6 +5513,164 @@ index 0000000..980aa7a
 +    }
 +    conf.setGameLanguage( restore.language ); run( pair, getCurrentLanguage(), true, keys( { back } ) );
 +    COUT( "3DS LANGUAGE SMOKE: PASS original_entry native_alphabet_cache english_russian_preview confirm_cancel touch_controller pages_stylus_scroll map_language_isolation drag_outside evil actual_parent_save_reload frame_hud_viewport_input_restored" )
++}
++
++bool Interface3DS::showGraphicsSettings()
++{
++    using namespace fheroes2;
++    const CursorRestorer hideCursor( false );
++    auto & conf = Settings::Get(); const bool evil = conf.isEvilInterfaceEnabled();
++    const bool highResolutionSupported = Platform3DS::highResolutionSupported();
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
++    const ReportScope scope( top, bottom );
++    const std::array<std::string, 6> labels{ _( "3DS 2D Output" ), _( "window|Mode" ), _( "Screen Scaling Type" ), _( "V-Sync" ), _( "System Info" ), _( "Close" ) };
++    const std::array<std::string, 6> help{
++        highResolutionSupported ? _( "Choose 400x240 or 800x240 output for the top screen. The game frame remains 800x480. R + Start changes the same preference. Town stereo temporarily takes priority." )
++                                : _( "High-resolution 2D output is unavailable on this model. The top screen uses 400x240." ),
++        _( "On 3DS the game always uses the full screen." ), _( "The 3DS renderer uses nearest-neighbor sampling to preserve pixel art." ),
++        _( "The 3DS renderer synchronizes presentation to the screen refresh." ), _( "Show extra information such as FPS and current time." ), _( "Exit this menu." ) };
++    const auto area = []( int index ) { return index < 5 ? Rect{ 24, 42 + index * 28, 272, 28 } : Rect{ 97, 190, 126, 25 }; };
++    const auto active = [&]( int index ) { return index == 4 || ( index == 0 && highResolutionSupported ); };
++    const auto value = [&]( int index ) -> std::string {
++        switch ( index ) {
++        case 0: return Platform3DS::highResolutionEnabled() && highResolutionSupported ? "800x240" : "400x240";
++        case 1: return _( "Fullscreen" );
++        case 2: return _( "Nearest" );
++        case 3: return _( "On" );
++        case 4: return conf.isSystemInfoEnabled() ? _( "On" ) : _( "Off" );
++        default: return "";
++        }
++    };
++    const auto drawIcon = []( const Image & image, Image & output, Rect box ) {
++        const double scale = std::min( double( box.width ) / image.width(), double( box.height ) / image.height() );
++        Image fitted( std::max( 1, int( image.width() * scale ) ), std::max( 1, int( image.height() * scale ) ) ); fitted.reset(); Resize( image, fitted );
++        Blit( fitted, output, box.x + ( box.width - fitted.width() ) / 2, box.y + ( box.height - fitted.height() ) / 2 );
++    };
++    int selected = 0, pressed = -1, scroll = 0, maximum = 0; bool down = false, moved = false, closed = false, changed = false;
++    bool lastPreference = Platform3DS::highResolutionEnabled(); Point start, last;
++    const auto draw = [&]() {
++        top = topBackground; bottom = bottomBackground;
++        const std::string caption = labels[selected] + ( selected < 5 ? ": " + value( selected ) : "" );
++        Text title( caption, FontType::normalYellow() ); if ( title.height( 352 ) > 34 ) title.set( caption, FontType::smallYellow() );
++        title.drawInRoi( 24, 20, 352, top, { 24, 20, 352, 34 } );
++        const Text description( help[selected], FontType::normalWhite() ); Image content( 284, std::max<int32_t>( 146, description.height( 284 ) ) ); fillClassicPanelPaper( content, evil );
++        description.draw( 0, 0, 284, content ); maximum = std::max<int32_t>( 0, content.height() - 146 ); scroll = std::clamp( scroll, 0, maximum );
++        Copy( content, 0, scroll, top, 88, 58, 284, 146 ); drawPanelScrollBar( top, { 377, 58, 5, 146 }, scroll, 146, content.height(), evil );
++        std::array<Image, 5> icons{ Assets::getImage( ICN::RESOLUTION_ICON, 0 ), Assets::getImage( ICN::SPANEL, evil ? 17 : 16 ),
++            Assets::getImage( ICN::GAME_OPTION_ICON, 3 ), Assets::getImage( ICN::SPANEL, 18 ), Assets::getImage( ICN::EMPTY_OPTION_ICON_BACKGROUND, 0 ) };
++        Text info( conf.isSystemInfoEnabled() ? _( "FPS" ) : _( "N/A" ), conf.isSystemInfoEnabled() ? FontType::normalYellow() : FontType( FontSize::NORMAL, FontColor::GRAY ) );
++        info.draw( ( icons[4].width() - info.width() ) / 2, ( icons[4].height() - info.height() ) / 2, icons[4] );
++        if ( selected < 5 ) drawIcon( icons[selected], top, { 24, 60, 56, 56 } );
++        Text( _( "Graphics" ), FontType::normalYellow() ).draw( 24, 20, 272, bottom );
++        for ( int i = 0; i < 5; ++i ) {
++            const Rect row = area( i ); drawIcon( icons[i], bottom, { 28, row.y + 4, 20, 20 } );
++            const auto color = active( i ) ? FontColor::WHITE : FontColor::GRAY;
++            Text label( labels[i], FontType( FontSize::NORMAL, color ) ); if ( label.width() > 164 ) label.set( labels[i], FontType( FontSize::SMALL, color ) ); label.fitToOneRow( 164 );
++            const auto bounds = label.area(); label.draw( 52, row.y + ( row.height - bounds.height ) / 2 - bounds.y, bottom );
++            Text state( value( i ), FontType( FontSize::SMALL, color ) ); state.fitToOneRow( 68 ); state.draw( 224, row.y + 8, 68, bottom );
++            if ( selected == i ) DrawRect( bottom, row, GetColorId( 255, 225, 96 ) );
++        }
++        Sprite released, held; makeButtonSprites( released, held, "", { 116, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++        Text close( _( "Close" ), FontType::normalWhite() ); const auto bounds = close.area(); const int x = ( released.width() - bounds.width ) / 2 - bounds.x, y = ( released.height() - bounds.height ) / 2 - bounds.y;
++        close.draw( x, y, released ); close.draw( x - 1, y + 1, held ); Blit( down && !moved && pressed == 5 ? held : released, bottom, 97, 190 );
++        if ( selected == 5 ) DrawRect( bottom, area( 5 ), GetColorId( 255, 225, 96 ) );
++        Display::instance().render();
++        lastPreference = Platform3DS::highResolutionEnabled();
++    };
++    const auto activate = [&]( int index ) {
++        if ( index == 5 ) closed = true;
++        else if ( index == 0 && highResolutionSupported ) { Platform3DS::setHighResolutionEnabled( !Platform3DS::highResolutionEnabled() ); changed = true; }
++        else if ( index == 4 ) { conf.setSystemInfo( !conf.isSystemInfoEnabled() ); changed = true; }
++    };
++    draw(); auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        bool redraw = lastPreference != Platform3DS::highResolutionEnabled(); if ( redraw ) changed = true;
++        Platform3DS::PanelInput input;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true;
++            if ( input.type == PanelInputType::Key ) {
++                down = false; pressed = -1;
++                if ( input.key == PanelKey::Cancel || input.key == PanelKey::Information || input.key == PanelKey::Toggle ) closed = true;
++                else if ( input.key == PanelKey::Confirm ) activate( selected );
++                else if ( input.key == PanelKey::Up || input.key == PanelKey::Down ) { selected = std::clamp( selected + ( input.key == PanelKey::Up ? -1 : 1 ), 0, 5 ); scroll = 0; }
++                else if ( input.key == PanelKey::Left || input.key == PanelKey::Right ) scroll = std::clamp( scroll + ( input.key == PanelKey::Left ? -32 : 32 ), 0, maximum );
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                down = true; moved = false; start = last = input.position; pressed = -1;
++                for ( int i = 0; i < 6; ++i ) if ( area( i ) & start ) { pressed = selected = i; scroll = 0; break; }
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && pressed != 5 ) scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, maximum ); last = input.position;
++            }
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved && pressed >= 0 && ( area( pressed ) & input.position ) ) activate( pressed ); down = false; pressed = -1;
++            }
++        }
++        if ( redraw && !closed ) draw();
++    }
++    if ( Platform3DS::smokeTest() ) { draw(); const std::string name = evil ? "graphics-evil" : selected == 4 ? "graphics-info" : "graphics";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/" + name + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture graphics settings" ); }
++    return changed;
++}
++
++void Interface3DS::testGraphicsSettings()
++{
++    using namespace fheroes2;
++    using Step = std::pair<uint32_t, SDL_Event>;
++    auto & conf = Settings::Get();
++    struct RestoreGraphics {
++        bool wide, info; InterfaceType theme;
++        ~RestoreGraphics() { auto & settings = Settings::Get(); Platform3DS::setHighResolutionEnabled( wide ); settings.setSystemInfo( info ); settings.setInterfaceType( theme ); settings.Save( Settings::configFileName ); Display::instance().render(); }
++    } restore{ Platform3DS::highResolutionEnabled(), conf.isSystemInfoEnabled(), conf.getInterfaceType() };
++    const bool supported = Platform3DS::highResolutionSupported();
++    const bool fullScreen = conf.FullScreen(), nearest = conf.isScreenScalingTypeNearest(), vsync = conf.isVSyncEnabled();
++    const auto key = []( int code, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = code; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto keys = [&]( std::initializer_list<int> codes ) { std::vector<Step> steps; for ( int code : codes ) { steps.emplace_back( steps.empty() ? 180 : 100, key( code, true ) ); steps.emplace_back( 60, key( code, false ) ); } return steps; };
++    const auto tap = [&]( std::vector<Step> & steps, int x, int y ) { steps.emplace_back( steps.empty() ? 180 : 100, touch( SDL_FINGERDOWN, x, y ) ); steps.emplace_back( 60, touch( SDL_FINGERUP, x, y ) ); };
++    const auto close = keys( { SDL_CONTROLLER_BUTTON_LEFTSHOULDER } );
++    const auto rowTap = [&]( int row ) { std::vector<Step> steps; tap( steps, 160, 56 + row * 28 ); steps.insert( steps.end(), close.begin(), close.end() ); return steps; };
++    const auto run = [&]( const std::vector<Step> & source, bool parent = false ) {
++        auto steps = source; auto & display = Display::instance(); Image before; Copy( display, before ); const auto crop = Platform3DS::viewport();
++        const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage(); int callbacks = 0;
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "graphics-smoke", &steps );
++        if ( !worker ) throw std::runtime_error( "Cannot start graphics input" );
++        int status = 0; bool changed = false;
++        try { if ( parent ) openGameSettings(); else changed = openGraphicsSettingsDialog( [&]() { ++callbacks; } ); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
++        if ( status || callbacks || display.width() != 800 || display.height() != 480 || Platform3DS::hasModalImages() || Platform3DS::battleHUDImage() != hud || Platform3DS::commandStripImage() != strip
++             || events.MouseClickLeft() || events.isMouseRightButtonPressed() || ( !parent && ( Platform3DS::viewport() != crop || std::memcmp( before.image(), display.image(), before.width() * before.height() ) ) ) ) throw std::runtime_error( "Graphics leaked frame/context/input or reset the game frame" );
++        if ( gfxIsWide() != ( supported && Platform3DS::highResolutionEnabled() ) || gfxIs3D() ) throw std::runtime_error( "Graphics output buffers differ from preference" );
++        return changed;
++    };
++    if ( run( close ) ) throw std::runtime_error( "Graphics unchanged cancel saved configuration" );
++    for ( int row : { 1, 2, 3 } ) if ( run( rowTap( row ) ) ) throw std::runtime_error( "Graphics fixed row changed configuration" );
++    if ( conf.FullScreen() != fullScreen || conf.isScreenScalingTypeNearest() != nearest || conf.isVSyncEnabled() != vsync ) throw std::runtime_error( "Graphics fixed controls mutated desktop settings" );
++    bool previous = Platform3DS::highResolutionEnabled();
++    if ( run( rowTap( 0 ) ) != supported || Platform3DS::highResolutionEnabled() != ( supported ? !previous : previous ) ) throw std::runtime_error( "Graphics 2D output toggle differs" );
++    std::vector<Step> steps; tap( steps, 160, 56 ); tap( steps, 160, 56 ); steps.insert( steps.end(), close.begin(), close.end() ); previous = Platform3DS::highResolutionEnabled();
++    if ( run( steps ) != supported || Platform3DS::highResolutionEnabled() != previous ) throw std::runtime_error( "Graphics double toggle lost sticky save flag" );
++    const bool info = conf.isSystemInfoEnabled();
++    if ( !run( rowTap( 4 ) ) || conf.isSystemInfoEnabled() == info ) throw std::runtime_error( "Graphics system info touch toggle failed" );
++    if ( !run( keys( { SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_DPAD_DOWN, SDL_CONTROLLER_BUTTON_A, SDL_CONTROLLER_BUTTON_LEFTSHOULDER } ) ) || conf.isSystemInfoEnabled() != info ) throw std::runtime_error( "Graphics controller info toggle failed" );
++    steps = { { 180, key( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, true ) }, { 60, key( SDL_CONTROLLER_BUTTON_START, true ) }, { 60, key( SDL_CONTROLLER_BUTTON_START, false ) }, { 60, key( SDL_CONTROLLER_BUTTON_RIGHTSHOULDER, false ) } }; steps.insert( steps.end(), close.begin(), close.end() ); previous = Platform3DS::highResolutionEnabled();
++    if ( run( steps ) != supported || Platform3DS::highResolutionEnabled() != ( supported ? !previous : previous ) ) throw std::runtime_error( "Graphics R+Start preference/confirmation isolation failed" );
++    previous = Platform3DS::highResolutionEnabled();
++    steps = { { 180, touch( SDL_FINGERDOWN, 160, 56 ) }, { 60, touch( SDL_FINGERMOTION, 160, 105 ) }, { 60, touch( SDL_FINGERUP, 160, 105 ) } }; steps.insert( steps.end(), close.begin(), close.end() );
++    if ( run( steps ) || Platform3DS::highResolutionEnabled() != previous ) throw std::runtime_error( "Graphics drag activated output toggle" );
++    steps = { { 180, touch( SDL_FINGERDOWN, 160, 56 ) }, { 60, touch( SDL_FINGERUP, 10, 10 ) } }; steps.insert( steps.end(), close.begin(), close.end() );
++    if ( run( steps ) || Platform3DS::highResolutionEnabled() != previous ) throw std::runtime_error( "Graphics outside release activated output toggle" );
++    conf.setInterfaceType( InterfaceType::EVIL ); if ( run( close ) ) throw std::runtime_error( "Evil graphics unchanged close saved configuration" ); conf.setInterfaceType( restore.theme );
++    const bool beforeWide = Platform3DS::highResolutionEnabled(), beforeInfo = conf.isSystemInfoEnabled();
++    steps.clear(); tap( steps, 160, 67 ); tap( steps, 160, 56 ); tap( steps, 160, 168 ); tap( steps, 160, 202 ); tap( steps, 160, 202 ); run( steps, true );
++    const bool expectedWide = supported ? !beforeWide : beforeWide;
++    if ( Platform3DS::highResolutionEnabled() != expectedWide || conf.isSystemInfoEnabled() == beforeInfo ) throw std::runtime_error( "Configuration parent did not apply graphics settings" );
++    Platform3DS::setHighResolutionEnabled( beforeWide ); conf.setSystemInfo( beforeInfo );
++    if ( !conf.Read( Settings::GetLastFile( "", Settings::configFileName ) ) || Platform3DS::highResolutionEnabled() != expectedWide || conf.isSystemInfoEnabled() == beforeInfo ) throw std::runtime_error( "Configuration parent did not persist graphics settings" );
++    conf.setSystemInfo( restore.info ); Platform3DS::setHighResolutionEnabled( restore.wide ); run( close );
++    COUT( "3DS GRAPHICS SMOKE: PASS original_entry 2d_output_buffer_switch fixed_frame_mode_scaling_vsync info_touch_controller r_start_isolation sticky_save drag_outside evil actual_parent_save_reload frame_hud_viewport_input_restored" )
 +}
 +
 +void Interface3DS::testBattleSettings()
@@ -9319,10 +9552,10 @@ index 0000000..a42c594
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..02b526f
+index 0000000..6129bcb
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,157 @@
+@@ -0,0 +1,159 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -9444,6 +9677,8 @@ index 0000000..02b526f
 +    void testConfiguration();
 +    bool chooseLanguage( const std::vector<fheroes2::SupportedLanguage> & languages, fheroes2::SupportedLanguage & chosen, bool isGameLanguage );
 +    void testLanguageSelection();
++    bool showGraphicsSettings();
++    void testGraphicsSettings();
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
 +                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );
 +    void showBattleArtifact( const Artifact & artifact, const std::string & message );
