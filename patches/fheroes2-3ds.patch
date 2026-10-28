@@ -2203,6 +2203,42 @@ index 9825991..4f14fbe 100644
 +#endif
      }
  }
+diff --git a/src/fheroes2/dialog/dialog_language_selection.cpp b/src/fheroes2/dialog/dialog_language_selection.cpp
+index 09160f8..3b2ab01 100644
+--- a/src/fheroes2/dialog/dialog_language_selection.cpp
++++ b/src/fheroes2/dialog/dialog_language_selection.cpp
+@@ -19,6 +19,9 @@
+  ***************************************************************************/
+ 
+ #include "dialog_language_selection.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ #include <algorithm>
+ #include <cassert>
+@@ -50,6 +53,7 @@
+ 
+ namespace
+ {
++#if !defined( __3DS__ )
+     const int32_t verticalPaddingAreasHight = 30;
+     const int32_t textAreaWidth = 270;
+     const int32_t scrollBarAreaWidth = 48;
+@@ -334,6 +338,13 @@ namespace
+ 
+         return false;
+     }
++#else
++    bool getLanguage( const std::vector<fheroes2::SupportedLanguage> & languages, fheroes2::SupportedLanguage & chosenLanguage, const bool isGameLanguage )
++    {
++        return Interface3DS::chooseLanguage( languages, chosenLanguage, isGameLanguage );
++    }
++#endif
++
+ }
+ 
+ namespace fheroes2
 diff --git a/src/fheroes2/dialog/dialog_levelup.cpp b/src/fheroes2/dialog/dialog_levelup.cpp
 index c1b573a..508c9d9 100644
 --- a/src/fheroes2/dialog/dialog_levelup.cpp
@@ -2481,7 +2517,7 @@ index 0f31ae9..6f72630 100644
                  // Load the original name without using translation.
                  const char * eventName = Translation::getNonTranslated( hotKeyEventInfo[eventId].name );
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..b8e1289 100644
+index 69d39fb..c58d543 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2532,7 +2568,7 @@ index 69d39fb..b8e1289 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,118 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,119 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2542,7 +2578,7 @@ index 69d39fb..b8e1289 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 29> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements", "GameSettings" };
++        const std::array<const char *, 30> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements", "GameSettings", "Language" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2618,6 +2654,7 @@ index 69d39fb..b8e1289 100644
 +        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
++        runGroup( "Language", []() { Interface3DS::testLanguageSelection(); } );
 +        runGroup( "GameSettings", []() { Interface3DS::testConfiguration(); } );
 +        runGroup( "BattleDialogs", []() { Interface3DS::testBattleSettings(); Interface3DS::testHotkeys(); Interface3DS::testBattleHeroActions(); Interface3DS::testBattleOutcome(); } );
 +        runGroup( "CastleBuildings", []() { Interface3DS::testCastleBuildings(); } );
@@ -4280,10 +4317,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..fe4a149
+index 0000000..980aa7a
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,1135 @@
+@@ -0,0 +1,1332 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4293,6 +4330,7 @@ index 0000000..fe4a149
 +#include <cmath>
 +#include <cstring>
 +#include <memory>
++#include <map>
 +#include <stdexcept>
 +#include <utility>
 +#include <SDL.h>
@@ -4302,6 +4340,7 @@ index 0000000..fe4a149
 +#include "dialog_audio.h"
 +#include "dialog_hotkeys.h"
 +#include "dialog_game_settings.h"
++#include "dialog_language_selection.h"
 +#include "game_language.h"
 +#include "ui_language.h"
 +#include "game_hotkeys.h"
@@ -5204,6 +5243,201 @@ index 0000000..fe4a149
 +    steps.clear(); addTap( steps, 160, 89 ); addTap( steps, 160, 202 ); addTap( steps, 160, 111 ); addTap( steps, 230, 202 ); addTap( steps, 160, 202 ); run( steps, true );
 +    conf.setInterfaceType( restore.theme ); run( back() );
 +    COUT( "3DS CONFIGURATION SMOKE: PASS seven_actions touch_controller drag_outside evil original_parent_toggles_save_reload audio_hotkeys_children frame_hud_viewport_input_restored" )
++}
++
++namespace {
++    int lastLanguageOffset = 0;
++}
++
++bool Interface3DS::chooseLanguage( const std::vector<fheroes2::SupportedLanguage> & languages, fheroes2::SupportedLanguage & chosen, const bool isGameLanguage )
++{
++    using namespace fheroes2;
++    if ( languages.empty() ) return false;
++    auto & conf = Settings::Get(); const bool evil = conf.isEvilInterfaceEnabled();
++    struct RestorePreview {
++        std::string original; bool accepted = false;
++        ~RestorePreview() { if ( !accepted ) Settings::Get().setGameLanguage( original ); }
++    } preview{ conf.getGameLanguage() };
++    const CursorRestorer hideCursor( false );
++    Image top( 400, 240 ), bottom( 320, 240 );
++    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
++    const ReportScope scope( top, bottom );
++    struct Name { Image white, yellow; };
++    std::vector<Name> names( languages.size() );
++    // Cache names in their own alphabets, grouped by code page like the original
++    // dialog. Scrolling then blits images instead of rebuilding language resources.
++    {
++        const LanguageSwitcher restoreLanguage( getCurrentLanguage() );
++        std::map<CodePage, std::vector<size_t>> groups;
++        for ( size_t i = 0; i < languages.size(); ++i ) groups[getCodePage( languages[i] )].push_back( i );
++        for ( const auto & group : groups ) for ( size_t i : group.second ) {
++            if ( !conf.setGameLanguage( getLanguageAbbreviation( languages[i] ) ) ) {
++                // A caller can supply a language without a translation pack.
++                // Use its English name with matching fonts instead of combining
++                // the previous translation with a different alphabet.
++                conf.setGameLanguage( getLanguageAbbreviation( SupportedLanguage::English ) );
++            }
++            const std::string name = getLanguageName( languages[i] );
++            for ( bool selected : { false, true } ) {
++                auto & output = selected ? names[i].yellow : names[i].white; output.resize( 256, 28 ); output.reset();
++                Text text( name, selected ? FontType::normalYellow() : FontType::normalWhite() );
++                if ( text.height( 256 ) > 26 ) text.set( name, selected ? FontType::smallYellow() : FontType::smallWhite() );
++                const int height = text.height( 256 ); text.drawInRoi( 0, ( 28 - height ) / 2, 256, output, { 0, 0, 256, 28 } );
++            }
++        }
++    }
++    constexpr int rows = 5, rowHeight = 28;
++    const Rect listArea{ 24, 42, 264, rows * rowHeight };
++    const std::array<Rect, 2> buttons{ Rect{ 25, 190, 126, 25 }, Rect{ 169, 190, 126, 25 } };
++    int selected = static_cast<int>( std::find( languages.begin(), languages.end(), chosen ) - languages.begin() );
++    if ( selected == static_cast<int>( languages.size() ) ) selected = 0;
++    int offset = std::max( 0, selected - rows + 1 ), pressed = -1, dragPixels = 0;
++    bool down = false, moved = false, closed = false, accepted = false; Point start, last;
++    const auto keepVisible = [&]() {
++        selected = std::clamp( selected, 0, static_cast<int>( languages.size() ) - 1 );
++        if ( selected < offset ) offset = selected;
++        if ( selected >= offset + rows ) offset = selected - rows + 1;
++        offset = std::clamp( offset, 0, std::max( 0, static_cast<int>( languages.size() ) - rows ) );
++    };
++    const auto previewSelection = [&]() { if ( isGameLanguage ) conf.setGameLanguage( getLanguageAbbreviation( languages[selected] ) ); };
++    previewSelection();
++    const auto draw = [&]() {
++        top = topBackground; bottom = bottomBackground;
++        const std::string heading = isGameLanguage ? _( "Select Game Language:" ) : _( "Select Language:" );
++        Text title( heading, FontType::normalYellow() ); if ( title.height( 352 ) > 34 ) title.set( heading, FontType::smallYellow() );
++        title.drawInRoi( 24, 20, 352, top, { 24, 20, 352, 34 } );
++        const auto & icon = Assets::getImage( ICN::SPANEL, 18 );
++        const double scale = std::min( 56.0 / icon.width(), 56.0 / icon.height() );
++        Image fitted( std::max( 1, int( icon.width() * scale ) ), std::max( 1, int( icon.height() * scale ) ) ); fitted.reset(); Resize( icon, fitted );
++        Blit( fitted, top, 200 - fitted.width() / 2, 56 ); Blit( names[selected].yellow, top, 72, 120 );
++        if ( isGameLanguage ) { Text description( _( "Click to choose the selected language." ), FontType::normalWhite() ); description.drawInRoi( 28, 164, 344, top, { 28, 164, 344, 44 } ); }
++        Text lowerTitle( heading, FontType::normalYellow() ); if ( lowerTitle.width() > 272 ) lowerTitle.set( heading, FontType::smallYellow() ); lowerTitle.draw( 24, 20, 272, bottom );
++        for ( int row = 0; row < rows && offset + row < static_cast<int>( languages.size() ); ++row ) {
++            const int index = offset + row, y = listArea.y + row * rowHeight;
++            Blit( index == selected ? names[index].yellow : names[index].white, bottom, 28, y );
++            if ( index == selected ) DrawRect( bottom, { 24, y, 264, rowHeight }, GetColorId( 255, 225, 96 ) );
++        }
++        drawPanelScrollBar( bottom, { 297, 42, 5, rows * rowHeight }, offset * rowHeight, rows * rowHeight, static_cast<int>( languages.size() ) * rowHeight, evil );
++        for ( int i = 0; i < 2; ++i ) {
++            Sprite released, held; makeButtonSprites( released, held, "", { 116, 25 }, evil, evil ? ICN::UNIFORMBAK_EVIL : ICN::UNIFORMBAK_GOOD );
++            const std::string label = i == 0 ? _( "Okay" ) : _( "Cancel" ); Text text( label, FontType::normalWhite() );
++            if ( text.width() > 112 ) text.set( label, FontType::smallWhite() );
++            const auto bounds = text.area(); const int x = ( released.width() - bounds.width ) / 2 - bounds.x, y = ( released.height() - bounds.height ) / 2 - bounds.y;
++            text.draw( x, y, released ); text.draw( x - 1, y + 1, held ); Blit( down && !moved && pressed == i ? held : released, bottom, buttons[i].x, buttons[i].y );
++        }
++        Display::instance().render();
++    };
++    draw(); auto & events = LocalEvent::Get();
++    while ( !closed && events.HandleEvents() ) {
++        Platform3DS::PanelInput input; bool redraw = false;
++        while ( !closed && Platform3DS::consumePanelInput( input ) ) {
++            redraw = true; const int before = selected;
++            if ( input.type == PanelInputType::Key ) {
++                down = false; pressed = -1;
++                if ( input.key == PanelKey::Cancel || input.key == PanelKey::Information || input.key == PanelKey::Toggle ) closed = true;
++                else if ( input.key == PanelKey::Confirm ) accepted = closed = true;
++                else if ( input.key == PanelKey::Up || input.key == PanelKey::Down || input.key == PanelKey::Left || input.key == PanelKey::Right ) {
++                    selected += input.key == PanelKey::Up ? -1 : input.key == PanelKey::Down ? 1 : input.key == PanelKey::Left ? -rows : rows; keepVisible();
++                }
++            }
++            else if ( input.type == PanelInputType::TouchDown ) {
++                down = true; moved = false; start = last = input.position; dragPixels = 0; pressed = -1;
++                for ( int i = 0; i < 2; ++i ) if ( buttons[i] & start ) pressed = i;
++            }
++            else if ( input.type == PanelInputType::TouchMove && down ) {
++                moved = moved || std::abs( input.position.x - start.x ) >= 6 || std::abs( input.position.y - start.y ) >= 6;
++                if ( moved && ( listArea & start ) ) {
++                    dragPixels += last.y - input.position.y; const int shift = dragPixels / rowHeight; dragPixels -= shift * rowHeight;
++                    offset = std::clamp( offset + shift, 0, std::max( 0, static_cast<int>( languages.size() ) - rows ) );
++                    selected = std::clamp( selected, offset, std::min( static_cast<int>( languages.size() ) - 1, offset + rows - 1 ) );
++                }
++                last = input.position;
++            }
++            else if ( input.type == PanelInputType::TouchUp ) {
++                if ( down && !moved ) {
++                    if ( pressed >= 0 && ( buttons[pressed] & input.position ) ) { accepted = pressed == 0; closed = true; }
++                    else if ( ( listArea & start ) && ( listArea & input.position ) ) {
++                        const int row = ( start.y - listArea.y ) / rowHeight;
++                        if ( row == ( input.position.y - listArea.y ) / rowHeight ) selected = std::min( static_cast<int>( languages.size() ) - 1, offset + row );
++                    }
++                }
++                down = false; pressed = -1;
++            }
++            if ( selected != before ) previewSelection();
++        }
++        if ( redraw && !closed ) draw();
++    }
++    lastLanguageOffset = offset;
++    if ( Platform3DS::smokeTest() ) {
++        draw(); const std::string name = evil ? "language-evil" : offset > 0 ? "language-scrolled" : isGameLanguage ? "language" : "language-map";
++        if ( !Save( top, "sdmc:/3ds/fheroes2/" + name + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture language selection" );
++    }
++    if ( accepted ) { chosen = languages[selected]; preview.accepted = true; }
++    return accepted;
++}
++
++void Interface3DS::testLanguageSelection()
++{
++    using namespace fheroes2;
++    using Step = std::pair<uint32_t, SDL_Event>;
++    auto & conf = Settings::Get();
++    struct RestoreLanguage {
++        std::string language; InterfaceType theme;
++        ~RestoreLanguage() { auto & settings = Settings::Get(); settings.setGameLanguage( language ); settings.setInterfaceType( theme ); settings.Save( Settings::configFileName ); }
++    } restore{ conf.getGameLanguage(), conf.getInterfaceType() };
++    const std::vector<SupportedLanguage> pair{ SupportedLanguage::English, SupportedLanguage::Russian };
++    const std::vector<SupportedLanguage> longList{ SupportedLanguage::English, SupportedLanguage::French, SupportedLanguage::Polish, SupportedLanguage::German, SupportedLanguage::Russian, SupportedLanguage::Italian, SupportedLanguage::Czech };
++    const auto key = []( int code, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = code; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto keys = [&]( std::initializer_list<int> codes ) { std::vector<Step> input; for ( int code : codes ) { input.emplace_back( input.empty() ? 200 : 100, key( code, true ) ); input.emplace_back( 60, key( code, false ) ); } return input; };
++    const auto tap = [&]( std::vector<Step> & input, int x, int y ) { input.emplace_back( input.empty() ? 200 : 100, touch( SDL_FINGERDOWN, x, y ) ); input.emplace_back( 60, touch( SDL_FINGERUP, x, y ) ); };
++    const auto run = [&]( const std::vector<SupportedLanguage> & choices, SupportedLanguage current, bool game, const std::vector<Step> & source, bool parent = false ) {
++        if ( game ) conf.setGameLanguage( getLanguageAbbreviation( current ) );
++        auto input = source; auto & display = Display::instance(); Image before; Copy( display, before ); const auto crop = Platform3DS::viewport();
++        const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage();
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "language-smoke", &input );
++        if ( !worker ) throw std::runtime_error( "Cannot start language input" );
++        int status = 0; SupportedLanguage result = current;
++        try { if ( parent ) openGameSettings(); else result = selectLanguage( choices, current, game ); } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
++        if ( status || Platform3DS::hasModalImages() || Platform3DS::battleHUDImage() != hud || Platform3DS::commandStripImage() != strip || events.MouseClickLeft() || events.isMouseRightButtonPressed()
++             || ( !parent && ( Platform3DS::viewport() != crop || std::memcmp( before.image(), display.image(), before.width() * before.height() ) ) ) ) throw std::runtime_error( "Language dialog leaked frame/context/input" );
++        return result;
++    };
++    constexpr int a = SDL_CONTROLLER_BUTTON_A, back = SDL_CONTROLLER_BUTTON_LEFTSHOULDER, up = SDL_CONTROLLER_BUTTON_DPAD_UP, down = SDL_CONTROLLER_BUTTON_DPAD_DOWN, right = SDL_CONTROLLER_BUTTON_DPAD_RIGHT;
++    if ( run( pair, SupportedLanguage::English, true, keys( { down, a } ) ) != SupportedLanguage::Russian || conf.getGameLanguage() != getLanguageAbbreviation( SupportedLanguage::Russian ) ) throw std::runtime_error( "Language English-to-Russian confirmation failed" );
++    if ( run( pair, SupportedLanguage::Russian, true, keys( { up, a } ) ) != SupportedLanguage::English || !conf.getGameLanguage().empty() ) throw std::runtime_error( "Language Russian-to-English confirmation failed" );
++    if ( run( pair, SupportedLanguage::English, true, keys( { down, back } ) ) != SupportedLanguage::English || !conf.getGameLanguage().empty() ) throw std::runtime_error( "Language preview cancel did not restore English" );
++    std::vector<Step> input; tap( input, 160, 84 ); tap( input, 80, 202 );
++    if ( run( pair, SupportedLanguage::English, true, input ) != SupportedLanguage::Russian ) throw std::runtime_error( "Language touch selection/confirmation failed" );
++    conf.setGameLanguage( restore.language ); const auto original = conf.getGameLanguage();
++    if ( run( pair, SupportedLanguage::English, false, keys( { down, a } ) ) != SupportedLanguage::Russian || conf.getGameLanguage() != original ) throw std::runtime_error( "Map language selection changed game language" );
++    if ( run( longList, SupportedLanguage::English, false, keys( { right, back } ) ) != SupportedLanguage::English || lastLanguageOffset <= 0 || conf.getGameLanguage() != original ) throw std::runtime_error( "Language controller page/cancel failed" );
++    input = { { 200, touch( SDL_FINGERDOWN, 160, 170 ) }, { 60, touch( SDL_FINGERMOTION, 160, 58 ) }, { 60, touch( SDL_FINGERUP, 160, 58 ) } }; auto end = keys( { back } ); input.insert( input.end(), end.begin(), end.end() );
++    if ( run( longList, SupportedLanguage::English, false, input ) != SupportedLanguage::English || lastLanguageOffset != 2 || conf.getGameLanguage() != original ) throw std::runtime_error( "Language stylus scroll/cancel failed" );
++    input = { { 200, touch( SDL_FINGERDOWN, 80, 202 ) }, { 60, touch( SDL_FINGERMOTION, 80, 150 ) }, { 60, touch( SDL_FINGERUP, 80, 150 ) } }; input.insert( input.end(), end.begin(), end.end() );
++    if ( run( pair, SupportedLanguage::Russian, true, input ) != SupportedLanguage::Russian || conf.getGameLanguage() != getLanguageAbbreviation( SupportedLanguage::Russian ) ) throw std::runtime_error( "Language confirm drag changed selection" );
++    input = { { 200, touch( SDL_FINGERDOWN, 80, 202 ) }, { 60, touch( SDL_FINGERUP, 10, 10 ) } }; input.insert( input.end(), end.begin(), end.end() );
++    if ( run( pair, SupportedLanguage::Russian, true, input ) != SupportedLanguage::Russian ) throw std::runtime_error( "Language outside release confirmed selection" );
++    conf.setInterfaceType( InterfaceType::EVIL );
++    if ( run( pair, SupportedLanguage::English, true, keys( { down, back } ) ) != SupportedLanguage::English || !conf.getGameLanguage().empty() ) throw std::runtime_error( "Evil language preview cancellation failed" );
++    conf.setInterfaceType( restore.theme ); conf.setGameLanguage( restore.language );
++    const auto available = getSupportedLanguages();
++    if ( available.size() > 1 ) {
++        const auto current = getCurrentLanguage(); const int currentIndex = static_cast<int>( std::find( available.begin(), available.end(), current ) - available.begin() );
++        const int target = currentIndex == 0 ? 1 : 0; input.clear(); tap( input, 160, 45 );
++        const int direction = currentIndex > target ? up : down;
++        for ( int i = 0; i < std::abs( currentIndex - target ); ++i ) { input.emplace_back( 100, key( direction, true ) ); input.emplace_back( 60, key( direction, false ) ); }
++        input.emplace_back( 100, key( a, true ) ); input.emplace_back( 60, key( a, false ) ); tap( input, 160, 202 );
++        run( available, current, true, input, true ); const std::string expected = getLanguageAbbreviation( available[target] );
++        if ( conf.getGameLanguage() != expected ) throw std::runtime_error( "Configuration parent failed to apply language" );
++        // A fresh process starts with English. Read() treats an empty language
++        // as that default, rather than overwriting an already selected language.
++        conf.setGameLanguage( getLanguageAbbreviation( SupportedLanguage::English ) );
++        if ( !conf.Read( Settings::GetLastFile( "", Settings::configFileName ) ) || conf.getGameLanguage() != expected ) throw std::runtime_error( "Configuration parent failed to persist language" );
++    }
++    conf.setGameLanguage( restore.language ); run( pair, getCurrentLanguage(), true, keys( { back } ) );
++    COUT( "3DS LANGUAGE SMOKE: PASS original_entry native_alphabet_cache english_russian_preview confirm_cancel touch_controller pages_stylus_scroll map_language_isolation drag_outside evil actual_parent_save_reload frame_hud_viewport_input_restored" )
 +}
 +
 +void Interface3DS::testBattleSettings()
@@ -9085,10 +9319,10 @@ index 0000000..a42c594
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..bee26f0
+index 0000000..02b526f
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,157 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -9208,6 +9442,8 @@ index 0000000..bee26f0
 +    enum class ConfigurationAction { Language, Graphics, Audio, HotKeys, Cursor, Interface, TextSupport, Close };
 +    ConfigurationAction showConfiguration();
 +    void testConfiguration();
++    bool chooseLanguage( const std::vector<fheroes2::SupportedLanguage> & languages, fheroes2::SupportedLanguage & chosen, bool isGameLanguage );
++    void testLanguageSelection();
 +    bool showBattleSummary( const std::string & title, const std::string & body, const Troops & attacker, const Troops & defender,
 +                            bool restart, const std::function<bool( fheroes2::Image & )> & animation );
 +    void showBattleArtifact( const Artifact & artifact, const std::string & message );

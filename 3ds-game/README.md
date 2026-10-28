@@ -1,5 +1,15 @@
 # fheroes2 Nintendo 3DS game build
 
+## Preview 0.3.83: native language selection
+
+Language selection now uses full-screen Good/Evil frames: a lower list of original language names, separate scrollbar and fixed confirmation/cancel buttons; the upper screen shows the selection, original icon and help. Names are rendered in their own alphabets ahead of time, grouped by code page, so scrolling does not rebuild language resources. Caller-supplied languages without a translation use readable English fallback names. The original available-language list and translation installation are unchanged.
+
+D-pad Up/Down selects, Left/Right moves five rows and A confirms; stylus taps select and dragging scrolls. Buttons confirm/cancel, L/B/Y cancels. Button drag/outside release never confirms. Game-language selection previews immediately and cancellation restores the prior language. Map-language selection returns a choice without changing the game interface. Original empty/single-list handling and parent-owned persistence are retained.
+
+Validation: Language New/Old Russian and New English, GameSettings New/Old Russian. English/Russian preview/confirm/cancel, names/fallback, controller/touch/scroll, gesture guards, themes, map-language isolation, actual parent and saved-config reload (English starts from the fresh default with an empty language), frame/HUD/input restoration. ARM build, nine-file desktop syntax, infrastructure 30 groups/46 markers, clean patch and package identity passed. Full was not run; actual hardware/restart validation remains pending.
+
+Replace only `3ds/fheroes2/fheroes2.3dsx`. Check Russian/English, preview cancellation, returning to configuration and persistence after restarting. Graphics settings are next.
+
 ## Preview 0.3.82: native main configuration panel
 
 Main-menu configuration now uses full-screen Good/Evil panels on both 3DS screens. All seven entries (language, graphics, audio, hotkeys, cursor, interface theme and text support) fit below with a fixed Close button. Original icons, separate values and gold row focus are retained. The upper screen shows the full selected name/value, large original icon and original help with a scrollbar when needed.

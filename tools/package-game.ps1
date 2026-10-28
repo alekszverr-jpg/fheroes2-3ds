@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.82'
+$version = '0.3.83'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    native_language_selection='0.3.83: original available-language list in native Good/Evil frames, cached code-page-grouped names and readable missing-pack fallback, upper selection/icon/help, lower scroll/confirm/cancel; original preview/cancel/map isolation/parent persistence'
+    validation_native_language_selection='Language New/Old ru and New en; GameSettings New/Old ru; preview/confirm/cancel, names/fallback, pages/stylus/gestures/themes/map isolation, actual parent saved-config reload with fresh English default, frame/HUD/input restoration; ARM/desktop nine files/infrastructure 30 groups 46 markers/patch/package; Full not run, hardware restart pending'
     native_main_configuration='0.3.82: seven original actions/icons/current values in lower rows, upper full name/value/help, Good/Evil refresh, fixed Close and gesture guards; original parent toggles/children/save retained; language/graphics children remain original'
     validation_native_main_configuration='GameSettings New/Old ru and New en; Startup New/Old ru; seven actions/controller/touch/gestures/themes and actual parent toggles/save/reload/audio/hotkey transitions; ARM/desktop eight files/infrastructure 29 groups 45 markers/patch/package; Full not run, hardware pending'
     native_hotkeys='0.3.81: original command/key lists in native Good/Evil frames, upper full event/category/key, lower scrolling selection and explicit confirm/cancel/None, glyph-centred buttons, original Game hotkey persistence plus explicit NONE token for cleared bindings; fixed physical 3DS mappings unchanged'

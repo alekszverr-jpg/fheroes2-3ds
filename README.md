@@ -8,6 +8,8 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 Preview **0.3.82** adds a native main configuration panel with all seven original actions, current values/help, theme refresh and original parent saving.
 
+Local development **0.3.83** adds native language selection with cached alphabet-correct names, live preview, confirmation/cancellation and original parent persistence.
+
 ## Current preview
 
 Version **0.3.82** includes the accumulated dual-screen interface work since 0.3.33: native castle panels and experimental stereo town panoramas; original-style dialogs, creature animations, hero/army/spellbook/resource interfaces; redesigned battle controls/results/settings; native audio, hotkey and main configuration panels.
