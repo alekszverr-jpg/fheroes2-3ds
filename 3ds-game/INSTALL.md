@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.85
+# fheroes2 for Nintendo 3DS — preview 0.3.86
+
+## Preview 0.3.86: native map interface settings
+
+The map interface child uses the shared native Good/Evil shell in its own layout: five lower rows (theme, visibility, cursor, army estimation and scroll speed), fixed Close and full selected value/icon/help above. Long help has a separate scrollbar; limits follow the current selection even when selection and scrolling arrive in one frame. Adventure and main-menu settings retain their respective layouts.
+
+Theme/visibility/cursor/army actions return to the existing parent. For theme and visibility the native modal is completely removed before updateUI runs; reopening refreshes values and frames. The updated background survives rebuilding. Scroll speed retains the original Off/Slow/Normal/Fast/Very Fast cycle; Left/Right adjusts within bounds. Drag/outside release cancels activation. The original adventure parent still saves configuration once.
+
+Validation: MapInterface, AdventureOptions and GameSettings on New/Old Russian and New English (nine short groups). The actual dialog invokes its callback outside the modal; the callback checks real GameArea geometry on a synthetic map and retention of the updated test background. Five options, speed cycle/bounds, help, gestures, themes, nested adventure parent and saved-config reload are covered. This is not a full match; returning to a real map needs hardware validation. ARM build, twelve-file desktop syntax, infrastructure 33 groups/49 markers, clean patch and package identity passed. Full was not run; no physical Old 3DS is available.
+
+From 0.3.85 replace only `3ds/fheroes2/fheroes2.3dsx`; ru.mo from 0.3.84 remains valid. In a real match check themes, show/hide panels, cursor color, army estimates, scroll speed, returning to the map and persistence after restart.
 
 ## Preview 0.3.85: adventure-map settings panel
 

@@ -8,7 +8,7 @@ A Nintendo 3DS port of [fheroes2](https://github.com/ihhub/fheroes2), the open-s
 
 Preview **0.3.82** adds a native main configuration panel with all seven original actions, current values/help, theme refresh and original parent saving.
 
-Local development **0.3.85** adds native in-game options with nine scrolling entries, original speed/battle-mode behavior and parent saving; main-menu configuration retains its layout.
+Local development **0.3.86** adds native map-interface settings, original callbacks outside the modal, current themes/values and preserved updated backgrounds.
 
 ## Current preview
 

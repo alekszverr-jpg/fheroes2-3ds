@@ -2275,6 +2275,56 @@ index 9825991..4f14fbe 100644
 +#endif
      }
  }
+diff --git a/src/fheroes2/dialog/dialog_interface_settings.cpp b/src/fheroes2/dialog/dialog_interface_settings.cpp
+index 4509943..2d44408 100644
+--- a/src/fheroes2/dialog/dialog_interface_settings.cpp
++++ b/src/fheroes2/dialog/dialog_interface_settings.cpp
+@@ -19,6 +19,9 @@
+  ***************************************************************************/
+ 
+ #include "dialog_interface_settings.h"
++#if defined( __3DS__ )
++#include "ui_3ds_dialog.h"
++#endif
+ 
+ #include <string>
+ #include <utility>
+@@ -50,6 +53,7 @@ namespace
+         Exit
+     };
+ 
++#if !defined( __3DS__ )
+     const fheroes2::Size offsetBetweenOptions{ fheroes2::threeOptionsStepX, fheroes2::optionsStepY };
+     const fheroes2::Point optionOffset{ fheroes2::threeOptionsOffsetX, fheroes2::optionsOffsetY };
+ 
+@@ -88,8 +92,19 @@ namespace
+                               isArmyEstimationNumeric ? _( "Numeric" ) : _( "Canonical" ), fheroes2::UiOptionTextWidth::THREE_ELEMENTS_ROW );
+     }
+ 
++#endif
++
+     SelectedWindow showConfigurationWindow( bool & saveConfiguration )
+     {
++#if defined( __3DS__ )
++        switch ( Interface3DS::showConfiguration( false, &saveConfiguration, true ) ) {
++        case Interface3DS::ConfigurationAction::Interface: return SelectedWindow::InterfaceType;
++        case Interface3DS::ConfigurationAction::InterfacePresence: return SelectedWindow::InterfacePresence;
++        case Interface3DS::ConfigurationAction::Cursor: return SelectedWindow::CursorType;
++        case Interface3DS::ConfigurationAction::ArmyEstimation: return SelectedWindow::ArmyEstimationMode;
++        default: return SelectedWindow::Exit;
++        }
++#else
+         fheroes2::Display & display = fheroes2::Display::instance();
+ 
+         fheroes2::StandardWindow background( 289, fheroes2::optionsStepY * 2 + 52, true, display );
+@@ -209,6 +224,7 @@ namespace
+         }
+ 
+         return SelectedWindow::Exit;
++#endif
+     }
+ }
+ 
 diff --git a/src/fheroes2/dialog/dialog_language_selection.cpp b/src/fheroes2/dialog/dialog_language_selection.cpp
 index 09160f8..3b2ab01 100644
 --- a/src/fheroes2/dialog/dialog_language_selection.cpp
@@ -2640,7 +2690,7 @@ index 0f31ae9..6f72630 100644
                  // Load the original name without using translation.
                  const char * eventName = Translation::getNonTranslated( hotKeyEventInfo[eventId].name );
 diff --git a/src/fheroes2/game/game_mainmenu.cpp b/src/fheroes2/game/game_mainmenu.cpp
-index 69d39fb..f299a41 100644
+index 69d39fb..71fbc20 100644
 --- a/src/fheroes2/game/game_mainmenu.cpp
 +++ b/src/fheroes2/game/game_mainmenu.cpp
 @@ -58,6 +58,19 @@
@@ -2691,7 +2741,7 @@ index 69d39fb..f299a41 100644
  
              // Handheld devices should use the minimal game's resolution. Users on handheld devices aren't asked to choose resolution.
              if ( !System::isHandheldDevice() ) {
-@@ -316,6 +335,121 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
+@@ -316,6 +335,122 @@ fheroes2::GameMode Game::MainMenu( const bool isFirstGameRun )
      buttonQuit.draw();
  
      fheroes2::validateFadeInAndRender();
@@ -2701,7 +2751,7 @@ index 69d39fb..f299a41 100644
 +        std::string group = "Full";
 +        std::ifstream selection( "sdmc:/3ds/fheroes2/menu-smoke-group.txt" );
 +        if ( selection && !( selection >> group ) ) throw std::runtime_error( "Empty smoke test group" );
-+        const std::array<const char *, 32> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements", "GameSettings", "Language", "Graphics", "AdventureOptions" };
++        const std::array<const char *, 33> groups{ "Startup", "Messages", "Chest", "LevelUp", "Recruit", "Market", "Gift", "Hero", "Army", "Spellbook", "BattleLog", "BattleDialogs", "BattleIntegration", "Building", "Construction", "HeroRecruit", "CastleOptions", "CastleArmy", "CastleBuildings", "CastleScreen", "CastleStereo", "MageGuild", "SystemExit", "Well", "Tavern", "ThievesGuild", "Shipyard", "Elements", "GameSettings", "Language", "Graphics", "AdventureOptions", "MapInterface" };
 +        if ( group != "Full" && std::none_of( groups.begin(), groups.end(), [&]( const char * name ) { return group == name; } ) )
 +            throw std::runtime_error( "Unknown smoke test group: " + group );
 +        COUT( "3DS TEST SELECTION group=" << group )
@@ -2777,6 +2827,7 @@ index 69d39fb..f299a41 100644
 +        runGroup( "BattleLog", []() { Interface3DS::testBattleLog(); } );
 +        runGroup( "Army", []() { Interface3DS::testArmySplit(); Interface3DS::testArmyInfo(); } );
 +        runGroup( "Spellbook", []() { Interface3DS::testCombatSpellBook(); Interface3DS::testAdventureSpellBook(); } );
++        runGroup( "MapInterface", []() { Interface3DS::testMapInterface(); } );
 +        runGroup( "AdventureOptions", []() { Interface3DS::testAdventureOptions(); } );
 +        runGroup( "Graphics", []() { Interface3DS::testGraphicsSettings(); } );
 +        runGroup( "Language", []() { Interface3DS::testLanguageSelection(); } );
@@ -4442,10 +4493,10 @@ index 0000000..1af0cd6
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_battle.cpp b/src/fheroes2/gui/ui_3ds_battle.cpp
 new file mode 100644
-index 0000000..2fc4261
+index 0000000..338de56
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_battle.cpp
-@@ -0,0 +1,1620 @@
+@@ -0,0 +1,1729 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#include "ui_3ds_dialog.h"
 +#include "ui_3ds_style.h"
@@ -4459,7 +4510,9 @@ index 0000000..2fc4261
 +#include <stdexcept>
 +#include <utility>
 +#include <SDL.h>
-+#include <3ds.h>
++extern "C" {
++#include <3ds/gfx.h>
++}
 +#include "army.h"
 +#include "audio.h"
 +#include "audio_manager.h"
@@ -4467,6 +4520,10 @@ index 0000000..2fc4261
 +#include "dialog_hotkeys.h"
 +#include "dialog_game_settings.h"
 +#include "dialog_system_options.h"
++#include "dialog_interface_settings.h"
++#include "interface_base.h"
++#include "interface_gamearea.h"
++#include "world.h"
 +#include "dialog_language_selection.h"
 +#include "dialog_graphics_settings.h"
 +#include "game_language.h"
@@ -4506,6 +4563,7 @@ index 0000000..2fc4261
 +    constexpr int centeredViewHeight = 192;
 +    constexpr int animationWidth = 240, animationHeight = 132, animationX = ( reportWidth - animationWidth ) / 2;
 +    int lastScroll = 0, lastTopScroll = 0, lastBottomScroll = 0, lastBottomMaximum = 0;
++    int lastConfigurationScroll = 0, lastConfigurationMaximum = 0;
 +    unsigned animationChanges = 0, lastPortraitChanges = 0;
 +    class ReportScope {
 +    public:
@@ -5239,7 +5297,7 @@ index 0000000..2fc4261
 +    COUT( "3DS HOTKEYS SMOKE: PASS original_entry full_command_key_lists controller_pages stylus_scroll select_confirm_cancel none_binding save_reload drag_outside evil frame_hud_viewport_input_restored" )
 +}
 +
-+Interface3DS::ConfigurationAction Interface3DS::showConfiguration( const bool adventure, bool * changed )
++Interface3DS::ConfigurationAction Interface3DS::showConfiguration( const bool adventure, bool * changed, const bool mapInterface )
 +{
 +    using namespace fheroes2;
 +    const CursorRestorer hideCursor( false );
@@ -5247,10 +5305,11 @@ index 0000000..2fc4261
 +    Image top( 400, 240 ), bottom( 320, 240 );
 +    const Image topBackground = makeClassicPanelBackground( 400, evil ), bottomBackground = makeClassicPanelBackground( 320, evil );
 +    const ReportScope scope( top, bottom );
-+    const int count = adventure ? 9 : 7, visibleRows = adventure ? 5 : 7, rowHeight = adventure ? 28 : 22, rowTop = adventure ? 42 : 34;
-+    const std::vector<std::string> labels = adventure ? std::vector<std::string>{ _( "Language" ), _( "Graphics" ), _( "Audio" ), _( "Hero Speed" ), _( "Enemy Speed" ), _( "Hot Keys" ), _( "Interface Settings" ), _( "Text Support" ), _( "Battles" ), _( "Close" ) }
++    const int count = mapInterface ? 5 : adventure ? 9 : 7, visibleRows = adventure || mapInterface ? 5 : 7, rowHeight = adventure || mapInterface ? 28 : 22, rowTop = adventure || mapInterface ? 42 : 34;
++    const std::vector<std::string> labels = mapInterface ? std::vector<std::string>{ _( "Interface Type" ), _( "Interface" ), _( "Mouse Cursor" ), _( "Army Estimation" ), _( "Scroll Speed" ), _( "Close" ) } : adventure ? std::vector<std::string>{ _( "Language" ), _( "Graphics" ), _( "Audio" ), _( "Hero Speed" ), _( "Enemy Speed" ), _( "Hot Keys" ), _( "Interface Settings" ), _( "Text Support" ), _( "Battles" ), _( "Close" ) }
 +        : std::vector<std::string>{ _( "Language" ), _( "Graphics" ), _( "Audio" ), _( "Hot Keys" ), _( "Mouse Cursor" ), _( "Interface Type" ), _( "Text Support" ), _( "Close" ) };
-+    const std::vector<std::string> help = adventure ? std::vector<std::string>{ _( "Change the language of the game." ), _( "Change the graphics settings of the game." ), _( "Change the audio settings of the game." ),
++    const std::vector<std::string> help = mapInterface ? std::vector<std::string>{ _( "Toggle the type of interface you want to use." ), _( "Toggle interface visibility." ),
++        _( "Toggle colored cursor on or off. This is only an aesthetic choice." ), _( "Toggle how army sizes are displayed when right-clicking armies on the adventure map. \n\nCanonical: Army sizes are shown as descriptive text (e.g. \"Few\").\n\nNumeric: Army sizes are shown as numeric ranges (e.g. \"1-4\")." ), _( "Sets the speed at which you scroll the window." ), _( "Exit this menu." ) } : adventure ? std::vector<std::string>{ _( "Change the language of the game." ), _( "Change the graphics settings of the game." ), _( "Change the audio settings of the game." ),
 +        _( "Change the speed at which your heroes move on the main screen." ), _( "Sets the speed that computer heroes move at. You can also elect not to view computer movement at all." ),
 +        _( "Check and configure all the hot keys present in the game." ), _( "Change the interface settings of the game." ), _( "Toggle text support mode to output extra information about windows and events in the game." ), _( "Toggle instant battle mode." ), _( "Exit this menu." ) }
 +        : std::vector<std::string>{
@@ -5261,6 +5320,17 @@ index 0000000..2fc4261
 +        conf.isMonochromeCursorEnabled() ? _( "Black & White" ) : _( "Color" ), conf.getInterfaceType() == InterfaceType::DYNAMIC ? _( "Dynamic" ) : conf.getInterfaceType() == InterfaceType::GOOD ? _( "Good" ) : _( "Evil" ),
 +        conf.isTextSupportModeEnabled() ? _( "On" ) : _( "Off" ), "" };
 +    const auto value = [&]( int index ) -> std::string {
++        if ( mapInterface ) {
++            const std::array<std::string, 5> speeds{ _( "Off" ), _( "Slow" ), _( "Normal" ), _( "Fast" ), _( "Very Fast" ) };
++            switch ( index ) {
++            case 0: return mainValues[5];
++            case 1: return conf.isHideInterfaceEnabled() ? _( "Hide" ) : _( "Show" );
++            case 2: return mainValues[4];
++            case 3: return conf.isArmyEstimationViewNumeric() ? _( "Numeric" ) : _( "Canonical" );
++            case 4: return speeds[conf.ScrollSpeed()];
++            default: return "";
++            }
++        }
 +        if ( !adventure ) return mainValues[index];
 +        switch ( index ) {
 +        case 0: return mainValues[0];
@@ -5276,6 +5346,13 @@ index 0000000..2fc4261
 +    int offset = 0;
 +    const auto area = [&]( int index ) { return index < count ? Rect{ 24, rowTop + ( index - offset ) * rowHeight, 272, rowHeight } : Rect{ 97, 190, 126, 25 }; };
 +    const auto icon = [&]( int index ) -> const Sprite & {
++        if ( mapInterface ) {
++            if ( index == 0 ) return Assets::getImage( ICN::SPANEL, conf.getInterfaceType() == InterfaceType::DYNAMIC ? 15 : conf.getInterfaceType() == InterfaceType::GOOD ? 16 : 17 );
++            if ( index == 1 ) return Assets::getImage( conf.isHideInterfaceEnabled() ? ICN::ESPANEL : ICN::SPANEL, conf.isHideInterfaceEnabled() ? 4 : evil ? 17 : 16 );
++            if ( index == 2 ) return Assets::getImage( ICN::SPANEL, conf.isMonochromeCursorEnabled() ? 20 : 21 );
++            if ( index == 3 ) return Assets::getImage( ICN::ARMY_ESTIMATION_ICON, conf.isArmyEstimationViewNumeric() ? 1 : 0 );
++            const int speed = conf.ScrollSpeed(); return Assets::getImage( speed == 0 ? ICN::SPANEL : ICN::CSPANEL, speed == 0 ? 9 : speed <= 2 ? 0 : speed == 3 ? 1 : 2 );
++        }
 +        if ( adventure ) {
 +            if ( index == 3 || index == 4 ) { const int speed = index == 3 ? conf.HeroesMoveSpeed() : conf.AIMoveSpeed(); return Assets::getImage( ICN::SPANEL, speed >= 4 ? 3 + speed / 2 : speed > 0 ? 4 : 9 ); }
 +            if ( index == 8 ) return Assets::getImage( conf.BattleAutoResolve() ? ICN::CSPANEL : ICN::SPANEL, conf.BattleAutoResolve() ? ( conf.BattleAutoSpellcast() ? 7 : 6 ) : 18 );
@@ -5304,7 +5381,7 @@ index 0000000..2fc4261
 +        description.draw( 0, 0, 284, content ); maximum = std::max<int32_t>( 0, content.height() - 146 ); scroll = std::clamp( scroll, 0, maximum );
 +        Copy( content, 0, scroll, top, 88, 58, 284, 146 ); if ( selected < count ) drawIcon( icon( selected ), top, { 24, 60, 56, 56 } );
 +        drawPanelScrollBar( top, { 377, 58, 5, 146 }, scroll, 146, content.height(), evil );
-+        Text( _( "Settings" ), FontType::normalYellow() ).draw( 24, 16, 272, bottom );
++        Text( mapInterface ? _( "Interface Settings" ) : _( "Settings" ), FontType::normalYellow() ).draw( 24, 16, 272, bottom );
 +        for ( int i = offset; i < std::min( count, offset + visibleRows ); ++i ) {
 +            const Rect row = area( i ); drawIcon( icon( i ), bottom, { row.x + 4, row.y + 2, 18, 18 } );
 +            Text label( labels[i], FontType::normalWhite() ); if ( label.width() > 164 ) label.set( labels[i], FontType::smallWhite() ); label.fitToOneRow( 164 );
@@ -5327,12 +5404,18 @@ index 0000000..2fc4261
 +        offset = std::clamp( offset, 0, count - visibleRows );
 +    };
 +    const auto speed = [&]( int index, int target ) {
++        if ( mapInterface ) { const int before = conf.ScrollSpeed(); conf.SetScrollSpeed( target ); if ( before != conf.ScrollSpeed() && changed ) *changed = true; return; }
 +        const int before = index == 3 ? conf.HeroesMoveSpeed() : conf.AIMoveSpeed();
 +        if ( index == 3 ) conf.SetHeroesMoveSpeed( target ); else conf.SetAIMoveSpeed( target );
 +        if ( before != ( index == 3 ? conf.HeroesMoveSpeed() : conf.AIMoveSpeed() ) ) { if ( changed ) *changed = true; Game::UpdateGameSpeed(); }
 +    };
 +    const auto activate = [&]( int index ) {
 +        if ( index == count ) { closed = true; return; }
++        if ( mapInterface ) {
++            if ( index == 4 ) { speed( index, ( conf.ScrollSpeed() + 1 ) % ( SCROLL_SPEED_VERY_FAST + 1 ) ); return; }
++            const std::array<ConfigurationAction, 4> actions{ ConfigurationAction::Interface, ConfigurationAction::InterfacePresence, ConfigurationAction::Cursor, ConfigurationAction::ArmyEstimation };
++            result = actions[index]; closed = true; return;
++        }
 +        if ( adventure ) {
 +            if ( index == 3 || index == 4 ) { speed( index, index == 3 ? conf.HeroesMoveSpeed() % 10 + 1 : ( conf.AIMoveSpeed() + 1 ) % 11 ); return; }
 +            if ( index == 7 ) { conf.setTextSupportMode( !conf.isTextSupportModeEnabled() ); if ( changed ) *changed = true; return; }
@@ -5360,8 +5443,12 @@ index 0000000..2fc4261
 +                else if ( input.key == PanelKey::Up || input.key == PanelKey::Down ) { selected = std::clamp( selected + ( input.key == PanelKey::Up ? -1 : 1 ), 0, count ); keepVisible(); scroll = 0; }
 +                else if ( input.key == PanelKey::Left || input.key == PanelKey::Right ) {
 +                    const int direction = input.key == PanelKey::Left ? -1 : 1;
-+                    if ( adventure && ( selected == 3 || selected == 4 ) ) speed( selected, ( selected == 3 ? conf.HeroesMoveSpeed() : conf.AIMoveSpeed() ) + direction );
-+                    else scroll = std::clamp( scroll + direction * 32, 0, maximum );
++                    if ( mapInterface && selected == 4 ) speed( selected, conf.ScrollSpeed() + direction );
++                    else if ( adventure && ( selected == 3 || selected == 4 ) ) speed( selected, ( selected == 3 ? conf.HeroesMoveSpeed() : conf.AIMoveSpeed() ) + direction );
++                    else {
++                        const int limit = std::max<int32_t>( 0, Text( help[selected], FontType::normalWhite() ).height( 284 ) - 146 );
++                        scroll = std::clamp( scroll + direction * 32, 0, limit );
++                    }
 +                }
 +            }
 +            else if ( input.type == PanelInputType::TouchDown ) {
@@ -5375,7 +5462,10 @@ index 0000000..2fc4261
 +                        const int shift = ( start.y - input.position.y ) / rowHeight;
 +                        if ( shift ) { offset = std::clamp( offset + shift, 0, count - visibleRows ); selected = std::clamp( selected, offset, offset + visibleRows - 1 ); start = input.position; }
 +                    }
-+                    else scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, maximum );
++                    else {
++                        const int limit = std::max<int32_t>( 0, Text( help[selected], FontType::normalWhite() ).height( 284 ) - 146 );
++                        scroll = std::clamp<int32_t>( scroll + last.y - input.position.y, 0, limit );
++                    }
 +                }
 +                last = input.position;
 +            }
@@ -5386,8 +5476,9 @@ index 0000000..2fc4261
 +        }
 +        if ( redraw && !closed ) draw();
 +    }
-+    if ( Platform3DS::smokeTest() ) { draw(); const std::string name = adventure ? ( evil ? "adventure-options-evil" : offset > 0 ? "adventure-options-scrolled" : "adventure-options" ) : evil ? "configuration-evil" : "configuration";
++    if ( Platform3DS::smokeTest() ) { draw(); const std::string name = mapInterface ? ( evil ? "map-interface-evil" : selected == 3 || scroll > 0 ? "map-interface-help" : "map-interface" ) : adventure ? ( evil ? "adventure-options-evil" : offset > 0 ? "adventure-options-scrolled" : "adventure-options" ) : evil ? "configuration-evil" : "configuration";
 +        if ( !Save( top, "sdmc:/3ds/fheroes2/" + name + "-top.bmp" ) || !Save( bottom, "sdmc:/3ds/fheroes2/" + name + "-bottom.bmp" ) ) throw std::runtime_error( "Cannot capture configuration" ); }
++    lastConfigurationScroll = scroll; lastConfigurationMaximum = maximum;
 +    return result;
 +}
 +
@@ -5851,6 +5942,75 @@ index 0000000..2fc4261
 +    conf.SetHeroesMoveSpeed( 5 ); if ( !conf.Read( Settings::GetLastFile( "", Settings::configFileName ) ) || conf.HeroesMoveSpeed() != 6 ) throw std::runtime_error( "Original adventure parent failed to save speed" ); Game::UpdateGameSpeed();
 +    changed = false; run( close, changed );
 +    COUT( "3DS ADVENTURE OPTIONS SMOKE: PASS nine_rows child_dispatch hero_ai_cycles_bounds battle_three_states text_support controller_stylus_scroll outside_cancel caller_save_flag evil original_parent_graphics_audio_hotkeys_save_reload frame_hud_viewport_input_restored" )
++}
++
++void Interface3DS::testMapInterface()
++{
++    using namespace fheroes2; using Step = std::pair<uint32_t, SDL_Event>;
++    auto & conf = Settings::Get();
++    struct RestoreMapOptions {
++        InterfaceType theme; bool hidden, cursor, numeric; int speed;
++        ~RestoreMapOptions() { auto & settings = Settings::Get(); settings.setInterfaceType( theme ); settings.setHideInterface( hidden ); settings.setMonochromeCursor( cursor ); settings.setNumericArmyEstimationView( numeric ); settings.SetScrollSpeed( speed ); settings.Save( Settings::configFileName ); }
++    } restore{ conf.getInterfaceType(), conf.isHideInterfaceEnabled(), conf.isMonochromeCursorEnabled(), conf.isArmyEstimationViewNumeric(), conf.ScrollSpeed() };
++    class TestInterface final : public Interface::BaseInterface {
++    public:
++        TestInterface() : BaseInterface( false ) {}
++        void redraw( uint32_t ) override {} void mouseCursorAreaClickLeft( int32_t ) override {}
++        void mouseCursorAreaPressRight( int32_t ) const override {} void mouseCursorAreaLongPressLeft( int32_t ) override {}
++        void reset() override {} void updateCursor( int32_t ) override {}
++    } testInterface;
++    world.generateUninitializedMap( 72 ); auto & area = testInterface.getGameArea(); area.generate( { 800, 480 }, false ); const auto bordered = area.GetROI();
++    const auto key = []( int code, bool down ) { SDL_Event event{}; event.type = down ? SDL_CONTROLLERBUTTONDOWN : SDL_CONTROLLERBUTTONUP; event.cbutton.button = code; event.cbutton.state = down ? SDL_PRESSED : SDL_RELEASED; return event; };
++    const auto touch = []( Uint32 type, int x, int y ) { SDL_Event event{}; event.type = type; event.tfinger.x = float( x ) / 320; event.tfinger.y = float( y ) / 240; return event; };
++    const auto keys = [&]( std::initializer_list<int> codes ) { std::vector<Step> input; for ( int code : codes ) { input.emplace_back( input.empty() ? 180 : 90, key( code, true ) ); input.emplace_back( 60, key( code, false ) ); } return input; };
++    const auto tap = [&]( std::vector<Step> & input, int x, int y ) { input.emplace_back( input.empty() ? 180 : 100, touch( SDL_FINGERDOWN, x, y ) ); input.emplace_back( 60, touch( SDL_FINGERUP, x, y ) ); };
++    constexpr int back = SDL_CONTROLLER_BUTTON_LEFTSHOULDER, down = SDL_CONTROLLER_BUTTON_DPAD_DOWN, a = SDL_CONTROLLER_BUTTON_A;
++    const auto close = keys( { back } );
++    const auto row = [&]( int index ) { std::vector<Step> input; tap( input, 160, 56 + index * 28 ); input.insert( input.end(), close.begin(), close.end() ); return input; };
++    int callbacks = 0;
++    const auto run = [&]( const std::vector<Step> & source, bool parent = false ) {
++        auto input = source; auto & display = Display::instance(); Image before; Copy( display, before ); const auto crop = Platform3DS::viewport(); const auto hud = Platform3DS::battleHUDImage(); const auto strip = Platform3DS::commandStripImage(); callbacks = 0;
++        SDL_Thread * worker = SDL_CreateThread( []( void * data ) -> int { for ( auto & step : *static_cast<std::vector<Step> *>( data ) ) { SDL_Delay( step.first ); if ( SDL_PushEvent( &step.second ) != 1 ) return 1; } return 0; }, "map-interface-smoke", &input );
++        if ( !worker ) throw std::runtime_error( "Cannot start map interface input" );
++        int status = 0; bool changed = false;
++        try {
++            if ( parent ) showSystemOptionsDialog();
++            else changed = openInterfaceSettingsDialog( [&]() {
++                if ( Platform3DS::hasModalImages() ) throw std::runtime_error( "Map rebuilt beneath an active native modal" );
++                ++callbacks; area.generate( { 800, 480 }, conf.isHideInterfaceEnabled() );
++                const auto roi = area.GetROI();
++                if ( roi.width != ( conf.isHideInterfaceEnabled() ? 800 : bordered.width ) || roi.height != ( conf.isHideInterfaceEnabled() ? 480 : bordered.height ) ) throw std::runtime_error( "Map geometry did not follow interface visibility" );
++                Fill( display, 0, 0, display.width(), display.height(), GetColorId( 40, 80, 30 ) ); display.render();
++            } );
++        } catch ( ... ) { SDL_WaitThread( worker, &status ); throw; }
++        SDL_WaitThread( worker, &status ); auto & events = LocalEvent::Get(); events.HandleEvents( false, true );
++        if ( status || Platform3DS::hasModalImages() || Platform3DS::viewport() != crop || Platform3DS::battleHUDImage() != hud || Platform3DS::commandStripImage() != strip || events.MouseClickLeft() || events.isMouseRightButtonPressed() ) throw std::runtime_error( "Map interface leaked context/input" );
++        if ( callbacks ? display.image()[0] != GetColorId( 40, 80, 30 ) : std::memcmp( before.image(), display.image(), before.width() * before.height() ) != 0 ) throw std::runtime_error( "Map interface lost the updated background" );
++        Copy( before, display ); display.render(); return changed;
++    };
++    if ( run( close ) || callbacks ) throw std::runtime_error( "Map interface unchanged close saved or rebuilt" );
++    std::vector<Step> input; tap( input, 160, 56 ); tap( input, 160, 84 ); input.insert( input.end(), close.begin(), close.end() );
++    if ( !run( input ) || callbacks != 2 || conf.getInterfaceType() == restore.theme || conf.isHideInterfaceEnabled() == restore.hidden ) throw std::runtime_error( "Map theme/presence did not rebuild outside modal" );
++    if ( !run( row( 2 ) ) || callbacks || conf.isMonochromeCursorEnabled() == restore.cursor ) throw std::runtime_error( "Map cursor toggle differs" );
++    if ( !run( row( 3 ) ) || callbacks || conf.isArmyEstimationViewNumeric() == restore.numeric ) throw std::runtime_error( "Map army estimation toggle differs" );
++    conf.SetScrollSpeed( SCROLL_SPEED_VERY_FAST ); if ( !run( row( 4 ) ) || conf.ScrollSpeed() != SCROLL_SPEED_NONE || callbacks ) throw std::runtime_error( "Map scroll speed cycle differs" );
++    input = keys( { down, down, down, down, SDL_CONTROLLER_BUTTON_DPAD_LEFT, back } ); if ( run( input ) || conf.ScrollSpeed() != SCROLL_SPEED_NONE ) throw std::runtime_error( "Map scroll minimum differs" );
++    input = keys( { down, down, down, down, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, back } ); if ( !run( input ) || conf.ScrollSpeed() != SCROLL_SPEED_SLOW ) throw std::runtime_error( "Map scroll controller adjustment differs" );
++    input = keys( { down, down, down, SDL_CONTROLLER_BUTTON_DPAD_RIGHT, back } ); if ( run( input ) || callbacks ) throw std::runtime_error( "Map long help changed a setting" );
++    if ( lastConfigurationMaximum > 0 && lastConfigurationScroll <= 0 ) throw std::runtime_error( "Map help used stale scroll limits after selection" );
++    input = { { 180, touch( SDL_FINGERDOWN, 160, 168 ) }, { 60, touch( SDL_FINGERMOTION, 160, 110 ) }, { 60, touch( SDL_FINGERUP, 160, 110 ) } }; input.insert( input.end(), close.begin(), close.end() );
++    if ( run( input ) || conf.ScrollSpeed() != SCROLL_SPEED_SLOW ) throw std::runtime_error( "Map interface drag changed scroll speed" );
++    input = { { 180, touch( SDL_FINGERDOWN, 160, 168 ) }, { 60, touch( SDL_FINGERUP, 10, 10 ) } }; input.insert( input.end(), close.begin(), close.end() ); if ( run( input ) ) throw std::runtime_error( "Map interface outside release changed settings" );
++    conf.setInterfaceType( InterfaceType::EVIL ); if ( run( close ) ) throw std::runtime_error( "Evil map interface unchanged close saved" );
++    conf.setInterfaceType( restore.theme ); conf.setHideInterface( restore.hidden ); conf.setMonochromeCursor( restore.cursor ); conf.setNumericArmyEstimationView( restore.numeric ); conf.SetScrollSpeed( restore.speed );
++    input.clear(); for ( int i = 0; i < 6; ++i ) { input.emplace_back( input.empty() ? 180 : 60, key( down, true ) ); input.emplace_back( 40, key( down, false ) ); }
++    input.emplace_back( 100, key( a, true ) ); input.emplace_back( 60, key( a, false ) ); tap( input, 160, 112 ); tap( input, 160, 140 ); tap( input, 160, 168 ); tap( input, 160, 202 ); tap( input, 160, 202 ); run( input, true );
++    const int expectedSpeed = ( restore.speed + 1 ) % ( SCROLL_SPEED_VERY_FAST + 1 );
++    if ( conf.isMonochromeCursorEnabled() == restore.cursor || conf.isArmyEstimationViewNumeric() == restore.numeric || conf.ScrollSpeed() != expectedSpeed ) throw std::runtime_error( "Adventure parent did not apply interface child settings" );
++    conf.setMonochromeCursor( restore.cursor ); conf.setNumericArmyEstimationView( restore.numeric ); conf.SetScrollSpeed( restore.speed );
++    if ( !conf.Read( Settings::GetLastFile( "", Settings::configFileName ) ) || conf.isMonochromeCursorEnabled() == restore.cursor || conf.isArmyEstimationViewNumeric() == restore.numeric || conf.ScrollSpeed() != expectedSpeed ) throw std::runtime_error( "Adventure parent did not persist interface settings" );
++    run( close );
++    COUT( "3DS MAP INTERFACE SMOKE: PASS five_options original_parent theme_visibility_callbacks_outside_modal actual_gamearea_geometry updated_background cursor_army scroll_cycle_bounds_controller long_help drag_outside evil adventure_tree_save_reload context_input_restored" )
 +}
 +
 +void Interface3DS::testBattleSettings()
@@ -9732,10 +9892,10 @@ index 0000000..a42c594
 +#endif
 diff --git a/src/fheroes2/gui/ui_3ds_dialog.h b/src/fheroes2/gui/ui_3ds_dialog.h
 new file mode 100644
-index 0000000..331a73d
+index 0000000..98088a4
 --- /dev/null
 +++ b/src/fheroes2/gui/ui_3ds_dialog.h
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,161 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#if defined( __3DS__ )
@@ -9852,9 +10012,10 @@ index 0000000..331a73d
 +    void testBattleSettings();
 +    void showHotkeys();
 +    void testHotkeys();
-+    enum class ConfigurationAction { Language, Graphics, Audio, HotKeys, Cursor, Interface, TextSupport, Close, InterfaceSettings };
-+    ConfigurationAction showConfiguration( bool adventure = false, bool * changed = nullptr );
++    enum class ConfigurationAction { Language, Graphics, Audio, HotKeys, Cursor, Interface, TextSupport, Close, InterfaceSettings, InterfacePresence, ArmyEstimation };
++    ConfigurationAction showConfiguration( bool adventure = false, bool * changed = nullptr, bool mapInterface = false );
 +    void testAdventureOptions();
++    void testMapInterface();
 +    void testConfiguration();
 +    bool chooseLanguage( const std::vector<fheroes2::SupportedLanguage> & languages, fheroes2::SupportedLanguage & chosen, bool isGameLanguage );
 +    void testLanguageSelection();
