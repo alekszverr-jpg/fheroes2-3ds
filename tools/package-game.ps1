@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$version = '0.3.84'
+$version = '0.3.85'
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 & (Join-Path $PSScriptRoot 'build-game.ps1')
 $staging = Join-Path $workspace ("build/packaging/$version-" + [Guid]::NewGuid().ToString('N'))
@@ -53,6 +53,8 @@ $manifest = [ordered]@{
     validation_construction_portraits='Construction/Army/Recruit New/Old ru and New en, Well/CastleScreen/CastleStereo New ru; bounded monitored groups; 4000 original frame/offset comparisons across five creatures and both death policies; hardware and real construction/payment pending'
     castle_options_style='0.3.57: original Good/Evil frame, proportional 91x84 candidate portraits, inset 128x28 formation/Back/Details targets and complete labels; empty cards not selected; original candidate/formation/caller contracts preserved'
     validation_castle_options_style='CastleOptions New/Old ru and New en; HeroRecruit/Construction/CastleScreen/CastleStereo New ru; bounded monitored groups, empty/single/no-captain/unaffordable/read-only/held/drag/footer/outside-release and actual construction-options return; real hire/formation and hardware pending'
+    native_adventure_options='0.3.85: nine scrolling options in shared Good/Evil configuration shell, full upper help, fixed Close, original hero/AI speed and three battle-mode cycles, text support, child dispatch and parent sticky save; map interface child remains original'
+    validation_native_adventure_options='AdventureOptions and GameSettings New/Old ru and New en; original parent graphics/audio/hotkey transitions, speed/mode bounds, scroll/gestures/themes/sticky save/reload/context restoration; ARM/desktop eleven files/infrastructure 32 groups 48 markers/patch/package; Full not run, real-match hardware pending; ru.mo from 0.3.84 unchanged'
     native_graphics_settings='0.3.84: Good/Evil native 2D top-output and FPS/time controls, fixed gray fullscreen/nearest/refresh rows, unchanged 800x480 game frame, R+Start interoperability, original parent saving; updated ru.mo required'
     validation_native_graphics_settings='Graphics New/Old ru and New en; GameSettings and Engine New/Old; actual output buffers, info/fixed rows, chord/gesture/theme and parent save/reload/context checks; ARM/desktop ten files/infrastructure 31 groups 47 markers/translation/patch/package; Full not run, hardware and unsupported model pending'
     native_language_selection='0.3.83: original available-language list in native Good/Evil frames, cached code-page-grouped names and readable missing-pack fallback, upper selection/icon/help, lower scroll/confirm/cancel; original preview/cancel/map isolation/parent persistence'

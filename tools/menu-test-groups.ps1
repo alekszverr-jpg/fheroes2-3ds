@@ -1,4 +1,5 @@
 $menuTestGroups = [ordered]@{
+    AdventureOptions = @{ Markers = @('3DS ADVENTURE OPTIONS SMOKE: PASS'); Captures = @('adventure-options-top.bmp','adventure-options-bottom.bmp','adventure-options-scrolled-top.bmp','adventure-options-scrolled-bottom.bmp','adventure-options-evil-top.bmp','adventure-options-evil-bottom.bmp') }
     Graphics = @{ Markers = @('3DS GRAPHICS SMOKE: PASS'); Captures = @('graphics-top.bmp','graphics-bottom.bmp','graphics-info-top.bmp','graphics-info-bottom.bmp','graphics-evil-top.bmp','graphics-evil-bottom.bmp') }
     Language = @{ Markers = @('3DS LANGUAGE SMOKE: PASS'); Captures = @('language-top.bmp','language-bottom.bmp','language-map-top.bmp','language-map-bottom.bmp','language-scrolled-top.bmp','language-scrolled-bottom.bmp','language-evil-top.bmp','language-evil-bottom.bmp') }
     GameSettings = @{ Markers = @('3DS CONFIGURATION SMOKE: PASS'); Captures = @('configuration-top.bmp','configuration-bottom.bmp','configuration-evil-top.bmp','configuration-evil-bottom.bmp') }

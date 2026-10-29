@@ -1,4 +1,14 @@
-# fheroes2 for Nintendo 3DS — preview 0.3.84
+# fheroes2 for Nintendo 3DS — preview 0.3.85
+
+## Preview 0.3.85: adventure-map settings panel
+
+The in-game options panel now uses the shared native Good/Evil shell with a separate layout: nine options in a five-row scrolling list, separate scrollbar and fixed lower Close button, full selected value/icon/help above. Original language, graphics, audio, hero/enemy speeds, hotkeys, map interface, text support and battle modes are retained. Main-menu configuration keeps its existing seven-row layout.
+
+D-pad Up/Down selects and scrolls; Left/Right adjusts the selected speed within original bounds. A/tap cycles hero speed 1–10, enemy speed 0–10, text support and original battle modes: manual, auto with spells, auto without spells. Original setters/Game::UpdateGameSpeed are used. Stylus drag scrolls and cancels activation; outside release also cancels. Existing parent dispatch opens children; map interface settings still have their original layout. The original parent saves configuration once and retains a sticky change flag between children.
+
+Validation: AdventureOptions New/Old Russian and New English; GameSettings New/Old Russian and New English. Child actions, speeds/bounds, three battle modes, text support, controller/touch/scroll, gestures/themes, sticky flag and actual parent graphics/audio/hotkey transitions/save/reload are covered. Test background/viewport/HUD/input are restored; real-match hardware validation remains pending. ARM build, eleven-file desktop syntax, infrastructure 32 groups/48 markers, clean patch and package identity passed. Full was not run; no physical Old 3DS is available.
+
+From 0.3.84 replace only `3ds/fheroes2/fheroes2.3dsx`; its `files/lang/ru.mo` remains valid. If that catalog was not updated yet, use the current package copy. Check in-game options, scrolling to battle modes, real movement speeds/modes, returning to the map and persistence after restart. Map interface settings are next.
 
 ## Preview 0.3.84: 3DS graphics settings
 
